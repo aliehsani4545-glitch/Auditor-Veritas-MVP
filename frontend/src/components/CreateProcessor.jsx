@@ -1,4 +1,3 @@
-// frontend/src/components/CreateProcessor.jsx
 import { useState } from 'react';
 import { createProcessor } from '../api/client';
 
@@ -16,28 +15,37 @@ function CreateProcessor() {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setResult(null);
     
     try {
+      console.log('Starting processor creation with:', formData);
       const result = await createProcessor(formData);
-      console.log('Processor created:', result);
+      console.log('Processor created successfully:', result);
       setResult(result);
       
       // Spara API key i localStorage
-      if (result.apiKey) {
+      if (result.apiKey && result.apiKey !== 'API_KEY_ALREADY_EXISTS_PLEASE_USE_EXISTING') {
         localStorage.setItem('auditorApiKey', result.apiKey);
         localStorage.setItem('auditorProcessor', JSON.stringify({
           id: result.processorId,
           companyName: result.companyName,
           plan: result.plan
         }));
+        alert(`✅ Success! Your ${result.plan} plan is activated. API Key: ${result.apiKey}`);
+      } else if (result.apiKey === 'API_KEY_ALREADY_EXISTS_PLEASE_USE_EXISTING') {
+        alert('⚠️ Processor already exists. Please use your existing API key.');
       }
-      
-      alert(`✅ Success! Your ${result.plan} plan is activated. API Key: ${result.apiKey}`);
       
     } catch (error) {
       console.error('Failed to create processor:', error);
       setError(error.message);
-      alert(`❌ Error: ${error.message}`);
+      
+      // Ge mer specifikt felmeddelande
+      if (error.message.includes('Failed to fetch')) {
+        alert('❌ Network error: Cannot connect to server. Check your connection and try again.');
+      } else {
+        alert(`❌ Error: ${error.message}`);
+      }
     } finally {
       setLoading(false);
     }
@@ -90,7 +98,7 @@ function CreateProcessor() {
 
       {error && (
         <div className="message error">
-          Error: {error}
+          <strong>Error:</strong> {error}
         </div>
       )}
       
@@ -103,6 +111,15 @@ function CreateProcessor() {
           <p><em>{result.message}</em></p>
         </div>
       )}
+
+      {/* Debug info */}
+      <div style={{marginTop: '20px', padding: '10px', background: '#f5f5f5', borderRadius: '5px'}}>
+        <small>
+          <strong>Debug Info:</strong><br/>
+          API URL: {import.meta.env.VITE_API_URL || '/api'}<br/>
+          Environment: {import.meta.env.MODE}
+        </small>
+      </div>
     </div>
   );
 }
