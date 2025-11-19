@@ -6,10 +6,12 @@
 [build.environment]
   NODE_VERSION = "18"
 
+# 🔥 KORREKT REDIRECT - ANVÄND RÄTT URL MED /api
 [[redirects]]
   from = "/api/*"
-  to = "/.netlify/functions/:splat"
+  to = "https://auditor-veritas-mvp.omender.com/api/:splat"
   status = 200
+  force = true
 
 [[redirects]]
   from = "/*"
