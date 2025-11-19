@@ -56,8 +56,8 @@ app.use(helmet({
 // Production CORS settings
 app.use(cors({
   origin: isProduction ? [
-    'https://your-frontend-domain.vercel.app', // ← BYT TILL DIN FRONTEND DOMÄN
-    'https://your-frontend-domain.netlify.app' // ← OCH DENNA
+    'https://agent-691d875ca930053f9b-dreamy-banoffee-1603b3.netlify.app', // ← DIN NETLIFY DOMÄN
+    'https://*.netlify.app' // ← ALLA NETLIFY SUBDOMÄNER
   ] : ['http://localhost:3000', 'http://localhost:5173'],
   credentials: true
 }));
