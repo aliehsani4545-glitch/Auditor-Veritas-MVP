@@ -1,16 +1,12 @@
 import { useState, useEffect } from 'react';
 import CryptoJS from 'crypto-js';
 import './App.css';
+import CreateProcessor from './components/CreateProcessor';
 
 // Production API URL - ändra till din domain
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://your-backend.railway.app';
 
 function App() {
-  const [companyName, setCompanyName] = useState('');
-  const [email, setEmail] = useState('');
-  const [plan, setPlan] = useState('starter');
-  const [isCreating, setIsCreating] = useState(false);
-  const [message, setMessage] = useState('');
   const [activeTab, setActiveTab] = useState('pricing');
   const [processor, setProcessor] = useState(null);
   const [events, setEvents] = useState([]);
@@ -81,7 +77,6 @@ function App() {
       return data;
     } catch (error) {
       console.error('API call failed:', error);
-      setMessage(`❌ ${error.message}`);
       throw error;
     }
   };
@@ -101,50 +96,6 @@ function App() {
     }
   };
 
-  // Create Processor with Payment
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (!cookiesAccepted) {
-      setMessage('❌ Please accept cookies to continue');
-      return;
-    }
-    
-    setIsCreating(true);
-    setMessage('');
-
-    try {
-      if (!companyName || !email) {
-        throw new Error('Company name and email are required');
-      }
-
-      if (!isValidEmail(email)) {
-        throw new Error('Please enter a valid email address');
-      }
-
-      const data = await apiCall('/api/processors', {
-        method: 'POST',
-        body: { companyName, email, plan }
-      });
-
-      setApiKey(data.apiKey);
-      setProcessor(data.processor);
-      
-      localStorage.setItem('auditorApiKey', data.apiKey);
-      localStorage.setItem('auditorProcessor', JSON.stringify(data.processor));
-      
-      setMessage(`🎉 Success! Your ${plan} plan is activated. API Key: ${data.apiKey}`);
-      setCompanyName('');
-      setEmail('');
-      setActiveTab('dashboard');
-
-    } catch (error) {
-      // Error handled in apiCall
-    } finally {
-      setIsCreating(false);
-    }
-  };
-
   // Fetch Dashboard Data
   const fetchDashboard = async () => {
     if (!apiKey) return;
@@ -158,7 +109,7 @@ function App() {
       localStorage.setItem('auditorProcessor', JSON.stringify(data.processor));
       
     } catch (error) {
-      // Error handled in apiCall
+      console.error('Dashboard fetch failed:', error);
     } finally {
       setIsLoading(false);
     }
@@ -172,9 +123,8 @@ function App() {
     try {
       const data = await apiCall('/api/events');
       setEvents(data.events);
-      setMessage(`✅ Loaded ${data.events.length} events`);
     } catch (error) {
-      // Error handled in apiCall
+      console.error('Events fetch failed:', error);
     } finally {
       setIsLoading(false);
     }
@@ -185,17 +135,17 @@ function App() {
     e.preventDefault();
     
     if (!cookiesAccepted) {
-      setMessage('❌ Please accept cookies to log events');
+      alert('❌ Please accept cookies to log events');
       return;
     }
 
     if (!apiKey) {
-      setMessage('❌ API Key is required to log events');
+      alert('❌ API Key is required to log events');
       return;
     }
 
     if (!eventData.event_type) {
-      setMessage('❌ Event type is required');
+      alert('❌ Event type is required');
       return;
     }
 
@@ -218,14 +168,14 @@ function App() {
         body: eventToSend
       });
 
-      setMessage(`✅ Event logged successfully! Usage: ${data.usage.monthlyUsed}/${data.usage.remaining} remaining`);
+      alert(`✅ Event logged successfully! Usage: ${data.usage.monthlyUsed}/${data.usage.remaining} remaining`);
       setEventData({ event_type: '', event_data: '{}', user_identifier: '' });
       
       fetchDashboard();
       fetchEvents();
 
     } catch (error) {
-      // Error handled in apiCall
+      console.error('Event logging failed:', error);
     } finally {
       setIsLoading(false);
     }
@@ -237,19 +187,19 @@ function App() {
       const data = await apiCall(`/api/events/${eventId}/verify`);
       
       if (data.is_valid) {
-        setMessage(`✅ Event verified - Cryptographic integrity maintained`);
+        alert(`✅ Event verified - Cryptographic integrity maintained`);
       } else {
-        setMessage(`❌ Event verification failed - Data may have been tampered with`);
+        alert(`❌ Event verification failed - Data may have been tampered with`);
       }
     } catch (error) {
-      // Error handled in apiCall
+      console.error('Event verification failed:', error);
     }
   };
 
   // Event Search
   const handleSearch = async () => {
     if (!searchQuery.trim()) {
-      setMessage('❌ Please enter search query');
+      alert('❌ Please enter search query');
       return;
     }
 
@@ -257,9 +207,9 @@ function App() {
     try {
       const data = await apiCall(`/api/events/search?query=${encodeURIComponent(searchQuery)}`);
       setSearchResults(data.events);
-      setMessage(`🔍 Found ${data.events.length} events matching "${searchQuery}"`);
+      alert(`🔍 Found ${data.events.length} events matching "${searchQuery}"`);
     } catch (error) {
-      // Error handled in apiCall
+      console.error('Search failed:', error);
     } finally {
       setIsLoading(false);
     }
@@ -268,7 +218,7 @@ function App() {
   // GDPR Data Export
   const handleGDPRExport = async () => {
     if (!apiKey) {
-      setMessage('❌ API Key required for export');
+      alert('❌ API Key required for export');
       return;
     }
 
@@ -286,9 +236,9 @@ function App() {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
       
-      setMessage('✅ GDPR data exported successfully');
+      alert('✅ GDPR data exported successfully');
     } catch (error) {
-      // Error handled in apiCall
+      console.error('GDPR export failed:', error);
     }
   };
 
@@ -332,7 +282,6 @@ function App() {
             <button 
               className={`btn-plan ${planName === 'starter' ? 'btn-primary' : 'btn-secondary'}`}
               onClick={() => {
-                setPlan(planName);
                 setActiveTab('create');
               }}
             >
@@ -558,58 +507,8 @@ function App() {
           </div>
         )}
 
-        {/* Create Processor */}
-        {activeTab === 'create' && (
-          <div className="card">
-            <h2>🚀 Create New Processor</h2>
-            <p className="card-description">Start your GDPR-compliant audit trail in seconds</p>
-            
-            <form onSubmit={handleSubmit} className="form">
-              <div className="form-group">
-                <label>Company Name:</label>
-                <input
-                  type="text"
-                  value={companyName}
-                  onChange={(e) => setCompanyName(e.target.value)}
-                  placeholder="Enter your company name"
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Email:</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Enter your business email"
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Plan:</label>
-                <select value={plan} onChange={(e) => setPlan(e.target.value)}>
-                  {Object.entries(pricingPlans).map(([planName, planData]) => (
-                    <option key={planName} value={planName}>
-                      {planName.charAt(0).toUpperCase() + planName.slice(1)} - {planData.events.toLocaleString()} events (${planData.price}/mo)
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <button type="submit" className="btn-submit" disabled={isCreating}>
-                {isCreating ? 'Creating...' : `Create ${plan} Processor`}
-              </button>
-            </form>
-
-            {message && (
-              <div className={`message ${message.includes('✅') || message.includes('🎉') ? 'success' : 'error'}`}>
-                <pre>{message}</pre>
-              </div>
-            )}
-          </div>
-        )}
+        {/* Create Processor - NY KOMPONENT */}
+        {activeTab === 'create' && <CreateProcessor />}
 
         {/* Log Events */}
         {activeTab === 'events' && (
@@ -706,12 +605,6 @@ function App() {
                   </div>
                 )}
               </>
-            )}
-
-            {message && (
-              <div className={`message ${message.includes('✅') ? 'success' : 'error'}`}>
-                {message}
-              </div>
             )}
           </div>
         )}

@@ -23,7 +23,6 @@ export default defineConfig({
       }
     }
   },
-  // Ytterligare optimering:
   optimizeDeps: {
     include: ['react', 'react-dom', 'crypto-js']
   }
