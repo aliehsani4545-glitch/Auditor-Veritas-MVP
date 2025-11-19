@@ -876,8 +876,9 @@ app.use('*', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`\n🚀 AUDITOR VERITAS ${isProduction ? 'PRODUCTION' : 'DEVELOPMENT'} BACKEND`);
-  console.log(`📍 Port: ${PORT}`);
+  console.log(`📍 Server running on 0.0.0.0:${PORT}`); // Bra för loggarna
   console.log(`💰 Pricing: Starter (Free) → Professional ($49) → Enterprise ($199)`);
+  // ... behåll resten av dina console.logs
   console.log(`🔒 GDPR Compliant • EU Data Centers • Ready for Production`);
   console.log(`\n📊 Business Endpoints:`);
   console.log(`   GET    /api/health          - System health & revenue metrics`);
