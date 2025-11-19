@@ -6,8 +6,7 @@ export const createProcessor = async (processorData) => {
     console.log('Sending request to Netlify function...');
     
     // Använd direkt sökväg till Netlify function
-    const response = await fetch('/.netlify/functions/create-processor', {
-      method: 'POST',
+const response = await fetch('/api/processors', {      method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
