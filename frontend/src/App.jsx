@@ -13,6 +13,113 @@ import {
 
 const API_BASE_URL = '';
 
+// Enhanced Security protections hook
+const useSecurityProtections = () => {
+  useEffect(() => {
+    // Prevent right-click context menu
+    const handleContextMenu = (e) => {
+      e.preventDefault();
+      alert('🔒 Right-click is disabled for security reasons.');
+      return false;
+    };
+
+    // Prevent drag and drop
+    const handleDragStart = (e) => {
+      e.preventDefault();
+      return false;
+    };
+
+    // Prevent copy
+    const handleCopy = (e) => {
+      e.preventDefault();
+      alert('🔒 Copying content is disabled for security reasons.');
+      return false;
+    };
+
+    // Prevent cut
+    const handleCut = (e) => {
+      e.preventDefault();
+      return false;
+    };
+
+    // Enhanced keyboard shortcuts protection
+    const handleKeyDown = (e) => {
+      // Detect Print Screen key
+      if (e.key === 'PrintScreen' || e.keyCode === 44) {
+        e.preventDefault();
+        alert('🔒 Screenshots are disabled for security reasons.');
+        return false;
+      }
+      
+      // Detect Windows + Shift + S
+      if (e.key === 's' && e.shiftKey && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        alert('🔒 Screenshots are disabled for security reasons.');
+        return false;
+      }
+      
+      // Prevent F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+U
+      if (
+        e.keyCode === 123 || // F12
+        (e.ctrlKey && e.shiftKey && e.keyCode === 73) || // Ctrl+Shift+I
+        (e.ctrlKey && e.shiftKey && e.keyCode === 74) || // Ctrl+Shift+J
+        (e.ctrlKey && e.keyCode === 85) // Ctrl+U
+      ) {
+        e.preventDefault();
+        alert('🔒 Developer tools are disabled for security reasons.');
+        return false;
+      }
+
+      // Mobile device detection and prevention
+      if (e.key === 'Power' || e.key === 'VolumeDown' || e.key === 'VolumeUp') {
+        // These keys are often used for mobile screenshots
+        console.warn('Mobile screenshot keys detected');
+      }
+    };
+
+    // Mobile-specific: Prevent gesture-based screenshots
+    const handleTouchStart = (e) => {
+      // Detect multi-finger touches that might be screenshots
+      if (e.touches.length > 2) {
+        console.warn('Multi-touch gesture detected - possible screenshot attempt');
+        // You could show a warning or take other action
+      }
+    };
+
+    // Detect iframe embedding
+    if (window.location !== window.parent.location) {
+      window.top.location = window.location;
+    }
+
+    // Add event listeners
+    document.addEventListener('contextmenu', handleContextMenu);
+    document.addEventListener('dragstart', handleDragStart);
+    document.addEventListener('copy', handleCopy);
+    document.addEventListener('cut', handleCut);
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('touchstart', handleTouchStart);
+
+    // Mobile: Prevent zoom and pinch
+    const preventZoom = (e) => {
+      if (e.touches.length > 1) {
+        e.preventDefault();
+      }
+    };
+    document.addEventListener('touchmove', preventZoom, { passive: false });
+
+    return () => {
+      // Cleanup
+      document.removeEventListener('contextmenu', handleContextMenu);
+      document.removeEventListener('dragstart', handleDragStart);
+      document.removeEventListener('copy', handleCopy);
+      document.removeEventListener('cut', handleCut);
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('touchstart', handleTouchStart);
+      document.removeEventListener('touchmove', preventZoom);
+    };
+  }, []);
+};
+
 // --- KOMPONENTER ---
 
 const Navbar = ({ activeTab, setActiveTab, cookiesAccepted }) => {
@@ -510,6 +617,46 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [cookiesAccepted, setCookiesAccepted] = useState(false);
 
+  // Använd säkerhetsskydden
+  useSecurityProtections();
+
+  // Enhanced mobile protection
+  useEffect(() => {
+    // Prevent mobile screenshot by blurring content when app goes to background
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        // App is in background - could be taking screenshot
+        document.body.style.filter = 'blur(5px)';
+        document.body.style.transition = 'filter 0.3s ease';
+      } else {
+        // App is in foreground
+        document.body.style.filter = 'none';
+      }
+    };
+
+    // Prevent mobile zoom
+    const disableZoom = () => {
+      const viewport = document.querySelector('meta[name="viewport"]');
+      if (viewport) {
+        viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    disableZoom();
+
+    // Disable text selection on mobile
+    document.addEventListener('selectstart', (e) => {
+      e.preventDefault();
+      return false;
+    });
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener('selectstart', (e) => e.preventDefault());
+    };
+  }, []);
+
   useEffect(() => {
     const savedCookies = localStorage.getItem('cookiesAccepted');
     const savedApiKey = localStorage.getItem('auditorApiKey');
@@ -615,7 +762,7 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans flex flex-col">
+    <div className="min-h-screen bg-slate-50 font-sans flex flex-col prevent-select">
       <Navbar activeTab={activeTab} setActiveTab={handleTabChange} cookiesAccepted={cookiesAccepted} />
 
       <main className="container mx-auto px-4 sm:px-6 py-6 sm:py-8 max-w-6xl flex-grow">
