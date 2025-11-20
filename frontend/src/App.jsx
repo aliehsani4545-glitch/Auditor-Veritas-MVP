@@ -182,6 +182,75 @@ function App() {
     </div>
   );
 
+// --- NY PRIVACY KOMPONENT (Tailwind Design) ---
+  const PrivacyPolicy = () => (
+    <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-500">
+      
+      <div className="text-center mb-10">
+        <div className="bg-green-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+          <ShieldCheck className="w-8 h-8 text-green-600" />
+        </div>
+        <h2 className="text-3xl font-bold text-gray-900 mb-2">Privacy & Compliance</h2>
+        <p className="text-gray-500">We process data in strict accordance with GDPR Article 6(1)(b).</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Data Storage */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition">
+          <div className="flex items-center mb-4 text-blue-600">
+            <div className="p-2 bg-blue-50 rounded-lg mr-3"><Users className="w-5 h-5" /></div>
+            <h3 className="font-bold text-lg text-gray-900">Data Storage</h3>
+          </div>
+          <ul className="space-y-3 text-gray-600 text-sm">
+            <li className="flex items-start"><Check className="w-4 h-4 text-green-500 mr-2 mt-0.5"/> 🇪🇺 <strong>EU Data Centers:</strong> All data resides in Frankfurt (AWS eu-central-1).</li>
+            <li className="flex items-start"><Check className="w-4 h-4 text-green-500 mr-2 mt-0.5"/> 🔒 <strong>Encryption:</strong> AES-256 at rest and TLS 1.3 in transit.</li>
+            <li className="flex items-start"><Check className="w-4 h-4 text-green-500 mr-2 mt-0.5"/> 👤 <strong>PII Hashing:</strong> User identifiers are SHA-256 hashed before storage.</li>
+          </ul>
+        </div>
+
+        {/* Cookies */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition">
+          <div className="flex items-center mb-4 text-purple-600">
+             <div className="p-2 bg-purple-50 rounded-lg mr-3"><Lock className="w-5 h-5" /></div>
+            <h3 className="font-bold text-lg text-gray-900">Cookies & Tracking</h3>
+          </div>
+          <ul className="space-y-3 text-gray-600 text-sm">
+            <li className="flex items-start"><Check className="w-4 h-4 text-green-500 mr-2 mt-0.5"/> 🍪 <strong>Essential Only:</strong> We only store a session token for security.</li>
+            <li className="flex items-start"><Check className="w-4 h-4 text-green-500 mr-2 mt-0.5"/> 🚫 <strong>No Tracking:</strong> No Google Analytics, Facebook Pixels, or ad trackers.</li>
+            <li className="flex items-start"><Check className="w-4 h-4 text-green-500 mr-2 mt-0.5"/> 🛡️ <strong>Local Storage:</strong> API keys are stored locally on your device.</li>
+          </ul>
+        </div>
+      </div>
+
+      {/* Your Rights */}
+      <div className="bg-white p-8 rounded-xl shadow-lg border border-gray-100">
+        <h3 className="text-xl font-bold text-gray-900 mb-6 border-b pb-4">Your Rights under GDPR</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div>
+            <h4 className="font-bold text-gray-800 mb-2">1. Right to Access</h4>
+            <p className="text-sm text-gray-500">You can export all your raw event data as JSON anytime from the dashboard.</p>
+          </div>
+          <div>
+            <h4 className="font-bold text-gray-800 mb-2">2. Right to Erasure</h4>
+            <p className="text-sm text-gray-500">"Right to be forgotten". Contact support to permanently wipe your processor data.</p>
+          </div>
+          <div>
+            <h4 className="font-bold text-gray-800 mb-2">3. Data Portability</h4>
+            <p className="text-sm text-gray-500">Move your audit trail to another provider easily using our standard export format.</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="text-center pt-8">
+        <button onClick={() => setActiveTab('dashboard')} className="text-blue-600 font-semibold hover:underline">
+          ← Back to Dashboard
+        </button>
+      </div>
+    </div>
+  );
+
+
+
   return (
     <div className="min-h-screen bg-light font-sans">
       <Navbar />
@@ -337,6 +406,8 @@ function App() {
           </div>
         )}
 
+{/* --- PRIVACY TAB --- */}
+        {activeTab === 'privacy' && <PrivacyPolicy />}
       </main>
 
       {/* Footer */}
@@ -352,20 +423,39 @@ function App() {
       </footer>
 
       {/* Cookie Banner */}
+      {/* Cookie Consent Modal */}
       {showCookieBanner && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] z-50">
-          <div className="container mx-auto flex flex-col md:flex-row justify-between items-center">
-            <p className="text-sm text-gray-600 mb-4 md:mb-0">
-              🍪 We use essential cookies to ensure security and functionality.
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center transform transition-all scale-100 border border-gray-100">
+            <div className="bg-blue-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6">
+              <ShieldCheck className="w-8 h-8 text-blue-600" />
+            </div>
+            
+            <h3 className="text-2xl font-bold text-gray-900 mb-3">Privacy & Security</h3>
+            
+            <p className="text-gray-600 mb-8 leading-relaxed">
+              To ensure GDPR compliance and security, we need your consent to store essential session tokens. 
+              No tracking cookies are used.
             </p>
-            <button 
-              onClick={() => {setCookiesAccepted(true); setShowCookieBanner(false);}}
-              className="bg-dark text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 transition"
-            >
-              Accept & Continue
-            </button>
+            
+            <div className="space-y-3">
+              <button 
+                onClick={() => {setCookiesAccepted(true); setShowCookieBanner(false);}}
+                className="w-full bg-blue-600 text-white py-3.5 rounded-xl font-bold hover:bg-blue-700 transition shadow-lg hover:shadow-blue-500/30"
+              >
+                Accept & Continue
+              </button>
+              
+              <button 
+                onClick={() => setActiveTab('privacy')}
+                className="text-sm text-gray-500 hover:text-blue-600 font-medium underline decoration-gray-300 underline-offset-4"
+              >
+                Read Privacy Policy
+              </button>
+            </div>
           </div>
         </div>
+     
       )}
     </div>
   );
