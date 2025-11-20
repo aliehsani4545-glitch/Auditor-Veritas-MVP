@@ -5,142 +5,107 @@ import CreateProcessor from './components/CreateProcessor';
 import { 
   ShieldCheck, BarChart3, Users, FileText, Check, 
   Lock, Zap, LayoutDashboard, LogOut, PlusCircle,
-  Key, Database, Search, Server,
+  Key, Database, Search, Server, Settings,
   ArrowRight, Play, ArrowLeft, Menu, X,
   Smartphone, Globe, Cpu, Code, Eye, EyeOff,
-  Settings
+  Mail, Fingerprint, Terminal
 } from 'lucide-react';
 
-const API_BASE_URL = '';
+// VIKTIGT: Tom sträng för Netlify proxy
+const API_BASE_URL = ''; 
 
-// Enhanced Security protections hook
+// --- SÄKERHET: AGGRESSIVT SKYDD + VATTENSTÄMPEL ---
+
 const useSecurityProtections = () => {
   useEffect(() => {
-    // Prevent right-click context menu
+    // 1. Blockera högerklick
     const handleContextMenu = (e) => {
       e.preventDefault();
-      alert('🔒 Right-click is disabled for security reasons.');
       return false;
     };
 
-    // Prevent drag and drop
-    const handleDragStart = (e) => {
-      e.preventDefault();
-      return false;
-    };
-
-    // Prevent copy
-    const handleCopy = (e) => {
-      e.preventDefault();
-      alert('🔒 Copying content is disabled for security reasons.');
-      return false;
-    };
-
-    // Prevent cut
-    const handleCut = (e) => {
-      e.preventDefault();
-      return false;
-    };
-
-    // Enhanced keyboard shortcuts protection
+    // 2. Blockera tangentbordskombinationer
     const handleKeyDown = (e) => {
-      // Detect Print Screen key
+      // PrintScreen
       if (e.key === 'PrintScreen' || e.keyCode === 44) {
         e.preventDefault();
-        alert('🔒 Screenshots are disabled for security reasons.');
+        navigator.clipboard.writeText(''); // Rensa urklipp
+        alert('🔒 Security Alert: Screenshots are monitored.');
         return false;
       }
-      
-      // Detect Windows + Shift + S
+      // Windows/Cmd + Shift + S
       if (e.key === 's' && e.shiftKey && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
-        alert('🔒 Screenshots are disabled for security reasons.');
+        alert('🔒 Security Alert: Screen capture blocked.');
         return false;
       }
-      
-      // Prevent F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+U
-      if (
-        e.keyCode === 123 || // F12
-        (e.ctrlKey && e.shiftKey && e.keyCode === 73) || // Ctrl+Shift+I
-        (e.ctrlKey && e.shiftKey && e.keyCode === 74) || // Ctrl+Shift+J
-        (e.ctrlKey && e.keyCode === 85) // Ctrl+U
-      ) {
+      // F12 DevTools
+      if (e.keyCode === 123) {
         e.preventDefault();
-        alert('🔒 Developer tools are disabled for security reasons.');
         return false;
       }
+    };
 
-      // Mobile device detection and prevention
-      if (e.key === 'Power' || e.key === 'VolumeDown' || e.key === 'VolumeUp') {
-        // These keys are often used for mobile screenshots
-        console.warn('Mobile screenshot keys detected');
+    // 3. Mobilskydd: Blur vid app-byte
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        document.body.style.filter = 'blur(15px)';
+        document.body.style.backgroundColor = '#000';
+      } else {
+        document.body.style.filter = 'none';
+        document.body.style.backgroundColor = '';
       }
     };
 
-    // Mobile-specific: Prevent gesture-based screenshots
-    const handleTouchStart = (e) => {
-      // Detect multi-finger touches that might be screenshots
-      if (e.touches.length > 2) {
-        console.warn('Multi-touch gesture detected - possible screenshot attempt');
-        // You could show a warning or take other action
-      }
-    };
-
-    // Detect iframe embedding
-    if (window.location !== window.parent.location) {
-      window.top.location = window.location;
-    }
-
-    // Add event listeners
     document.addEventListener('contextmenu', handleContextMenu);
-    document.addEventListener('dragstart', handleDragStart);
-    document.addEventListener('copy', handleCopy);
-    document.addEventListener('cut', handleCut);
     document.addEventListener('keydown', handleKeyDown);
-    document.addEventListener('touchstart', handleTouchStart);
-
-    // Mobile: Prevent zoom and pinch
-    const preventZoom = (e) => {
-      if (e.touches.length > 1) {
-        e.preventDefault();
-      }
-    };
-    document.addEventListener('touchmove', preventZoom, { passive: false });
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    // CSS-hack för att stoppa markering
+    document.body.style.userSelect = 'none';
+    document.body.style.webkitUserSelect = 'none';
 
     return () => {
-      // Cleanup
       document.removeEventListener('contextmenu', handleContextMenu);
-      document.removeEventListener('dragstart', handleDragStart);
-      document.removeEventListener('copy', handleCopy);
-      document.removeEventListener('cut', handleCut);
       document.removeEventListener('keydown', handleKeyDown);
-      document.removeEventListener('touchstart', handleTouchStart);
-      document.removeEventListener('touchmove', preventZoom);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.body.style.userSelect = 'auto';
+      document.body.style.filter = 'none';
     };
   }, []);
 };
 
-// --- KOMPONENTER ---
+// --- KOMPONENT: SÄKERHETS-VATTENSTÄMPEL ---
+const SecurityWatermark = ({ identifier }) => {
+  // Skapar en grid av text över hela skärmen
+  const text = `CONFIDENTIAL • ${identifier} • ${new Date().toLocaleDateString()}`;
+  
+  return (
+    <div className="fixed inset-0 pointer-events-none z-[9999] overflow-hidden flex flex-wrap content-center justify-center opacity-[0.04]">
+      {Array.from({ length: 30 }).map((_, i) => (
+        <div key={i} className="w-full flex justify-around py-8 transform -rotate-12 whitespace-nowrap">
+          {Array.from({ length: 4 }).map((_, j) => (
+            <span key={j} className="text-xl sm:text-2xl font-black text-slate-900 mx-8 uppercase tracking-widest">
+              {text}
+            </span>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+};
 
-const Navbar = ({ activeTab, setActiveTab, cookiesAccepted }) => {
+// --- KOMPONENTER (UI) ---
+
+const Navbar = ({ activeTab, setActiveTab }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const menuItems = ['Pricing', 'HowItWorks', 'Dashboard', 'Create', 'Events', 'Privacy'];
-
-  // Blockera navigation om cookies inte är accepterade
-  const handleTabChange = (tab) => {
-    if (!cookiesAccepted && tab !== 'privacy') {
-      setActiveTab('privacy');
-      return;
-    }
-    setActiveTab(tab);
-  };
 
   return (
     <header className="bg-gradient-to-r from-blue-800 to-indigo-900 text-white sticky top-0 z-50 shadow-lg border-b border-blue-700/50">
       <div className="container mx-auto px-4 sm:px-6 py-4">
         <div className="flex items-center justify-between">
-          {/* Logo */}
-          <div className="flex items-center space-x-3 cursor-pointer hover:opacity-90 transition" onClick={() => { handleTabChange('pricing'); setMobileMenuOpen(false); }}>
+          <div className="flex items-center space-x-3 cursor-pointer hover:opacity-90 transition" onClick={() => { setActiveTab('pricing'); setMobileMenuOpen(false); }}>
             <div className="bg-white/10 p-2 rounded-lg">
               <ShieldCheck className="w-6 h-6 text-emerald-400" />
             </div>
@@ -150,25 +115,22 @@ const Navbar = ({ activeTab, setActiveTab, cookiesAccepted }) => {
             </div>
           </div>
           
-          {/* Desktop Navigation */}
           <nav className="hidden lg:flex space-x-1">
             {menuItems.map((item) => (
               <button
                 key={item}
-                onClick={() => handleTabChange(item.toLowerCase())}
+                onClick={() => setActiveTab(item.toLowerCase())}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                   activeTab === item.toLowerCase() 
                     ? 'bg-white/10 text-white shadow-sm backdrop-blur-sm' 
                     : 'text-blue-100 hover:bg-white/5 hover:text-white'
-                } ${!cookiesAccepted && item.toLowerCase() !== 'privacy' ? 'opacity-50 cursor-not-allowed' : ''}`}
-                disabled={!cookiesAccepted && item.toLowerCase() !== 'privacy'}
+                }`}
               >
                 {item === 'HowItWorks' ? 'How It Works' : item}
               </button>
             ))}
           </nav>
 
-          {/* Mobile Menu Button */}
           <button 
             className="lg:hidden p-2 rounded-lg bg-white/10 hover:bg-white/20 transition"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -177,20 +139,18 @@ const Navbar = ({ activeTab, setActiveTab, cookiesAccepted }) => {
           </button>
         </div>
 
-        {/* Mobile Navigation Dropdown */}
         {mobileMenuOpen && (
           <div className="lg:hidden mt-4 pb-4 border-t border-blue-700/50 pt-4 animate-in fade-in slide-in-from-top-2">
             <nav className="flex flex-col space-y-2">
               {menuItems.map((item) => (
                 <button
                   key={item}
-                  onClick={() => { handleTabChange(item.toLowerCase()); setMobileMenuOpen(false); }}
+                  onClick={() => { setActiveTab(item.toLowerCase()); setMobileMenuOpen(false); }}
                   className={`px-4 py-3 rounded-lg text-left font-medium transition-all duration-200 ${
                     activeTab === item.toLowerCase() 
                       ? 'bg-white/10 text-white' 
                       : 'text-blue-100 hover:bg-white/5'
-                  } ${!cookiesAccepted && item.toLowerCase() !== 'privacy' ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  disabled={!cookiesAccepted && item.toLowerCase() !== 'privacy'}
+                  }`}
                 >
                   {item === 'HowItWorks' ? 'How It Works' : item}
                 </button>
@@ -263,30 +223,24 @@ const LockedFeature = ({ title, desc, setActiveTab }) => (
   </div>
 );
 
-const PrivacyPolicy = ({ setActiveTab, cookiesAccepted, setCookiesAccepted }) => (
+const PrivacyPolicy = ({ setActiveTab, cookiesAccepted, setShowCookieBanner }) => (
   <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-500 px-4 sm:px-0">
     
     {!cookiesAccepted && (
-      <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-8 text-center mb-8">
-        <div className="flex items-center justify-center mb-4">
-          <Lock className="w-8 h-8 text-amber-600 mr-3" />
-          <h3 className="text-2xl font-bold text-amber-800">Required: Accept Privacy Policy</h3>
+      <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 text-center shadow-sm">
+        <div className="flex items-center justify-center mb-3">
+          <Lock className="w-6 h-6 text-amber-600 mr-2" />
+          <h3 className="text-lg font-bold text-amber-800">Privacy Policy Limited Access</h3>
         </div>
-        <p className="text-amber-700 mb-6 text-lg">
-          To use Auditor Veritas and ensure GDPR compliance, you must read and accept our Privacy Policy.
+        <p className="text-amber-700 mb-4">
+          Please accept cookies to view the complete Privacy Policy context. Essential session cookies are required for security.
         </p>
         <button 
-          onClick={() => {
-            setCookiesAccepted(true);
-            localStorage.setItem('cookiesAccepted', 'true');
-          }}
-          className="bg-amber-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:bg-amber-700 transition shadow-lg hover:shadow-amber-600/30"
+          onClick={() => setShowCookieBanner(true)}
+          className="bg-amber-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-amber-700 transition shadow-sm"
         >
-          ✅ I Accept - Continue to Auditor Veritas
+          Open Cookie Settings
         </button>
-        <p className="text-amber-600 text-sm mt-4">
-          By accepting, you agree to our data processing practices in compliance with GDPR Article 6(1)(b)
-        </p>
       </div>
     )}
     
@@ -346,7 +300,6 @@ const PrivacyPolicy = ({ setActiveTab, cookiesAccepted, setCookiesAccepted }) =>
       </div>
     </div>
 
-    {/* Your Rights */}
     <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-lg border border-slate-100 mt-8">
       <h3 className="text-xl font-bold text-slate-900 mb-6 border-b border-slate-100 pb-4">Your Rights under GDPR</h3>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
@@ -369,7 +322,6 @@ const PrivacyPolicy = ({ setActiveTab, cookiesAccepted, setCookiesAccepted }) =>
         </div>
       </div>
 
-      {/* Contact Information Section */}
       <div className="mt-8 pt-6 border-t border-slate-100">
         <h4 className="font-bold text-slate-800 mb-4">Contact Information</h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -383,13 +335,11 @@ const PrivacyPolicy = ({ setActiveTab, cookiesAccepted, setCookiesAccepted }) =>
       </div>
     </div>
 
-    {cookiesAccepted && (
-      <div className="text-center pt-8 pb-4">
-        <button onClick={() => setActiveTab('dashboard')} className="text-blue-600 font-semibold hover:text-blue-700 transition flex items-center justify-center mx-auto">
-          ← Back to Dashboard
-        </button>
-      </div>
-    )}
+    <div className="text-center pt-8 pb-4">
+      <button onClick={() => setActiveTab('dashboard')} className="text-blue-600 font-semibold hover:text-blue-700 transition flex items-center justify-center mx-auto">
+        ← Back to Dashboard
+      </button>
+    </div>
   </div>
 );
 
@@ -399,39 +349,39 @@ const HowItWorks = ({ setActiveTab }) => {
 
   const steps = [
     {
-      title: "Registration & API Key",
+      title: "Registrering & API-nyckel",
       icon: Key,
-      description: "Companies register through our web portal and receive a unique API key that serves as their digital ID.",
-      details: ["Unique API key", "Secure container in database", "Immediate activation"],
+      description: "Företag registrerar sig via vår webbportal och får en unik API-nyckel som fungerar som deras digitala ID-kort.",
+      details: ["Unik API-nyckel", "Säker behållare i databasen", "Omedelbar aktivering"],
       action: "create",
-      actionText: "Create API Key",
+      actionText: "Skapa API-nyckel",
       visual: "key"
     },
     {
-      title: "Automatic Logging",
+      title: "Automatisk Loggning",
       icon: Settings,
-      description: "Integrate the API key into your systems. During critical events, data is automatically sent to Auditor Veritas.",
-      details: ["Integrate into systems", "Automatic signaling", "Tracks: Who, What, When"],
+      description: "Integrera API-nyckeln i era system. Vid kritiska händelser skickas data automatiskt till Auditor Veritas.",
+      details: ["Integrera i system", "Automatisk signal", "Spårar: Vem, Vad, När"],
       action: "events",
-      actionText: "Test Logging",
+      actionText: "Testa Loggning",
       visual: "code"
     },
     {
-      title: "Secure Storage & Chains",
+      title: "Säker Lagring & Kedjor",
       icon: Lock,
-      description: "Each event is encrypted and linked to the previous event to create an immutable chain.",
-      details: ["SHA-256 hash", "Chain linking", "GDPR-secured storage"],
+      description: "Varje händelse krypteras och länkas till föregående händelse för att skapa en oförstörbar kedja.",
+      details: ["SHA-256 hash", "Kedjelänkning", "GDPR-säkrad lagring"],
       action: "privacy",
-      actionText: "Learn About Security",
+      actionText: "Läs om Säkerhet",
       visual: "chain"
     },
     {
-      title: "Dashboard & Analysis",
+      title: "Dashboard & Analys",
       icon: BarChart3,
-      description: "Monitor and analyze all activity through our secure dashboard with searchable logs and reports.",
-      details: ["Searchable history", "Export reports", "Advanced analysis (Premium)"],
+      description: "Följ upp och analysera all aktivitet via vår säkra dashboard med sökbara loggar och rapporter.",
+      details: ["Sökbar historik", "Exportera rapporter", "Avancerad analys (Premium)"],
       action: "dashboard",
-      actionText: "Explore Dashboard",
+      actionText: "Utforska Dashboard",
       visual: "dashboard"
     }
   ];
@@ -447,7 +397,7 @@ const HowItWorks = ({ setActiveTab }) => {
               </div>
             </div>
             <p className="text-center text-blue-800 font-medium text-sm">
-              Your unique API key: <code className="bg-blue-100 px-2 py-1 rounded">av_123456789abc</code>
+              Din unika API-nyckel: <code className="bg-blue-100 px-2 py-1 rounded">av_123456789abc</code>
             </p>
           </div>
         );
@@ -471,7 +421,7 @@ const HowItWorks = ({ setActiveTab }) => {
             ) : (
               <div className="text-center py-8">
                 <Code className="w-12 h-12 text-slate-500 mx-auto mb-4" />
-                <p className="text-slate-400 text-sm">Click to show code</p>
+                <p className="text-slate-400 text-sm">Klicka för att visa kod</p>
               </div>
             )}
           </div>
@@ -489,7 +439,7 @@ const HowItWorks = ({ setActiveTab }) => {
                 </div>
               ))}
             </div>
-            <p className="text-center text-purple-800 text-sm">Immutable hash chains</p>
+            <p className="text-center text-purple-800 text-sm">Obrutna hash-kedjor</p>
           </div>
         );
       case 'dashboard':
@@ -519,7 +469,7 @@ const HowItWorks = ({ setActiveTab }) => {
         </div>
         <h1 className="text-3xl sm:text-5xl font-extrabold text-slate-900 mb-4 tracking-tight">🛡️ How It Works</h1>
         <p className="text-lg sm:text-xl text-slate-600 max-w-3xl mx-auto leading-relaxed">
-          Auditor Veritas is a secure, cloud-based service that helps companies create immutable audit trails.
+          Auditor Veritas är en säker, molnbaserad tjänst som hjälper företag att skapa oförstörbara loggar.
         </p>
       </div>
 
@@ -527,7 +477,7 @@ const HowItWorks = ({ setActiveTab }) => {
         <div className="bg-gradient-to-r from-slate-900 to-slate-800 px-6 sm:px-8 py-6">
           <h2 className="text-2xl sm:text-3xl font-bold text-white flex items-center justify-center sm:justify-start">
             <Play className="w-6 h-6 sm:w-8 sm:h-8 mr-3 sm:mr-4 text-emerald-400" />
-            🚀 4 Simple Steps
+            🚀 4-enkla-steg
           </h2>
         </div>
         
@@ -542,7 +492,7 @@ const HowItWorks = ({ setActiveTab }) => {
                 }`}
               >
                 <step.icon className={`w-6 h-6 sm:w-8 sm:h-8 mx-auto mb-2 ${activeStep === index ? 'text-white' : 'text-blue-600'}`} />
-                <span className="font-semibold text-xs sm:text-sm">Step {index + 1}</span>
+                <span className="font-semibold text-xs sm:text-sm">Steg {index + 1}</span>
               </button>
             ))}
           </div>
@@ -574,40 +524,8 @@ const HowItWorks = ({ setActiveTab }) => {
   );
 };
 
-// Blocked Access Component för icke-accepterade användare
-const BlockedAccess = ({ setActiveTab, setCookiesAccepted }) => (
-  <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-    <div className="max-w-md w-full bg-white rounded-2xl shadow-2xl p-8 text-center border border-slate-200">
-      <div className="bg-red-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6">
-        <Lock className="w-8 h-8 text-red-600" />
-      </div>
-      
-      <h2 className="text-2xl font-bold text-slate-900 mb-4">Access Restricted</h2>
-      
-      <p className="text-slate-600 mb-6 leading-relaxed">
-        To ensure GDPR compliance and data protection, you must first read and accept our Privacy Policy before accessing Auditor Veritas.
-      </p>
-      
-      <div className="space-y-4">
-        <button 
-          onClick={() => {
-            setActiveTab('privacy');
-          }}
-          className="w-full bg-blue-600 text-white py-3.5 rounded-xl font-bold hover:bg-blue-700 transition shadow-lg hover:shadow-blue-600/30"
-        >
-          📖 Read Privacy Policy
-        </button>
-        
-        <p className="text-xs text-slate-500">
-          Required for GDPR Article 6(1)(b) compliance
-        </p>
-      </div>
-    </div>
-  </div>
-);
-
 function App() {
-  const [activeTab, setActiveTab] = useState('privacy'); // Starta alltid med privacy
+  const [activeTab, setActiveTab] = useState('pricing');
   const [processor, setProcessor] = useState(null);
   const [events, setEvents] = useState([]);
   const [apiKey, setApiKey] = useState('');
@@ -615,47 +533,11 @@ function App() {
   const [stats, setStats] = useState({ totalEvents: 0, monthlyEvents: 0, eventsLimit: 100, utilization: '0%' });
   const [pricingPlans, setPricingPlans] = useState({});
   const [isLoading, setIsLoading] = useState(false);
+  const [showCookieBanner, setShowCookieBanner] = useState(true);
   const [cookiesAccepted, setCookiesAccepted] = useState(false);
 
-  // Använd säkerhetsskydden
+  // AKTIVERA SÄKERHET
   useSecurityProtections();
-
-  // Enhanced mobile protection
-  useEffect(() => {
-    // Prevent mobile screenshot by blurring content when app goes to background
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        // App is in background - could be taking screenshot
-        document.body.style.filter = 'blur(5px)';
-        document.body.style.transition = 'filter 0.3s ease';
-      } else {
-        // App is in foreground
-        document.body.style.filter = 'none';
-      }
-    };
-
-    // Prevent mobile zoom
-    const disableZoom = () => {
-      const viewport = document.querySelector('meta[name="viewport"]');
-      if (viewport) {
-        viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    disableZoom();
-
-    // Disable text selection on mobile
-    document.addEventListener('selectstart', (e) => {
-      e.preventDefault();
-      return false;
-    });
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      document.removeEventListener('selectstart', (e) => e.preventDefault());
-    };
-  }, []);
 
   useEffect(() => {
     const savedCookies = localStorage.getItem('cookiesAccepted');
@@ -663,9 +545,7 @@ function App() {
     
     if (savedCookies === 'true') {
       setCookiesAccepted(true);
-      setActiveTab('pricing'); // Byt till pricing om redan accepterat
-    } else {
-      setActiveTab('privacy'); // Tvinga till privacy om inte accepterat
+      setShowCookieBanner(false);
     }
 
     if (savedApiKey) {
@@ -679,15 +559,6 @@ function App() {
     });
   }, []);
 
-  // Blockera tab-ändringar om cookies inte är accepterade
-  const handleTabChange = (tab) => {
-    if (!cookiesAccepted && tab !== 'privacy') {
-      setActiveTab('privacy');
-      return;
-    }
-    setActiveTab(tab);
-  };
-
   const apiCall = async (endpoint, options = {}) => {
     const config = {
       headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, ...options.headers },
@@ -697,9 +568,22 @@ function App() {
 
     try {
       const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
+      
       if (response.status === 204) return null;
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || `HTTP error! status: ${response.status}`);
+
+      const text = await response.text();
+      let data;
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch (e) {
+        console.error("Server response was not JSON:", text);
+        throw new Error(`Server Error (${response.status}). Please try again.`);
+      }
+
+      if (!response.ok) {
+        throw new Error(data.error || `HTTP error! status: ${response.status}`);
+      }
+      
       return data;
     } catch (error) {
       console.error('API call failed:', error);
@@ -709,11 +593,6 @@ function App() {
 
   const fetchDashboard = async () => {
     if (!apiKey) return;
-    if (!cookiesAccepted) {
-      setActiveTab('privacy');
-      return;
-    }
-    
     setIsLoading(true);
     try {
       const data = await apiCall('/api/dashboard');
@@ -722,7 +601,7 @@ function App() {
       localStorage.setItem('auditorProcessor', JSON.stringify(data.processor));
       localStorage.setItem('auditorApiKey', apiKey);
     } catch (error) {
-      alert('Failed to access dashboard. Check API Key.');
+      alert(`Failed to access dashboard: ${error.message}`);
     } finally {
       setIsLoading(false);
     }
@@ -731,11 +610,12 @@ function App() {
   const logEvent = async (e) => {
     e.preventDefault();
     if (!cookiesAccepted) {
-      setActiveTab('privacy');
-      alert('❌ Please accept the Privacy Policy first');
+      alert('❌ Please accept cookies to log events');
+      setShowCookieBanner(true);
       return;
     }
     if (!apiKey) return alert('❌ API Key required');
+    
     setIsLoading(true);
     try {
       let hashedId = null;
@@ -746,7 +626,7 @@ function App() {
         method: 'POST',
         body: { ...eventData, event_data: JSON.parse(eventData.event_data || '{}'), user_identifier: hashedId }
       });
-      alert('✅ Event logged!');
+      alert('✅ Event logged successfully!');
       fetchDashboard();
       setEventData({ event_type: '', event_data: '{}', user_identifier: '' });
     } catch (error) {
@@ -756,19 +636,19 @@ function App() {
     }
   };
 
-  // Om cookies inte är accepterade, visa endast Privacy Policy eller blocked access
-  if (!cookiesAccepted && activeTab !== 'privacy') {
-    return <BlockedAccess setActiveTab={setActiveTab} setCookiesAccepted={setCookiesAccepted} />;
-  }
-
   return (
-    <div className="min-h-screen bg-slate-50 font-sans flex flex-col prevent-select">
-      <Navbar activeTab={activeTab} setActiveTab={handleTabChange} cookiesAccepted={cookiesAccepted} />
+    <div className="min-h-screen bg-slate-50 font-sans flex flex-col">
+      {/* Visa Vattenstämpel om användaren är inloggad (har processor) */}
+      {processor && <SecurityWatermark identifier={processor.email || processor.companyName} />}
+      
+      <Navbar activeTab={activeTab} setActiveTab={setActiveTab} />
 
-      <main className="container mx-auto px-4 sm:px-6 py-6 sm:py-8 max-w-6xl flex-grow">
-        {activeTab === 'pricing' && cookiesAccepted && (
+      <main className="container mx-auto px-4 sm:px-6 py-6 sm:py-8 max-w-6xl flex-grow z-10">
+        {/* (Ditt innehåll här) */}
+        {activeTab === 'pricing' && (
           <div className="space-y-12 animate-in">
-            <div className="text-center max-w-2xl mx-auto pt-4 sm:pt-8 px-4">
+            {/* ... PRICING CONTENT (Same as before) ... */}
+             <div className="text-center max-w-2xl mx-auto pt-4 sm:pt-8 px-4">
               <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 mb-4 tracking-tight">Transparent Pricing</h2>
               <p className="text-lg text-slate-600">Start small and scale securely. All plans include full GDPR compliance features from day one.</p>
             </div>
@@ -795,7 +675,7 @@ function App() {
                     ))}
                   </ul>
                   <button 
-                    onClick={() => handleTabChange('create')}
+                    onClick={() => setActiveTab('create')}
                     className={`w-full py-3 sm:py-3.5 rounded-xl font-bold transition-all duration-200 shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 ${
                       plan.featured 
                         ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700' 
@@ -810,9 +690,9 @@ function App() {
           </div>
         )}
 
-        {activeTab === 'howitworks' && cookiesAccepted && <HowItWorks setActiveTab={handleTabChange} />}
+        {activeTab === 'howitworks' && <HowItWorks setActiveTab={setActiveTab} />}
 
-        {activeTab === 'dashboard' && cookiesAccepted && (
+        {activeTab === 'dashboard' && (
           <div className="animate-in px-4 sm:px-0">
             {!processor ? (
               <div className="max-w-md mx-auto bg-white rounded-2xl shadow-xl p-6 sm:p-8 border border-slate-100 mt-6 sm:mt-10">
@@ -869,7 +749,7 @@ function App() {
                       {processor.plan !== 'starter' && <span className="bg-emerald-100 text-emerald-700 text-[10px] uppercase font-bold px-2 py-1 rounded-md tracking-wide">Active</span>}
                     </div>
                     {processor.plan === 'starter' ? (
-                      <LockedFeature title="Analytics Locked" desc="Upgrade to Professional to see detailed usage trends, geo-maps and interaction insights." setActiveTab={handleTabChange} />
+                      <LockedFeature title="Analytics Locked" desc="Upgrade to Professional to see detailed usage trends, geo-maps and interaction insights." setActiveTab={setActiveTab} />
                     ) : (
                       <div className="h-32 sm:h-48 bg-blue-50/50 rounded-xl flex flex-col items-center justify-center text-blue-400 border border-blue-100">
                         <BarChart3 className="w-12 h-12 sm:w-16 sm:h-16 opacity-20 mb-2" />
@@ -884,7 +764,7 @@ function App() {
                       {processor.plan !== 'starter' && <span className="bg-emerald-100 text-emerald-700 text-[10px] uppercase font-bold px-2 py-1 rounded-md tracking-wide">Active</span>}
                     </div>
                     {processor.plan === 'starter' ? (
-                      <LockedFeature title="Bulk Import Locked" desc="Process large historical datasets by uploading CSV or JSON files directly." setActiveTab={handleTabChange} />
+                      <LockedFeature title="Bulk Import Locked" desc="Process large historical datasets by uploading CSV or JSON files directly." setActiveTab={setActiveTab} />
                     ) : (
                       <div className="h-32 sm:h-48 border-2 border-dashed border-indigo-200 rounded-xl flex flex-col items-center justify-center text-indigo-400 hover:bg-indigo-50 hover:border-indigo-300 cursor-pointer transition bg-indigo-50/30">
                         <div className="bg-white p-2 sm:p-3 rounded-full shadow-sm mb-2 sm:mb-3">
@@ -901,99 +781,96 @@ function App() {
           </div>
         )}
 
-        {activeTab === 'create' && cookiesAccepted && (
+        {activeTab === 'create' && (
           <div className="max-w-2xl mx-auto pt-4 sm:pt-6 animate-in px-4 sm:px-0">
             <CreateProcessor />
           </div>
         )}
 
-        {activeTab === 'events' && cookiesAccepted && (
-          <div className="max-w-xl mx-auto bg-white rounded-2xl shadow-lg p-6 sm:p-8 border border-slate-100 mt-8 mb-8 animate-in px-4 sm:px-0">
-            <div className="flex items-center mb-8 pb-6 border-b border-slate-100">
-              <div className="p-3 bg-blue-50 rounded-xl mr-4">
-                <FileText className="w-7 h-7 text-blue-600"/> 
+        {activeTab === 'events' && (
+          <div className="max-w-xl mx-auto bg-white rounded-2xl shadow-lg p-4 sm:p-8 border border-slate-100 mt-4 sm:mt-6 animate-in px-4 sm:px-0">
+            <div className="flex items-center mb-6 sm:mb-8 pb-4 border-b border-slate-100">
+              <div className="p-2 sm:p-3 bg-blue-50 rounded-xl mr-3 sm:mr-4">
+                <FileText className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600"/> 
               </div>
               <div>
-                <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">Log New Event</h2>
-                <p className="text-slate-500 text-sm mt-1">Manually record an audit event in your secure trail</p>
+                <h2 className="text-xl sm:text-2xl font-bold text-slate-900">Log New Event</h2>
+                <p className="text-slate-500 text-sm">Manually record an audit event</p>
               </div>
             </div>
             
-            <form onSubmit={logEvent} className="space-y-6">
+            <form onSubmit={logEvent} className="space-y-4 sm:space-y-6">
+              {/* Event Type Input with Icon */}
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-3">Event Type</label>
-                <input 
-                  type="text" 
-                  className="w-full p-4 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition bg-white hover:border-slate-400" 
-                  placeholder="e.g. user_login, data_access, file_download" 
-                  value={eventData.event_type} 
-                  onChange={e => setEventData({...eventData, event_type: e.target.value})} 
-                  required 
-                />
-                <p className="text-xs text-slate-500 mt-2">Enter a descriptive event type for easy categorization</p>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Event Type</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Terminal className="h-5 w-5 text-slate-400" />
+                  </div>
+                  <input 
+                    type="text" 
+                    className="w-full pl-10 p-3 sm:p-3.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" 
+                    placeholder="e.g. user_login" 
+                    value={eventData.event_type} 
+                    onChange={e => setEventData({...eventData, event_type: e.target.value})} 
+                    required 
+                  />
+                </div>
               </div>
-              
+
+              {/* User Identifier Input with Icon */}
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-3">User Identifier</label>
-                <input 
-                  type="text" 
-                  className="w-full p-4 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition bg-white hover:border-slate-400" 
-                  placeholder="e.g. email@company.com, user123, employee_id" 
-                  value={eventData.user_identifier} 
-                  onChange={e => setEventData({...eventData, user_identifier: e.target.value})} 
-                />
-                <p className="text-xs text-slate-500 mt-2 flex items-center bg-blue-50 p-3 rounded-lg border border-blue-100">
-                  <ShieldCheck className="w-4 h-4 mr-2 text-blue-500"/> 
-                  User identifiers are automatically hashed with SHA-256 for privacy protection before storage
+                <label className="block text-sm font-semibold text-slate-700 mb-2">User Identifier</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Mail className="h-5 w-5 text-slate-400" />
+                  </div>
+                  <input 
+                    type="text" 
+                    className="w-full pl-10 p-3 sm:p-3.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" 
+                    placeholder="e.g. email@test.com" 
+                    value={eventData.user_identifier} 
+                    onChange={e => setEventData({...eventData, user_identifier: e.target.value})} 
+                  />
+                </div>
+                <p className="text-xs text-slate-500 mt-2 flex items-center bg-slate-50 p-2 rounded-lg border border-slate-100">
+                  <Fingerprint className="w-3 h-3 mr-1.5 text-emerald-500"/> 
+                  Securely hashed with SHA-256 before storage
                 </p>
               </div>
-              
+
+              {/* JSON Data Input */}
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-3">Event Data (JSON)</label>
-                <textarea 
-                  className="w-full p-4 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none font-mono text-sm h-40 bg-white hover:border-slate-400 resize-vertical" 
-                  placeholder='{"action": "login", "ip_address": "192.168.1.1", "user_agent": "Mozilla/5.0..."}'
-                  value={eventData.event_data} 
-                  onChange={e => setEventData({...eventData, event_data: e.target.value})} 
-                  required 
-                />
-                <p className="text-xs text-slate-500 mt-2">Enter valid JSON with additional event details and metadata</p>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">JSON Data</label>
+                <div className="relative">
+                  <div className="absolute top-3 left-3 pointer-events-none">
+                    <Code className="h-5 w-5 text-slate-400" />
+                  </div>
+                  <textarea 
+                    className="w-full pl-10 p-3 sm:p-3.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none font-mono text-sm h-24 sm:h-32 bg-slate-50" 
+                    value={eventData.event_data} 
+                    onChange={e => setEventData({...eventData, event_data: e.target.value})} 
+                    required 
+                  />
+                </div>
               </div>
-              
+
               <button 
                 type="submit" 
                 disabled={isLoading} 
-                className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:from-blue-700 hover:to-indigo-700 transition shadow-lg hover:shadow-blue-600/30 hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                className="w-full bg-blue-600 text-white py-3 sm:py-4 rounded-xl font-bold text-lg hover:bg-blue-700 transition shadow-lg hover:shadow-blue-600/30 hover:-translate-y-0.5 active:translate-y-0"
               >
-                {isLoading ? (
-                  <span className="flex items-center justify-center">
-                    <div className="animate-spin mr-3 h-5 w-5 border-2 border-b-0 border-white rounded-full"></div>
-                    Processing Event...
-                  </span>
-                ) : (
-                  'Log Secure Event'
-                )}
+                {isLoading ? 'Processing...' : 'Log Event'}
               </button>
             </form>
-            
-            <div className="mt-6 p-4 bg-slate-50 rounded-xl border border-slate-200">
-              <h4 className="font-semibold text-slate-700 mb-2 flex items-center">
-                <Check className="w-4 h-4 mr-2 text-emerald-500" />
-                Event Successfully Logged When:
-              </h4>
-              <ul className="text-sm text-slate-600 space-y-1">
-                <li>• Event is encrypted and added to the immutable audit trail</li>
-                <li>• Hash chain is updated to maintain data integrity</li>
-                <li>• Real-time dashboard statistics are refreshed</li>
-              </ul>
-            </div>
           </div>
         )}
 
         {activeTab === 'privacy' && (
           <PrivacyPolicy 
-            setActiveTab={handleTabChange} 
+            setActiveTab={setActiveTab} 
             cookiesAccepted={cookiesAccepted}
+            setShowCookieBanner={setShowCookieBanner}
             setCookiesAccepted={setCookiesAccepted}
           />
         )}
@@ -1016,13 +893,55 @@ function App() {
           
           <div className="flex flex-col sm:flex-row justify-center space-y-3 sm:space-y-0 sm:space-x-6 text-sm font-medium mb-6 sm:mb-8">
             <a href="#" className="hover:text-white transition">Terms</a>
-            <button onClick={() => handleTabChange('privacy')} className="hover:text-white transition">Privacy</button>
+            <button onClick={() => setActiveTab('privacy')} className="hover:text-white transition">Privacy</button>
             <a href="#" className="hover:text-white transition">Security</a>
             <a href="mailto:hazarnodesweden@outlook.com" className="hover:text-white transition">Contact</a>
           </div>
           <p className="text-xs text-slate-600">&copy; 2025 Auditor Veritas. All rights reserved.</p>
         </div>
       </footer>
+
+      {showCookieBanner && (
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-in fade-in duration-300">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 sm:p-8 text-center transform transition-all scale-100 border border-slate-200 mx-4">
+            <div className="bg-blue-50 w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6">
+              <ShieldCheck className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600" />
+            </div>
+            
+            <h3 className="text-xl sm:text-2xl font-bold text-slate-900 mb-3">Privacy & Security</h3>
+            
+            <p className="text-slate-600 mb-6 sm:mb-8 leading-relaxed text-sm">
+              To ensure GDPR compliance and security, we need your consent to store essential session tokens. 
+              <strong> No tracking cookies</strong> or third-party analytics are used.
+              <br /><br />
+              <span className="text-amber-600 font-medium">You can preview our policy without accepting.</span>
+            </p>
+            
+            <div className="space-y-3">
+              <button 
+                onClick={() => {
+                  setCookiesAccepted(true); 
+                  setShowCookieBanner(false);
+                  localStorage.setItem('cookiesAccepted', 'true');
+                }}
+                className="w-full bg-blue-600 text-white py-3 sm:py-3.5 rounded-xl font-bold hover:bg-blue-700 transition shadow-lg hover:shadow-blue-600/30"
+              >
+                Accept & Continue
+              </button>
+              
+              <button 
+                onClick={() => {
+                  setActiveTab('privacy');
+                  setShowCookieBanner(false);
+                }}
+                className="text-sm text-slate-500 hover:text-blue-600 font-medium underline decoration-slate-300 underline-offset-4 hover:decoration-blue-600 transition"
+              >
+                Read Privacy Policy Preview
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
