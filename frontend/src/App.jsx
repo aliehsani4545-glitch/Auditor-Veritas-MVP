@@ -8,7 +8,7 @@ import {
   Key, Database, Search, Server, Settings,
   ArrowRight, Play, ArrowLeft, Menu, X,
   Smartphone, Globe, Cpu, Code, Eye, EyeOff,
-  Mail, Fingerprint, Terminal, AlertTriangle
+  Mail, Fingerprint, Terminal, AlertTriangle, Clock
 } from 'lucide-react';
 
 // VIKTIGT: Tom sträng för Netlify proxy
@@ -61,7 +61,7 @@ const useSecurityProtections = () => {
   }, []);
 };
 
-// --- AUTO-LOCK TIMER ---
+// --- AUTO-LOCK TIMER (5 minuter) ---
 const useInactivityTimer = (timeoutMs = 300000, isActive) => {
   const [isLocked, setIsLocked] = useState(false);
   const timerRef = useRef(null);
@@ -118,7 +118,7 @@ const LockScreen = ({ onUnlock }) => (
   </div>
 );
 
-// --- UI COMPONENTS ---
+// --- UI KOMPONENTER ---
 
 const Navbar = ({ activeTab, setActiveTab }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -143,14 +143,19 @@ const Navbar = ({ activeTab, setActiveTab }) => {
                 key={item}
                 onClick={() => setActiveTab(item.toLowerCase())}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                  activeTab === item.toLowerCase() ? 'bg-white/10 text-white shadow-sm backdrop-blur-sm' : 'text-blue-100 hover:bg-white/5 hover:text-white'
+                  activeTab === item.toLowerCase() 
+                    ? 'bg-white/10 text-white shadow-sm backdrop-blur-sm' 
+                    : 'text-blue-100 hover:bg-white/5 hover:text-white'
                 }`}
               >
                 {item === 'HowItWorks' ? 'How It Works' : item}
               </button>
             ))}
           </nav>
-          <button className="lg:hidden p-2 rounded-lg bg-white/10 hover:bg-white/20 transition" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+          <button 
+            className="lg:hidden p-2 rounded-lg bg-white/10 hover:bg-white/20 transition"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          >
             {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
         </div>
@@ -162,7 +167,9 @@ const Navbar = ({ activeTab, setActiveTab }) => {
                   key={item}
                   onClick={() => { setActiveTab(item.toLowerCase()); setMobileMenuOpen(false); }}
                   className={`px-4 py-3 rounded-lg text-left font-medium transition-all duration-200 ${
-                    activeTab === item.toLowerCase() ? 'bg-white/10 text-white' : 'text-blue-100 hover:bg-white/5'
+                    activeTab === item.toLowerCase() 
+                      ? 'bg-white/10 text-white' 
+                      : 'text-blue-100 hover:bg-white/5'
                   }`}
                 >
                   {item === 'HowItWorks' ? 'How It Works' : item}
@@ -188,6 +195,8 @@ const HowItWorks = ({ setActiveTab }) => {
     { id: 3, hash: 'e5f6', status: 'valid' }
   ]);
 
+  const [isTampering, setIsTampering] = useState(false);
+
   const simulateApiCall = () => {
     setIsSimulating(true);
     setTerminalOutput(null);
@@ -198,15 +207,32 @@ const HowItWorks = ({ setActiveTab }) => {
   };
 
   const simulateTamper = () => {
+    if (isTampering) return;
+    
+    setIsTampering(true);
+    
+    // Första fas: Visa varning på mitten av kedjan
     const newChain = [...chain];
     newChain[1].status = 'invalid';
     setChain(newChain);
+    
+    // Andra fas: Sprid varningen till hela kedjan med fördröjning
+    setTimeout(() => {
+      const spreadChain = newChain.map(block => ({
+        ...block,
+        status: 'invalid'
+      }));
+      setChain(spreadChain);
+    }, 600);
+    
+    // Tredje fas: Återställ efter 3 sekunder
     setTimeout(() => {
       setChain([
         { id: 1, hash: 'a1b2', status: 'valid' },
         { id: 2, hash: 'c3d4', status: 'valid' },
         { id: 3, hash: 'e5f6', status: 'valid' }
       ]);
+      setIsTampering(false);
     }, 3000);
   };
 
@@ -312,16 +338,77 @@ const HowItWorks = ({ setActiveTab }) => {
             <div className="flex justify-center space-x-2 mb-4">
               {chain.map((block, i) => (
                 <div key={block.id} className="flex items-center">
-                  <div className={`w-12 h-12 rounded-lg border-2 flex items-center justify-center transition-all duration-500 ${block.status === 'valid' ? 'bg-white border-emerald-400' : 'bg-red-50 border-red-500 animate-pulse'}`}>
-                    {block.status === 'valid' ? <Check className="w-6 h-6 text-emerald-500"/> : <AlertTriangle className="w-6 h-6 text-red-500"/>}
+                  <div className={`w-12 h-12 rounded-lg border-2 flex items-center justify-center transition-all duration-300 ${
+                    block.status === 'valid' 
+                      ? 'bg-white border-emerald-400 shadow-sm' 
+                      : 'bg-red-50 border-red-500 shadow-lg scale-110'
+                  } ${isTampering ? 'animate-pulse' : ''}`}>
+                    {block.status === 'valid' ? 
+                      <Check className="w-6 h-6 text-emerald-500"/> : 
+                      <AlertTriangle className="w-6 h-6 text-red-500"/>
+                    }
                   </div>
-                  {i < 2 && <div className="w-4 h-0.5 bg-slate-300 mx-1"></div>}
+                  {i < 2 && (
+                    <div className={`w-4 h-0.5 mx-1 transition-all duration-300 ${
+                      block.status === 'invalid' && chain[i + 1]?.status === 'invalid'
+                        ? 'bg-red-300'
+                        : 'bg-slate-300'
+                    }`}></div>
+                  )}
                 </div>
               ))}
             </div>
-            <button onClick={simulateTamper} className="text-xs border border-red-200 text-red-600 px-3 py-1 rounded hover:bg-red-50 transition">
-              Simulate Hack Attack
+            
+            {/* Förbättrad statusmeddelande */}
+            <div className={`mb-4 p-3 rounded-lg transition-all duration-300 ${
+              isTampering 
+                ? 'bg-red-100 border border-red-200 text-red-700' 
+                : 'bg-emerald-100 border border-emerald-200 text-emerald-700'
+            }`}>
+              <p className="text-sm font-medium flex items-center justify-center">
+                {isTampering ? (
+                  <>
+                    <AlertTriangle className="w-4 h-4 mr-2 animate-bounce" />
+                    Security Breach Detected! Chain integrity compromised
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck className="w-4 h-4 mr-2" />
+                    Chain integrity verified - All blocks secure
+                  </>
+                )}
+              </p>
+            </div>
+            
+            <button 
+              onClick={simulateTamper} 
+              disabled={isTampering}
+              className={`text-sm border px-4 py-2 rounded-lg font-medium transition-all ${
+                isTampering
+                  ? 'border-red-300 bg-red-50 text-red-400 cursor-not-allowed'
+                  : 'border-red-200 bg-white text-red-600 hover:bg-red-50 hover:border-red-300 hover:shadow-md'
+              }`}
+            >
+              {isTampering ? (
+                <span className="flex items-center">
+                  <div className="animate-spin mr-2 h-4 w-4 border-2 border-red-500 border-b-0 rounded-full"></div>
+                  Simulating Attack...
+                </span>
+              ) : (
+                <span className="flex items-center">
+                  <AlertTriangle className="w-4 h-4 mr-2" />
+                  Simulate Hack Attack
+                </span>
+              )}
             </button>
+            
+            {/* Förklaringstext */}
+            <p className="text-xs text-slate-500 mt-3 max-w-md mx-auto">
+              {isTampering 
+                ? "The hack attempt has been detected! The system automatically prevents tampering by invalidating the entire chain."
+                : "Click to simulate a blockchain tampering attempt and see how our system detects and prevents it."
+              }
+            </p>
           </div>
         );
       case 'dashboard':
@@ -371,7 +458,7 @@ const HowItWorks = ({ setActiveTab }) => {
             <h3 className="text-2xl font-bold text-slate-900 mb-4">{steps[activeStep].title}</h3>
             <p className="text-lg text-slate-600 mb-6">{steps[activeStep].description}</p>
             <ul className="space-y-2 mb-6">
-              {steps[activeStep].details.map((detail, i) => (
+              {steps[activeStep].details?.map((detail, i) => (
                 <li key={i} className="flex items-start text-sm text-slate-600">
                   <Check className="w-4 h-4 text-green-500 mr-2 mt-0.5" /> {detail}
                 </li>
@@ -439,7 +526,10 @@ const LockedFeature = ({ title, desc, setActiveTab }) => (
     </div>
     <h3 className="text-lg font-bold text-slate-800 mb-2">{title}</h3>
     <p className="text-sm text-slate-500 mb-6 max-w-xs leading-relaxed">{desc}</p>
-    <button onClick={() => setActiveTab('pricing')} className="text-sm bg-white border border-slate-200 px-4 py-2 rounded-lg font-semibold text-blue-600 hover:border-blue-200 hover:bg-blue-50 transition shadow-sm">
+    <button 
+      onClick={() => setActiveTab('pricing')} 
+      className="text-sm bg-white border border-slate-200 px-4 py-2 rounded-lg font-semibold text-blue-600 hover:border-blue-200 hover:bg-blue-50 transition shadow-sm"
+    >
       Upgrade to Unlock
     </button>
   </div>
@@ -513,34 +603,26 @@ const PrivacyPolicy = ({ setActiveTab, cookiesAccepted, setShowCookieBanner }) =
 
       <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition">
         <div className="flex items-center mb-6">
-          <div className="p-3 bg-purple-50 rounded-xl mr-4">
-            <Lock className="w-6 h-6 text-purple-600" />
-          </div>
+           <div className="p-3 bg-purple-50 rounded-xl mr-4"><Lock className="w-6 h-6 text-purple-600" /></div>
           <h3 className="font-bold text-xl text-slate-900">Cookies & Tracking</h3>
         </div>
         <ul className="space-y-4">
           <li className="flex items-start group">
-            <div className="mt-1 mr-3 p-1 bg-emerald-100 rounded-full">
-              <Check className="w-3 h-3 text-emerald-700"/>
-            </div>
+            <div className="mt-1 mr-3 p-1 bg-emerald-100 rounded-full"><Check className="w-3 h-3 text-emerald-700"/></div>
             <div>
               <strong className="block text-slate-900 text-sm">🍪 Essential Only</strong>
               <span className="text-sm text-slate-500">We only store a session token for security functionality.</span>
             </div>
           </li>
           <li className="flex items-start group">
-            <div className="mt-1 mr-3 p-1 bg-emerald-100 rounded-full">
-              <Check className="w-3 h-3 text-emerald-700"/>
-            </div>
+            <div className="mt-1 mr-3 p-1 bg-emerald-100 rounded-full"><Check className="w-3 h-3 text-emerald-700"/></div>
             <div>
               <strong className="block text-slate-900 text-sm">🚫 Zero Tracking</strong>
               <span className="text-sm text-slate-500">No Google Analytics, Facebook Pixels, or ad trackers.</span>
             </div>
           </li>
           <li className="flex items-start group">
-            <div className="mt-1 mr-3 p-1 bg-emerald-100 rounded-full">
-              <Check className="w-3 h-3 text-emerald-700"/>
-            </div>
+            <div className="mt-1 mr-3 p-1 bg-emerald-100 rounded-full"><Check className="w-3 h-3 text-emerald-700"/></div>
             <div>
               <strong className="block text-slate-900 text-sm">🛡️ Local Storage</strong>
               <span className="text-sm text-slate-500">API keys are stored locally on your device only.</span>
@@ -612,7 +694,7 @@ const PrivacyPolicy = ({ setActiveTab, cookiesAccepted, setShowCookieBanner }) =
 );
 
 function App() {
-  const [activeTab, setActiveTab] = useState('privacy');
+  const [activeTab, setActiveTab] = useState('pricing');
   const [processor, setProcessor] = useState(null);
   const [events, setEvents] = useState([]);
   const [apiKey, setApiKey] = useState('');
@@ -629,50 +711,63 @@ function App() {
   useEffect(() => {
     const savedCookies = localStorage.getItem('cookiesAccepted');
     const savedApiKey = localStorage.getItem('auditorApiKey');
-    
-    if (savedCookies === 'true') {
-      setCookiesAccepted(true);
-      setShowCookieBanner(false);
+    if (savedCookies === 'true') { 
+      setCookiesAccepted(true); 
+      setShowCookieBanner(false); 
       setActiveTab('pricing');
     }
-
-    if (savedApiKey) {
-      setApiKey(savedApiKey);
-    }
+    if (savedApiKey) setApiKey(savedApiKey);
 
     setPricingPlans({
-      starter: { name: 'Starter', events: 100, price: 0, features: ['Basic Audit Trail', 'GDPR Compliance', 'Email Support'] },
-      professional: { name: 'Professional', events: 50000, price: 49, features: ['Advanced Analytics', 'Bulk Import', 'Priority Support', 'Custom Events'], featured: true },
-      enterprise: { name: 'Enterprise', events: 500000, price: 199, features: ['Everything in Professional', 'Dedicated Support', 'SLA Guarantee', 'Custom Integrations'] }
+      starter: { 
+        name: 'Starter', 
+        events: 100, 
+        price: 0, 
+        features: ['Basic Audit Trail', 'GDPR Compliance', 'Email Support', '100 Events/Month'] 
+      },
+      professional: { 
+        name: 'Professional', 
+        events: 50000, 
+        price: 49, 
+        features: ['Advanced Analytics', 'Bulk Import', 'Priority Support', 'Custom Events', '50K Events/Month'], 
+        featured: true 
+      },
+      enterprise: { 
+        name: 'Enterprise', 
+        events: 500000, 
+        price: 199, 
+        features: ['Everything in Professional', 'Dedicated Support', 'SLA Guarantee', 'Custom Integrations', '500K Events/Month'] 
+      }
     });
   }, []);
 
+  // --- SÄKER API-HANTERING ---
   const apiCall = async (endpoint, options = {}) => {
-    const config = {
-      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, ...options.headers },
-      ...options,
+    const config = { 
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, ...options.headers }, 
+      ...options 
     };
     if (options.body) config.body = JSON.stringify(options.body);
-
     try {
       const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
       if (response.status === 204) return null;
-      const data = await response.json();
+      const text = await response.text();
+      let data;
+      try { 
+        data = text ? JSON.parse(text) : {}; 
+      } catch (e) { 
+        throw new Error(`Server Error (${response.status}). Try again.`); 
+      }
       if (!response.ok) throw new Error(data.error || `HTTP error! status: ${response.status}`);
       return data;
-    } catch (error) {
-      console.error('API call failed:', error);
-      throw error;
+    } catch (error) { 
+      console.error('API call failed:', error); 
+      throw error; 
     }
   };
 
   const fetchDashboard = async () => {
     if (!apiKey) return;
-    if (!cookiesAccepted) {
-      setActiveTab('privacy');
-      return;
-    }
-    
     setIsLoading(true);
     try {
       const data = await apiCall('/api/dashboard');
@@ -680,19 +775,19 @@ function App() {
       setStats(data.stats);
       localStorage.setItem('auditorProcessor', JSON.stringify(data.processor));
       localStorage.setItem('auditorApiKey', apiKey);
-    } catch (error) {
-      alert('Failed to access dashboard. Check API Key.');
-    } finally {
-      setIsLoading(false);
+    } catch (error) { 
+      alert(`Failed to access dashboard: ${error.message}`); 
+    } finally { 
+      setIsLoading(false); 
     }
   };
 
   const logEvent = async (e) => {
     e.preventDefault();
-    if (!cookiesAccepted) {
-      setActiveTab('privacy');
-      alert('❌ Please accept the Privacy Policy first');
-      return;
+    if (!cookiesAccepted) { 
+      alert('❌ Please accept cookies first'); 
+      setShowCookieBanner(true); 
+      return; 
     }
     if (!apiKey) return alert('❌ API Key required');
     setIsLoading(true);
@@ -701,17 +796,21 @@ function App() {
       if (eventData.user_identifier) {
         hashedId = CryptoJS.SHA256(eventData.user_identifier.trim().toLowerCase()).toString();
       }
-      await apiCall('/api/events', {
-        method: 'POST',
-        body: { ...eventData, event_data: JSON.parse(eventData.event_data || '{}'), user_identifier: hashedId }
+      await apiCall('/api/events', { 
+        method: 'POST', 
+        body: { 
+          ...eventData, 
+          event_data: JSON.parse(eventData.event_data || '{}'), 
+          user_identifier: hashedId 
+        } 
       });
-      alert('✅ Event logged!');
+      alert('✅ Event logged successfully!');
       fetchDashboard();
       setEventData({ event_type: '', event_data: '{}', user_identifier: '' });
-    } catch (error) {
-      alert(`Error: ${error.message}`);
-    } finally {
-      setIsLoading(false);
+    } catch (error) { 
+      alert(`Error: ${error.message}`); 
+    } finally { 
+      setIsLoading(false); 
     }
   };
 
@@ -729,12 +828,14 @@ function App() {
           <div className="space-y-12 animate-in">
             <div className="text-center max-w-2xl mx-auto pt-4 sm:pt-8 px-4">
               <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 mb-4 tracking-tight">Transparent Pricing</h2>
-              <p className="text-lg text-slate-600">Start small and scale securely. All plans include full GDPR compliance features from day one.</p>
+              <p className="text-lg text-slate-600">Start small and scale securely. All plans include full GDPR compliance features.</p>
             </div>
             
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8 px-4 sm:px-0">
               {Object.entries(pricingPlans).map(([key, plan]) => (
-                <div key={key} className={`relative rounded-2xl p-6 sm:p-8 transition-all duration-300 hover:scale-105 hover:shadow-xl flex flex-col ${plan.featured ? 'bg-white ring-4 ring-blue-500/20 shadow-xl scale-105' : 'bg-white shadow-lg border border-slate-100'}`}>
+                <div key={key} className={`relative rounded-2xl p-6 sm:p-8 transition-all duration-300 hover:scale-105 hover:shadow-xl flex flex-col ${
+                  plan.featured ? 'bg-white ring-4 ring-blue-500/20 shadow-xl scale-105' : 'bg-white shadow-lg border border-slate-100'
+                }`}>
                   {plan.featured && (
                     <div className="absolute -top-3 sm:-top-4 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-3 sm:px-4 py-1 rounded-full text-xs sm:text-sm font-bold shadow-lg tracking-wide">
                       MOST POPULAR
@@ -748,7 +849,7 @@ function App() {
                   <ul className="space-y-3 sm:space-y-4 mb-6 sm:mb-8 flex-1">
                     {plan.features.map((feat, i) => (
                       <li key={i} className="flex items-start text-slate-600 text-sm">
-                        <div className="mt-0.5 mr-3 min-w-[20px]"><Check className="w-5 h-5 text-emerald-500" /></div>
+                        <Check className="w-4 h-4 text-emerald-500 mr-2 mt-0.5" />
                         {feat}
                       </li>
                     ))}
@@ -795,7 +896,10 @@ function App() {
                   className="w-full bg-blue-600 text-white py-3 sm:py-4 rounded-xl font-bold hover:bg-blue-700 transition flex items-center justify-center shadow-md hover:shadow-lg"
                 >
                   {isLoading ? (
-                    <span className="flex items-center"><div className="animate-spin mr-2 h-4 w-4 border-2 border-b-0 border-white rounded-full"></div> Connecting...</span>
+                    <span className="flex items-center">
+                      <div className="animate-spin mr-2 h-4 w-4 border-2 border-b-0 border-white rounded-full"></div>
+                      Connecting...
+                    </span>
                   ) : 'Access Dashboard'}
                 </button>
               </div>
@@ -824,11 +928,22 @@ function App() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                   <div className={`bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-slate-100 ${processor.plan === 'starter' ? 'opacity-90' : ''}`}>
                     <div className="flex justify-between items-center mb-4 sm:mb-6">
-                      <h3 className="text-lg font-bold text-slate-900 flex items-center"><BarChart3 className="w-5 h-5 mr-2 text-blue-600"/> Advanced Analytics</h3>
-                      {processor.plan !== 'starter' && <span className="bg-emerald-100 text-emerald-700 text-[10px] uppercase font-bold px-2 py-1 rounded-md tracking-wide">Active</span>}
+                      <h3 className="text-lg font-bold text-slate-900 flex items-center">
+                        <BarChart3 className="w-5 h-5 mr-2 text-blue-600"/> 
+                        Advanced Analytics
+                      </h3>
+                      {processor.plan !== 'starter' && (
+                        <span className="bg-emerald-100 text-emerald-700 text-[10px] uppercase font-bold px-2 py-1 rounded-md tracking-wide">
+                          Active
+                        </span>
+                      )}
                     </div>
                     {processor.plan === 'starter' ? (
-                      <LockedFeature title="Analytics Locked" desc="Upgrade to Professional to see detailed usage trends, geo-maps and interaction insights." setActiveTab={setActiveTab} />
+                      <LockedFeature 
+                        title="Analytics Locked" 
+                        desc="Upgrade to Professional to see detailed usage trends, geo-maps and interaction insights." 
+                        setActiveTab={setActiveTab} 
+                      />
                     ) : (
                       <div className="h-32 sm:h-48 bg-blue-50/50 rounded-xl flex flex-col items-center justify-center text-blue-400 border border-blue-100">
                         <BarChart3 className="w-12 h-12 sm:w-16 sm:h-16 opacity-20 mb-2" />
@@ -839,11 +954,22 @@ function App() {
 
                   <div className={`bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-slate-100 ${processor.plan === 'starter' ? 'opacity-90' : ''}`}>
                     <div className="flex justify-between items-center mb-4 sm:mb-6">
-                      <h3 className="text-lg font-bold text-slate-900 flex items-center"><PlusCircle className="w-5 h-5 mr-2 text-indigo-600"/> Bulk Operations</h3>
-                      {processor.plan !== 'starter' && <span className="bg-emerald-100 text-emerald-700 text-[10px] uppercase font-bold px-2 py-1 rounded-md tracking-wide">Active</span>}
+                      <h3 className="text-lg font-bold text-slate-900 flex items-center">
+                        <PlusCircle className="w-5 h-5 mr-2 text-indigo-600"/> 
+                        Bulk Operations
+                      </h3>
+                      {processor.plan !== 'starter' && (
+                        <span className="bg-emerald-100 text-emerald-700 text-[10px] uppercase font-bold px-2 py-1 rounded-md tracking-wide">
+                          Active
+                        </span>
+                      )}
                     </div>
                     {processor.plan === 'starter' ? (
-                      <LockedFeature title="Bulk Import Locked" desc="Process large historical datasets by uploading CSV or JSON files directly." setActiveTab={setActiveTab} />
+                      <LockedFeature 
+                        title="Bulk Import Locked" 
+                        desc="Process large historical datasets by uploading CSV or JSON files directly." 
+                        setActiveTab={setActiveTab} 
+                      />
                     ) : (
                       <div className="h-32 sm:h-48 border-2 border-dashed border-indigo-200 rounded-xl flex flex-col items-center justify-center text-indigo-400 hover:bg-indigo-50 hover:border-indigo-300 cursor-pointer transition bg-indigo-50/30">
                         <div className="bg-white p-2 sm:p-3 rounded-full shadow-sm mb-2 sm:mb-3">
@@ -965,7 +1091,9 @@ function App() {
             <ShieldCheck className="w-6 h-6 sm:w-8 sm:h-8 text-blue-500" />
             <span className="text-xl sm:text-2xl font-bold tracking-tight">Auditor Veritas</span>
           </div>
-          <p className="text-sm mb-6 sm:mb-8 max-w-md mx-auto leading-relaxed text-slate-500">Enterprise-grade audit logging compliant with GDPR, CCPA & SOC2.</p>
+          <p className="text-sm mb-6 sm:mb-8 max-w-md mx-auto leading-relaxed text-slate-500">
+            Enterprise-grade audit logging compliant with GDPR, CCPA & SOC2.
+          </p>
           
           <div className="mb-4 sm:mb-6">
             <a href="mailto:hazarnodesweden@outlook.com" className="text-blue-400 hover:text-white transition font-medium text-base sm:text-lg">
