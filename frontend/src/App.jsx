@@ -7,7 +7,8 @@ import {
   Lock, Zap, LayoutDashboard, LogOut, PlusCircle,
   Key, Database, Search, Server,
   ArrowRight, Play, ArrowLeft, Menu, X,
-  Smartphone, Globe, Cpu, Code, Eye, EyeOff
+  Smartphone, Globe, Cpu, Code, Eye, EyeOff,
+  Settings // Lägg till denna
 } from 'lucide-react';
 
 // VIKTIGT: Tom sträng för Netlify proxy
@@ -142,128 +143,6 @@ const LockedFeature = ({ title, desc, setActiveTab }) => (
     >
       Upgrade to Unlock
     </button>
-  </div>
-);
-
-const PrivacyPolicy = ({ setActiveTab, cookiesAccepted, setShowCookieBanner }) => (
-  <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-500 px-4 sm:px-0">
-    
-    {!cookiesAccepted && (
-      <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 text-center">
-        <div className="flex items-center justify-center mb-3">
-          <Lock className="w-6 h-6 text-amber-600 mr-2" />
-          <h3 className="text-lg font-bold text-amber-800">Privacy Policy Limited Access</h3>
-        </div>
-        <p className="text-amber-700 mb-4">
-          Please accept cookies to view the complete Privacy Policy context. Essential session cookies are required for security.
-        </p>
-        <button 
-          onClick={() => setShowCookieBanner(true)}
-          className="bg-amber-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-amber-700 transition"
-        >
-          Open Cookie Settings
-        </button>
-      </div>
-    )}
-    
-    <div className="text-center mb-12">
-      <div className="bg-emerald-50 w-16 h-16 sm:w-20 sm:h-20 rounded-2xl rotate-3 flex items-center justify-center mx-auto mb-6 shadow-sm">
-        <ShieldCheck className="w-8 h-8 sm:w-10 sm:h-10 text-emerald-600 -rotate-3" />
-      </div>
-      <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 mb-3">Privacy & Compliance</h2>
-      <p className="text-lg text-slate-600 max-w-2xl mx-auto">We process data in strict accordance with GDPR Article 6(1)(b) and industry security standards.</p>
-    </div>
-
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition">
-        <div className="flex items-center mb-6">
-          <div className="p-3 bg-blue-50 rounded-xl mr-4"><Users className="w-6 h-6 text-blue-600" /></div>
-          <h3 className="font-bold text-xl text-slate-900">Data Storage</h3>
-        </div>
-        <ul className="space-y-4">
-          <li className="flex items-start group">
-            <div className="mt-1 mr-3 p-1 bg-emerald-100 rounded-full"><Check className="w-3 h-3 text-emerald-700"/></div>
-            <div>
-              <strong className="block text-slate-900 text-sm">🇪🇺 EU Data Centers</strong>
-              <span className="text-sm text-slate-500">All data resides in Frankfurt (AWS eu-central-1).</span>
-            </div>
-          </li>
-          <li className="flex items-start group">
-            <div className="mt-1 mr-3 p-1 bg-emerald-100 rounded-full"><Check className="w-3 h-3 text-emerald-700"/></div>
-            <div>
-              <strong className="block text-slate-900 text-sm">🔒 Military-grade Encryption</strong>
-              <span className="text-sm text-slate-500">AES-256 at rest and TLS 1.3 in transit.</span>
-            </div>
-          </li>
-        </ul>
-      </div>
-
-      <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition">
-        <div className="flex items-center mb-6">
-           <div className="p-3 bg-purple-50 rounded-xl mr-4"><Lock className="w-6 h-6 text-purple-600" /></div>
-          <h3 className="font-bold text-xl text-slate-900">Cookies & Tracking</h3>
-        </div>
-        <ul className="space-y-4">
-          <li className="flex items-start group">
-            <div className="mt-1 mr-3 p-1 bg-emerald-100 rounded-full"><Check className="w-3 h-3 text-emerald-700"/></div>
-            <div>
-              <strong className="block text-slate-900 text-sm">🍪 Essential Only</strong>
-              <span className="text-sm text-slate-500">We only store a session token for security functionality.</span>
-            </div>
-          </li>
-          <li className="flex items-start group">
-            <div className="mt-1 mr-3 p-1 bg-emerald-100 rounded-full"><Check className="w-3 h-3 text-emerald-700"/></div>
-            <div>
-              <strong className="block text-slate-900 text-sm">🚫 Zero Tracking</strong>
-              <span className="text-sm text-slate-500">No Google Analytics, Facebook Pixels, or ad trackers.</span>
-            </div>
-          </li>
-        </ul>
-      </div>
-    </div>
-
-    {/* Your Rights */}
-    <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-lg border border-slate-100 mt-8">
-      <h3 className="text-xl font-bold text-slate-900 mb-6 border-b border-slate-100 pb-4">Your Rights under GDPR</h3>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
-        <div>
-          <h4 className="font-bold text-slate-800 mb-2 flex items-center"><div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>Right to Access</h4>
-          <p className="text-sm text-slate-500 leading-relaxed">You can export all your raw event data as JSON anytime directly from the dashboard.</p>
-        </div>
-        <div>
-          <h4 className="font-bold text-slate-800 mb-2 flex items-center"><div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>Right to Erasure</h4>
-          <p className="text-sm text-slate-500 leading-relaxed">
-            "Right to be forgotten". To permanently delete your data, please contact our Data Protection Officer at: 
-            <a href="mailto:hazarnodesweden@outlook.com" className="block mt-1 text-blue-600 font-medium hover:underline">
-              hazarnodesweden@outlook.com
-            </a>
-          </p>
-        </div>
-        <div>
-          <h4 className="font-bold text-slate-800 mb-2 flex items-center"><div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>Data Portability</h4>
-          <p className="text-sm text-slate-500 leading-relaxed">Move your audit trail to another provider easily using our standard export format.</p>
-        </div>
-      </div>
-
-      {/* Contact Information Section */}
-      <div className="mt-8 pt-6 border-t border-slate-100">
-        <h4 className="font-bold text-slate-800 mb-4">Contact Information</h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="bg-slate-50 p-4 rounded-lg">
-            <h5 className="font-semibold text-slate-700 mb-2">Data Protection Officer</h5>
-            <a href="mailto:hazarnodesweden@outlook.com" className="text-blue-600 hover:underline">
-              hazarnodesweden@outlook.com
-            </a>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div className="text-center pt-8 pb-4">
-      <button onClick={() => setActiveTab('dashboard')} className="text-blue-600 font-semibold hover:text-blue-700 transition flex items-center justify-center mx-auto">
-        ← Back to Dashboard
-      </button>
-    </div>
   </div>
 );
 
@@ -448,6 +327,128 @@ const HowItWorks = ({ setActiveTab }) => {
   );
 };
 
+const PrivacyPolicy = ({ setActiveTab, cookiesAccepted, setShowCookieBanner }) => (
+  <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-500 px-4 sm:px-0">
+    
+    {!cookiesAccepted && (
+      <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 text-center">
+        <div className="flex items-center justify-center mb-3">
+          <Lock className="w-6 h-6 text-amber-600 mr-2" />
+          <h3 className="text-lg font-bold text-amber-800">Privacy Policy Limited Access</h3>
+        </div>
+        <p className="text-amber-700 mb-4">
+          Please accept cookies to view the complete Privacy Policy context. Essential session cookies are required for security.
+        </p>
+        <button 
+          onClick={() => setShowCookieBanner(true)}
+          className="bg-amber-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-amber-700 transition"
+        >
+          Open Cookie Settings
+        </button>
+      </div>
+    )}
+    
+    <div className="text-center mb-12">
+      <div className="bg-emerald-50 w-16 h-16 sm:w-20 sm:h-20 rounded-2xl rotate-3 flex items-center justify-center mx-auto mb-6 shadow-sm">
+        <ShieldCheck className="w-8 h-8 sm:w-10 sm:h-10 text-emerald-600 -rotate-3" />
+      </div>
+      <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 mb-3">Privacy & Compliance</h2>
+      <p className="text-lg text-slate-600 max-w-2xl mx-auto">We process data in strict accordance with GDPR Article 6(1)(b) and industry security standards.</p>
+    </div>
+
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition">
+        <div className="flex items-center mb-6">
+          <div className="p-3 bg-blue-50 rounded-xl mr-4"><Users className="w-6 h-6 text-blue-600" /></div>
+          <h3 className="font-bold text-xl text-slate-900">Data Storage</h3>
+        </div>
+        <ul className="space-y-4">
+          <li className="flex items-start group">
+            <div className="mt-1 mr-3 p-1 bg-emerald-100 rounded-full"><Check className="w-3 h-3 text-emerald-700"/></div>
+            <div>
+              <strong className="block text-slate-900 text-sm">🇪🇺 EU Data Centers</strong>
+              <span className="text-sm text-slate-500">All data resides in Frankfurt (AWS eu-central-1).</span>
+            </div>
+          </li>
+          <li className="flex items-start group">
+            <div className="mt-1 mr-3 p-1 bg-emerald-100 rounded-full"><Check className="w-3 h-3 text-emerald-700"/></div>
+            <div>
+              <strong className="block text-slate-900 text-sm">🔒 Military-grade Encryption</strong>
+              <span className="text-sm text-slate-500">AES-256 at rest and TLS 1.3 in transit.</span>
+            </div>
+          </li>
+        </ul>
+      </div>
+
+      <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition">
+        <div className="flex items-center mb-6">
+           <div className="p-3 bg-purple-50 rounded-xl mr-4"><Lock className="w-6 h-6 text-purple-600" /></div>
+          <h3 className="font-bold text-xl text-slate-900">Cookies & Tracking</h3>
+        </div>
+        <ul className="space-y-4">
+          <li className="flex items-start group">
+            <div className="mt-1 mr-3 p-1 bg-emerald-100 rounded-full"><Check className="w-3 h-3 text-emerald-700"/></div>
+            <div>
+              <strong className="block text-slate-900 text-sm">🍪 Essential Only</strong>
+              <span className="text-sm text-slate-500">We only store a session token for security functionality.</span>
+            </div>
+          </li>
+          <li className="flex items-start group">
+            <div className="mt-1 mr-3 p-1 bg-emerald-100 rounded-full"><Check className="w-3 h-3 text-emerald-700"/></div>
+            <div>
+              <strong className="block text-slate-900 text-sm">🚫 Zero Tracking</strong>
+              <span className="text-sm text-slate-500">No Google Analytics, Facebook Pixels, or ad trackers.</span>
+            </div>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    {/* Your Rights */}
+    <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-lg border border-slate-100 mt-8">
+      <h3 className="text-xl font-bold text-slate-900 mb-6 border-b border-slate-100 pb-4">Your Rights under GDPR</h3>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+        <div>
+          <h4 className="font-bold text-slate-800 mb-2 flex items-center"><div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>Right to Access</h4>
+          <p className="text-sm text-slate-500 leading-relaxed">You can export all your raw event data as JSON anytime directly from the dashboard.</p>
+        </div>
+        <div>
+          <h4 className="font-bold text-slate-800 mb-2 flex items-center"><div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>Right to Erasure</h4>
+          <p className="text-sm text-slate-500 leading-relaxed">
+            "Right to be forgotten". To permanently delete your data, please contact our Data Protection Officer at: 
+            <a href="mailto:hazarnodesweden@outlook.com" className="block mt-1 text-blue-600 font-medium hover:underline">
+              hazarnodesweden@outlook.com
+            </a>
+          </p>
+        </div>
+        <div>
+          <h4 className="font-bold text-slate-800 mb-2 flex items-center"><div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>Data Portability</h4>
+          <p className="text-sm text-slate-500 leading-relaxed">Move your audit trail to another provider easily using our standard export format.</p>
+        </div>
+      </div>
+
+      {/* Contact Information Section */}
+      <div className="mt-8 pt-6 border-t border-slate-100">
+        <h4 className="font-bold text-slate-800 mb-4">Contact Information</h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="bg-slate-50 p-4 rounded-lg">
+            <h5 className="font-semibold text-slate-700 mb-2">Data Protection Officer</h5>
+            <a href="mailto:hazarnodesweden@outlook.com" className="text-blue-600 hover:underline">
+              hazarnodesweden@outlook.com
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div className="text-center pt-8 pb-4">
+      <button onClick={() => setActiveTab('dashboard')} className="text-blue-600 font-semibold hover:text-blue-700 transition flex items-center justify-center mx-auto">
+        ← Back to Dashboard
+      </button>
+    </div>
+  </div>
+);
+
 function App() {
   const [activeTab, setActiveTab] = useState('pricing');
   const [processor, setProcessor] = useState(null);
@@ -480,6 +481,7 @@ function App() {
     });
   }, []);
 
+  // Använd din gamla apiCall-funktion som fungerade
   const apiCall = async (endpoint, options = {}) => {
     const config = {
       headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, ...options.headers },
@@ -499,6 +501,7 @@ function App() {
     }
   };
 
+  // Använd din gamla fetchDashboard som fungerade
   const fetchDashboard = async () => {
     if (!apiKey) return;
     setIsLoading(true);
@@ -509,21 +512,16 @@ function App() {
       localStorage.setItem('auditorProcessor', JSON.stringify(data.processor));
       localStorage.setItem('auditorApiKey', apiKey);
     } catch (error) {
-      alert('Failed to access dashboard. Please check your API Key.');
+      alert('Failed to access dashboard. Check API Key.');
     } finally {
       setIsLoading(false);
     }
   };
 
+  // Använd din gamla logEvent som fungerade
   const logEvent = async (e) => {
     e.preventDefault();
-    if (!cookiesAccepted) {
-      alert('❌ Please accept cookies to log events');
-      setShowCookieBanner(true);
-      return;
-    }
     if (!apiKey) return alert('❌ API Key required');
-    
     setIsLoading(true);
     try {
       let hashedId = null;
@@ -534,7 +532,7 @@ function App() {
         method: 'POST',
         body: { ...eventData, event_data: JSON.parse(eventData.event_data || '{}'), user_identifier: hashedId }
       });
-      alert('✅ Event logged successfully!');
+      alert('✅ Event logged!');
       fetchDashboard();
       setEventData({ event_type: '', event_data: '{}', user_identifier: '' });
     } catch (error) {
