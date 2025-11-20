@@ -56,8 +56,8 @@ app.use(helmet({
 // Production CORS settings
 app.use(cors({
   origin: isProduction ? [
-    'https://agent-691d875ca930053f9b-dreamy-banoffee-1603b3.netlify.app', // ← DIN NETLIFY DOMÄN
-    'https://*.netlify.app' // ← ALLA NETLIFY SUBDOMÄNER
+    /https:\/\/.*\.netlify\.app$/, // Regex för att tillåta alla Netlify-adresser
+    'https://auditor-veritas-mvp.onrender.com'
   ] : ['http://localhost:3000', 'http://localhost:5173'],
   credentials: true
 }));
@@ -67,7 +67,7 @@ app.use(express.json({ limit: '10mb' }));
 // Production Rate Limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: isProduction ? 100 : 1000, // Stricter limits in production
+  max: 1000, // Generös gräns för API-anrop
   message: {
     error: 'Too many requests from this IP, please try again later.',
     code: 'RATE_LIMIT_EXCEEDED'
@@ -123,20 +123,20 @@ const authenticateApiKey = async (req, res, next) => {
   }
 };
 
-// PRICING CONFIGURATION
+// PRICING CONFIGURATION - UPPDATERADE GRÄNSER
 const PRICING_PLANS = {
   starter: { 
-    events: 10000, 
+    events: 100,  // Sänkt till 100
     price: 0,
     features: ['Basic Audit Trail', 'GDPR Compliance', 'Email Support']
   },
   professional: { 
-    events: 100000, 
+    events: 5000, 
     price: 49,
     features: ['Advanced Analytics', 'Bulk Import', 'Priority Support', 'Custom Events']
   },
   enterprise: { 
-    events: 1000000, 
+    events: 50000, 
     price: 199,
     features: ['Everything in Professional', 'Dedicated Support', 'SLA Guarantee', 'Custom Integrations']
   }
@@ -500,7 +500,7 @@ app.post('/api/events', authenticateApiKey, async (req, res) => {
   }
 });
 
-// Bulk Event Import for Enterprise
+// Bulk Event Import for Enterprise (UPPDATERAD MED FEATURE GATING)
 app.post('/api/events/bulk', authenticateApiKey, async (req, res) => {
   try {
     const { events } = req.body;
@@ -520,11 +520,11 @@ app.post('/api/events/bulk', authenticateApiKey, async (req, res) => {
       });
     }
 
-    // Check if plan supports bulk import
+    // --- FEATURE GATING: Blockera Starter ---
     if (processor.plan === 'starter') {
       return res.status(403).json({
         error: 'Bulk import requires Professional or Enterprise plan',
-        code: 'PLAN_LIMITATION',
+        code: 'UPGRADE_REQUIRED',
         upgradeUrl: '/api/pricing'
       });
     }
@@ -874,11 +874,12 @@ app.use('*', (req, res) => {
   });
 });
 
-app.listen(PORT, () => {
+// --- VIKTIGT: FIX FÖR RENDER ---
+// Måste lyssna på 0.0.0.0, inte bara localhost
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`\n🚀 AUDITOR VERITAS ${isProduction ? 'PRODUCTION' : 'DEVELOPMENT'} BACKEND`);
-  console.log(`📍 Server running on 0.0.0.0:${PORT}`); // Bra för loggarna
+  console.log(`📍 Server running on 0.0.0.0:${PORT}`);
   console.log(`💰 Pricing: Starter (Free) → Professional ($49) → Enterprise ($199)`);
-  // ... behåll resten av dina console.logs
   console.log(`🔒 GDPR Compliant • EU Data Centers • Ready for Production`);
   console.log(`\n📊 Business Endpoints:`);
   console.log(`   GET    /api/health          - System health & revenue metrics`);
