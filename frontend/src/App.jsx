@@ -118,17 +118,91 @@ const LockScreen = ({ onUnlock }) => (
   </div>
 );
 
+// --- COOKIE WALL COMPONENT ---
+const CookieWall = ({ onAccept }) => (
+  <div className="fixed inset-0 z-[10000] bg-slate-900/95 backdrop-blur-md flex items-center justify-center p-4">
+    <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full p-8 text-center animate-in zoom-in duration-500">
+      <div className="bg-blue-50 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6">
+        <ShieldCheck className="w-10 h-10 text-blue-600" />
+      </div>
+      
+      <h1 className="text-3xl font-extrabold text-slate-900 mb-4">Privacy & Security Required</h1>
+      
+      <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 mb-6 text-left">
+        <h3 className="font-bold text-amber-800 mb-3 flex items-center">
+          <AlertTriangle className="w-5 h-5 mr-2" />
+          Mandatory Cookie Acceptance
+        </h3>
+        <p className="text-amber-700 text-sm mb-4">
+          To ensure GDPR compliance and the security of your audit data, you must accept our essential cookies before accessing any features.
+        </p>
+        <ul className="text-amber-600 text-sm space-y-2">
+          <li className="flex items-start">
+            <Check className="w-4 h-4 mr-2 mt-0.5 text-amber-600" />
+            <span>Session security tokens for encrypted communications</span>
+          </li>
+          <li className="flex items-start">
+            <Check className="w-4 h-4 mr-2 mt-0.5 text-amber-600" />
+            <span>Local storage of API keys for your convenience</span>
+          </li>
+          <li className="flex items-start">
+            <Check className="w-4 h-4 mr-2 mt-0.5 text-amber-600" />
+            <span>No tracking cookies or third-party analytics</span>
+          </li>
+        </ul>
+      </div>
+
+      <p className="text-slate-600 mb-6 leading-relaxed">
+        Auditor Veritas processes sensitive audit data that requires strict security measures. 
+        Essential cookies are mandatory to maintain the integrity and confidentiality of your information.
+      </p>
+
+      <div className="space-y-4">
+        <button 
+          onClick={onAccept}
+          className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-blue-700 transition shadow-lg hover:shadow-blue-600/30 transform hover:-translate-y-0.5"
+        >
+          Accept & Continue Securely
+        </button>
+        
+        <p className="text-xs text-slate-500">
+          By continuing, you agree to our <span className="font-semibold">Privacy Policy</span> and the use of essential security cookies.
+        </p>
+      </div>
+    </div>
+  </div>
+);
+
+// --- LOCKED FEATURE COMPONENT ---
+const LockedFeature = ({ title, message }) => (
+  <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
+    <div className="bg-slate-100 w-16 h-16 rounded-2xl flex items-center justify-center mb-4">
+      <Lock className="w-8 h-8 text-slate-400" />
+    </div>
+    <h3 className="text-xl font-bold text-slate-700 mb-2">{title}</h3>
+    <p className="text-slate-500 max-w-md">{message}</p>
+  </div>
+);
+
 // --- UI KOMPONENTER ---
 
-const Navbar = ({ activeTab, setActiveTab }) => {
+const Navbar = ({ activeTab, setActiveTab, cookiesAccepted }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const menuItems = ['Pricing', 'HowItWorks', 'Dashboard', 'Create', 'Events', 'Privacy'];
+
+  const handleTabClick = (tab) => {
+    if (!cookiesAccepted && tab !== 'privacy') {
+      return; // Block all tabs except privacy if cookies not accepted
+    }
+    setActiveTab(tab);
+    setMobileMenuOpen(false);
+  };
 
   return (
     <header className="bg-gradient-to-r from-blue-800 to-indigo-900 text-white sticky top-0 z-50 shadow-lg border-b border-blue-700/50">
       <div className="container mx-auto px-4 sm:px-6 py-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3 cursor-pointer hover:opacity-90 transition" onClick={() => { setActiveTab('pricing'); setMobileMenuOpen(false); }}>
+          <div className="flex items-center space-x-3 cursor-pointer hover:opacity-90 transition" onClick={() => handleTabClick('pricing')}>
             <div className="bg-white/10 p-2 rounded-lg">
               <ShieldCheck className="w-6 h-6 text-emerald-400" />
             </div>
@@ -138,19 +212,26 @@ const Navbar = ({ activeTab, setActiveTab }) => {
             </div>
           </div>
           <nav className="hidden lg:flex space-x-1">
-            {menuItems.map((item) => (
-              <button
-                key={item}
-                onClick={() => setActiveTab(item.toLowerCase())}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                  activeTab === item.toLowerCase() 
-                    ? 'bg-white/10 text-white shadow-sm backdrop-blur-sm' 
-                    : 'text-blue-100 hover:bg-white/5 hover:text-white'
-                }`}
-              >
-                {item === 'HowItWorks' ? 'How It Works' : item}
-              </button>
-            ))}
+            {menuItems.map((item) => {
+              const tab = item.toLowerCase();
+              const isDisabled = !cookiesAccepted && tab !== 'privacy';
+              return (
+                <button
+                  key={item}
+                  onClick={() => handleTabClick(tab)}
+                  disabled={isDisabled}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                    activeTab === tab 
+                      ? 'bg-white/10 text-white shadow-sm backdrop-blur-sm' 
+                      : isDisabled
+                      ? 'text-blue-300 opacity-50 cursor-not-allowed'
+                      : 'text-blue-100 hover:bg-white/5 hover:text-white'
+                  }`}
+                >
+                  {item === 'HowItWorks' ? 'How It Works' : item}
+                </button>
+              );
+            })}
           </nav>
           <button 
             className="lg:hidden p-2 rounded-lg bg-white/10 hover:bg-white/20 transition"
@@ -162,19 +243,26 @@ const Navbar = ({ activeTab, setActiveTab }) => {
         {mobileMenuOpen && (
           <div className="lg:hidden mt-4 pb-4 border-t border-blue-700/50 pt-4 animate-in fade-in slide-in-from-top-2">
             <nav className="flex flex-col space-y-2">
-              {menuItems.map((item) => (
-                <button
-                  key={item}
-                  onClick={() => { setActiveTab(item.toLowerCase()); setMobileMenuOpen(false); }}
-                  className={`px-4 py-3 rounded-lg text-left font-medium transition-all duration-200 ${
-                    activeTab === item.toLowerCase() 
-                      ? 'bg-white/10 text-white' 
-                      : 'text-blue-100 hover:bg-white/5'
-                  }`}
-                >
-                  {item === 'HowItWorks' ? 'How It Works' : item}
-                </button>
-              ))}
+              {menuItems.map((item) => {
+                const tab = item.toLowerCase();
+                const isDisabled = !cookiesAccepted && tab !== 'privacy';
+                return (
+                  <button
+                    key={item}
+                    onClick={() => handleTabClick(tab)}
+                    disabled={isDisabled}
+                    className={`px-4 py-3 rounded-lg text-left font-medium transition-all duration-200 ${
+                      activeTab === tab 
+                        ? 'bg-white/10 text-white' 
+                        : isDisabled
+                        ? 'text-blue-300 opacity-50 cursor-not-allowed'
+                        : 'text-blue-100 hover:bg-white/5'
+                    }`}
+                  >
+                    {item === 'HowItWorks' ? 'How It Works' : item}
+                  </button>
+                );
+              })}
             </nav>
           </div>
         )}
@@ -184,7 +272,7 @@ const Navbar = ({ activeTab, setActiveTab }) => {
 };
 
 // --- INTERACTIVE HOW IT WORKS ---
-const HowItWorks = ({ setActiveTab }) => {
+const HowItWorks = ({ setActiveTab, cookiesAccepted }) => {
   const [activeStep, setActiveStep] = useState(0);
   const [terminalOutput, setTerminalOutput] = useState(null);
   const [isSimulating, setIsSimulating] = useState(false);
@@ -198,6 +286,7 @@ const HowItWorks = ({ setActiveTab }) => {
   const [isTampering, setIsTampering] = useState(false);
 
   const simulateApiCall = () => {
+    if (!cookiesAccepted) return;
     setIsSimulating(true);
     setTerminalOutput(null);
     setTimeout(() => {
@@ -207,7 +296,7 @@ const HowItWorks = ({ setActiveTab }) => {
   };
 
   const simulateTamper = () => {
-    if (isTampering) return;
+    if (!cookiesAccepted || isTampering) return;
     
     setIsTampering(true);
     
@@ -296,6 +385,15 @@ const HowItWorks = ({ setActiveTab }) => {
   ];
 
   const renderVisualization = () => {
+    if (!cookiesAccepted) {
+      return (
+        <LockedFeature 
+          title="Feature Locked" 
+          message="Accept cookies to unlock interactive demonstrations and explore how our security features work."
+        />
+      );
+    }
+
     switch(steps[activeStep].visual) {
       case 'key':
         return (
@@ -464,7 +562,15 @@ const HowItWorks = ({ setActiveTab }) => {
                 </li>
               ))}
             </ul>
-            <button onClick={() => setActiveTab(steps[activeStep].action)} className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-700 transition">
+            <button 
+              onClick={() => setActiveTab(steps[activeStep].action)} 
+              disabled={!cookiesAccepted}
+              className={`px-6 py-2 rounded-lg font-bold transition ${
+                cookiesAccepted 
+                  ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                  : 'bg-slate-300 text-slate-500 cursor-not-allowed'
+              }`}
+            >
               {steps[activeStep].actionText} →
             </button>
           </div>
@@ -475,63 +581,74 @@ const HowItWorks = ({ setActiveTab }) => {
   );
 };
 
-const StatsCards = ({ stats, processor }) => (
-  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8">
-    <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-slate-100 hover:shadow-md transition duration-300 group">
-      <div className="flex items-center mb-4">
-        <div className="p-2 bg-blue-50 rounded-lg group-hover:bg-blue-100 transition">
-          <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
-        </div>
-        <h3 className="ml-3 text-sm font-semibold text-slate-600 uppercase tracking-wide">Monthly Usage</h3>
+const StatsCards = ({ stats, processor, cookiesAccepted }) => {
+  if (!cookiesAccepted) {
+    return (
+      <div className="bg-white rounded-2xl shadow-sm p-8 border border-slate-100 text-center">
+        <LockedFeature 
+          title="Dashboard Locked" 
+          message="Accept cookies to access your dashboard statistics and usage analytics."
+        />
       </div>
-      <div className="flex justify-between items-end mb-3">
-        <div className="text-2xl sm:text-3xl font-bold text-slate-900">{stats.monthlyEvents}</div>
-        <div className="text-sm text-slate-500 font-medium">of {stats.eventsLimit}</div>
-      </div>
-      <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-        <div className="bg-blue-600 h-2 rounded-full transition-all duration-500" style={{ width: stats.utilization }}></div>
-      </div>
-    </div>
-    
-    <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-slate-100 hover:shadow-md transition duration-300 group">
-      <div className="flex items-center mb-4">
-        <div className="p-2 bg-amber-50 rounded-lg group-hover:bg-amber-100 transition">
-          <Zap className="w-5 h-5 sm:w-6 sm:h-6 text-amber-500" />
-        </div>
-        <h3 className="ml-3 text-sm font-semibold text-slate-600 uppercase tracking-wide">Plan Status</h3>
-      </div>
-      <div className="text-2xl sm:text-3xl font-bold text-slate-900 capitalize mb-1">{processor?.plan || 'Inactive'}</div>
-      <div className="text-sm text-emerald-600 font-medium flex items-center">
-        <Check className="w-4 h-4 mr-1" /> Active subscription
-      </div>
-    </div>
+    );
+  }
 
-    <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-slate-100 hover:shadow-md transition duration-300 group">
-      <div className="flex items-center mb-4">
-        <div className="p-2 bg-purple-50 rounded-lg group-hover:bg-purple-100 transition">
-          <BarChart3 className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600" />
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8">
+      <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-slate-100 hover:shadow-md transition duration-300 group">
+        <div className="flex items-center mb-4">
+          <div className="p-2 bg-blue-50 rounded-lg group-hover:bg-blue-100 transition">
+            <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
+          </div>
+          <h3 className="ml-3 text-sm font-semibold text-slate-600 uppercase tracking-wide">Monthly Usage</h3>
         </div>
-        <h3 className="ml-3 text-sm font-semibold text-slate-600 uppercase tracking-wide">Total Events</h3>
+        <div className="flex justify-between items-end mb-3">
+          <div className="text-2xl sm:text-3xl font-bold text-slate-900">{stats.monthlyEvents}</div>
+          <div className="text-sm text-slate-500 font-medium">of {stats.eventsLimit}</div>
+        </div>
+        <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+          <div className="bg-blue-600 h-2 rounded-full transition-all duration-500" style={{ width: stats.utilization }}></div>
+        </div>
       </div>
-      <div className="text-2xl sm:text-3xl font-bold text-slate-900 mb-1">{stats.totalEvents}</div>
-      <div className="text-sm text-slate-500 font-medium">All time record</div>
-    </div>
-  </div>
-);
+      
+      <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-slate-100 hover:shadow-md transition duration-300 group">
+        <div className="flex items-center mb-4">
+          <div className="p-2 bg-amber-50 rounded-lg group-hover:bg-amber-100 transition">
+            <Zap className="w-5 h-5 sm:w-6 sm:h-6 text-amber-500" />
+          </div>
+          <h3 className="ml-3 text-sm font-semibold text-slate-600 uppercase tracking-wide">Plan Status</h3>
+        </div>
+        <div className="text-2xl sm:text-3xl font-bold text-slate-900 capitalize mb-1">{processor?.plan || 'Inactive'}</div>
+        <div className="text-sm text-emerald-600 font-medium flex items-center">
+          <Check className="w-4 h-4 mr-1" /> Active subscription
+        </div>
+      </div>
 
-const LockedFeature = ({ title, desc, setActiveTab }) => (
-  <div className="bg-slate-50/50 rounded-xl p-6 border border-dashed border-slate-300 flex flex-col items-center justify-center text-center h-full hover:bg-slate-50 transition">
-    <div className="bg-slate-200 p-3 rounded-full mb-4">
-      <Lock className="w-6 h-6 text-slate-500" />
+      <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-slate-100 hover:shadow-md transition duration-300 group">
+        <div className="flex items-center mb-4">
+          <div className="p-2 bg-purple-50 rounded-lg group-hover:bg-purple-100 transition">
+            <BarChart3 className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600" />
+          </div>
+          <h3 className="ml-3 text-sm font-semibold text-slate-600 uppercase tracking-wide">Total Events</h3>
+        </div>
+        <div className="text-2xl sm:text-3xl font-bold text-slate-900 mb-1">{stats.totalEvents}</div>
+        <div className="text-sm text-slate-500 font-medium">All time record</div>
+      </div>
     </div>
-    <h3 className="text-lg font-bold text-slate-800 mb-2">{title}</h3>
-    <p className="text-sm text-slate-500 mb-6 max-w-xs leading-relaxed">{desc}</p>
-    <button 
-      onClick={() => setActiveTab('pricing')} 
-      className="text-sm bg-white border border-slate-200 px-4 py-2 rounded-lg font-semibold text-blue-600 hover:border-blue-200 hover:bg-blue-50 transition shadow-sm"
-    >
-      Upgrade to Unlock
-    </button>
+  );
+};
+
+const FeatureCard = ({ title, desc, setActiveTab, cookiesAccepted, children }) => (
+  <div className={`bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-slate-100 ${!cookiesAccepted ? 'opacity-90' : ''}`}>
+    <div className="flex justify-between items-center mb-4 sm:mb-6">
+      <h3 className="text-lg font-bold text-slate-900">{title}</h3>
+      {cookiesAccepted && <span className="bg-emerald-100 text-emerald-700 text-[10px] uppercase font-bold px-2 py-1 rounded-md tracking-wide">Active</span>}
+    </div>
+    {!cookiesAccepted ? (
+      <LockedFeature title={`${title} Locked`} desc={desc} />
+    ) : (
+      children
+    )}
   </div>
 );
 
@@ -543,11 +660,11 @@ const PrivacyPolicy = ({ setActiveTab, cookiesAccepted, setShowCookieBanner }) =
       <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 text-center shadow-sm">
         <div className="flex items-center justify-center mb-3">
           <Lock className="w-6 h-6 text-amber-600 mr-2" />
-          <h3 className="text-lg font-bold text-amber-800">Privacy Policy Limited Access</h3>
+          <h3 className="text-lg font-bold text-amber-800">Accept Cookies to Continue</h3>
         </div>
-        <p className="text-amber-700 mb-4">Please accept cookies to view the complete Privacy Policy context.</p>
+        <p className="text-amber-700 mb-4">You must accept our essential security cookies to access all features of Auditor Veritas.</p>
         <button onClick={() => setShowCookieBanner(true)} className="bg-amber-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-amber-700 transition shadow-sm">
-          Open Cookie Settings
+          Accept Cookies Now
         </button>
       </div>
     )}
@@ -685,16 +802,18 @@ const PrivacyPolicy = ({ setActiveTab, cookiesAccepted, setShowCookieBanner }) =
       </div>
     </div>
 
-    <div className="text-center pt-8 pb-4">
-      <button onClick={() => setActiveTab('dashboard')} className="text-blue-600 font-semibold hover:text-blue-700 transition flex items-center justify-center mx-auto">
-        ← Back to Dashboard
-      </button>
-    </div>
+    {!cookiesAccepted && (
+      <div className="text-center pt-8">
+        <button onClick={() => setShowCookieBanner(true)} className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700 transition">
+          Accept Cookies to Unlock All Features
+        </button>
+      </div>
+    )}
   </div>
 );
 
 function App() {
-  const [activeTab, setActiveTab] = useState('pricing');
+  const [activeTab, setActiveTab] = useState('privacy'); // Start with privacy tab
   const [processor, setProcessor] = useState(null);
   const [events, setEvents] = useState([]);
   const [apiKey, setApiKey] = useState('');
@@ -702,21 +821,28 @@ function App() {
   const [stats, setStats] = useState({ totalEvents: 0, monthlyEvents: 0, eventsLimit: 100, utilization: '0%' });
   const [pricingPlans, setPricingPlans] = useState({});
   const [isLoading, setIsLoading] = useState(false);
-  const [showCookieBanner, setShowCookieBanner] = useState(true);
+  const [showCookieBanner, setShowCookieBanner] = useState(false);
   const [cookiesAccepted, setCookiesAccepted] = useState(false);
   
-  const { isLocked, setIsLocked } = useInactivityTimer(300000, !!processor);
+  const { isLocked, setIsLocked } = useInactivityTimer(300000, !!processor && cookiesAccepted);
   useSecurityProtections();
 
   useEffect(() => {
     const savedCookies = localStorage.getItem('cookiesAccepted');
     const savedApiKey = localStorage.getItem('auditorApiKey');
-    if (savedCookies === 'true') { 
-      setCookiesAccepted(true); 
-      setShowCookieBanner(false); 
-      setActiveTab('pricing');
+    
+    if (savedCookies === 'true') {
+      setCookiesAccepted(true);
+      setShowCookieBanner(false);
+      setActiveTab('pricing'); // Switch to pricing after accepting
+    } else {
+      // Show cookie wall immediately if not accepted
+      setShowCookieBanner(true);
     }
-    if (savedApiKey) setApiKey(savedApiKey);
+
+    if (savedApiKey) {
+      setApiKey(savedApiKey);
+    }
 
     setPricingPlans({
       starter: { 
@@ -741,8 +867,19 @@ function App() {
     });
   }, []);
 
+  const handleAcceptCookies = () => {
+    setCookiesAccepted(true);
+    setShowCookieBanner(false);
+    localStorage.setItem('cookiesAccepted', 'true');
+    setActiveTab('pricing'); // Redirect to pricing after acceptance
+  };
+
   // --- SÄKER API-HANTERING ---
   const apiCall = async (endpoint, options = {}) => {
+    if (!cookiesAccepted) {
+      throw new Error('Cookies must be accepted to use API features');
+    }
+
     const config = { 
       headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, ...options.headers }, 
       ...options 
@@ -767,7 +904,7 @@ function App() {
   };
 
   const fetchDashboard = async () => {
-    if (!apiKey) return;
+    if (!apiKey || !cookiesAccepted) return;
     setIsLoading(true);
     try {
       const data = await apiCall('/api/dashboard');
@@ -785,8 +922,8 @@ function App() {
   const logEvent = async (e) => {
     e.preventDefault();
     if (!cookiesAccepted) { 
-      alert('❌ Please accept cookies first'); 
-      setShowCookieBanner(true); 
+      alert('❌ You must accept cookies before logging events'); 
+      setShowCookieBanner(true);
       return; 
     }
     if (!apiKey) return alert('❌ API Key required');
@@ -814,6 +951,11 @@ function App() {
     }
   };
 
+  // Show cookie wall if not accepted
+  if (!cookiesAccepted && showCookieBanner) {
+    return <CookieWall onAccept={handleAcceptCookies} />;
+  }
+
   if (isLocked && processor) {
     return <LockScreen onUnlock={() => setIsLocked(false)} />;
   }
@@ -821,7 +963,7 @@ function App() {
   return (
     <div className="min-h-screen bg-slate-50 font-sans flex flex-col">
       {processor && <SecurityWatermark identifier={processor.email || processor.companyName} />}
-      <Navbar activeTab={activeTab} setActiveTab={setActiveTab} />
+      <Navbar activeTab={activeTab} setActiveTab={setActiveTab} cookiesAccepted={cookiesAccepted} />
 
       <main className="container mx-auto px-4 sm:px-6 py-6 sm:py-8 max-w-6xl flex-grow z-10">
         {activeTab === 'pricing' && (
@@ -855,11 +997,14 @@ function App() {
                     ))}
                   </ul>
                   <button 
-                    onClick={() => setActiveTab('create')}
+                    onClick={() => cookiesAccepted && setActiveTab('create')}
+                    disabled={!cookiesAccepted}
                     className={`w-full py-3 sm:py-3.5 rounded-xl font-bold transition-all duration-200 shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 ${
-                      plan.featured 
-                        ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700' 
-                        : 'bg-slate-100 text-slate-800 hover:bg-slate-200'
+                      cookiesAccepted
+                        ? plan.featured 
+                          ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700' 
+                          : 'bg-slate-100 text-slate-800 hover:bg-slate-200'
+                        : 'bg-slate-300 text-slate-500 cursor-not-allowed'
                     }`}
                   >
                     {key === 'starter' ? 'Start for Free' : `Choose ${plan.name}`}
@@ -870,7 +1015,7 @@ function App() {
           </div>
         )}
 
-        {activeTab === 'howitworks' && <HowItWorks setActiveTab={setActiveTab} />}
+        {activeTab === 'howitworks' && <HowItWorks setActiveTab={setActiveTab} cookiesAccepted={cookiesAccepted} />}
 
         {activeTab === 'dashboard' && (
           <div className="animate-in px-4 sm:px-0">
@@ -892,15 +1037,23 @@ function App() {
                 />
                 <button 
                   onClick={fetchDashboard} 
-                  disabled={isLoading}
-                  className="w-full bg-blue-600 text-white py-3 sm:py-4 rounded-xl font-bold hover:bg-blue-700 transition flex items-center justify-center shadow-md hover:shadow-lg"
+                  disabled={isLoading || !cookiesAccepted}
+                  className={`w-full py-3 sm:py-4 rounded-xl font-bold transition flex items-center justify-center shadow-md hover:shadow-lg ${
+                    cookiesAccepted
+                      ? 'bg-blue-600 text-white hover:bg-blue-700'
+                      : 'bg-slate-300 text-slate-500 cursor-not-allowed'
+                  }`}
                 >
                   {isLoading ? (
                     <span className="flex items-center">
                       <div className="animate-spin mr-2 h-4 w-4 border-2 border-b-0 border-white rounded-full"></div>
                       Connecting...
                     </span>
-                  ) : 'Access Dashboard'}
+                  ) : cookiesAccepted ? (
+                    'Access Dashboard'
+                  ) : (
+                    'Accept Cookies to Access'
+                  )}
                 </button>
               </div>
             ) : (
@@ -923,63 +1076,35 @@ function App() {
                   </div>
                 </div>
 
-                <StatsCards stats={stats} processor={processor} />
+                <StatsCards stats={stats} processor={processor} cookiesAccepted={cookiesAccepted} />
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-                  <div className={`bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-slate-100 ${processor.plan === 'starter' ? 'opacity-90' : ''}`}>
-                    <div className="flex justify-between items-center mb-4 sm:mb-6">
-                      <h3 className="text-lg font-bold text-slate-900 flex items-center">
-                        <BarChart3 className="w-5 h-5 mr-2 text-blue-600"/> 
-                        Advanced Analytics
-                      </h3>
-                      {processor.plan !== 'starter' && (
-                        <span className="bg-emerald-100 text-emerald-700 text-[10px] uppercase font-bold px-2 py-1 rounded-md tracking-wide">
-                          Active
-                        </span>
-                      )}
+                  <FeatureCard 
+                    title="Advanced Analytics" 
+                    desc="Upgrade to Professional to see detailed usage trends, geo-maps and interaction insights."
+                    setActiveTab={setActiveTab}
+                    cookiesAccepted={cookiesAccepted}
+                  >
+                    <div className="h-32 sm:h-48 bg-blue-50/50 rounded-xl flex flex-col items-center justify-center text-blue-400 border border-blue-100">
+                      <BarChart3 className="w-12 h-12 sm:w-16 sm:h-16 opacity-20 mb-2" />
+                      <span className="text-sm font-medium text-blue-300">Interactive Charts Active</span>
                     </div>
-                    {processor.plan === 'starter' ? (
-                      <LockedFeature 
-                        title="Analytics Locked" 
-                        desc="Upgrade to Professional to see detailed usage trends, geo-maps and interaction insights." 
-                        setActiveTab={setActiveTab} 
-                      />
-                    ) : (
-                      <div className="h-32 sm:h-48 bg-blue-50/50 rounded-xl flex flex-col items-center justify-center text-blue-400 border border-blue-100">
-                        <BarChart3 className="w-12 h-12 sm:w-16 sm:h-16 opacity-20 mb-2" />
-                        <span className="text-sm font-medium text-blue-300">Interactive Charts Active</span>
-                      </div>
-                    )}
-                  </div>
+                  </FeatureCard>
 
-                  <div className={`bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-slate-100 ${processor.plan === 'starter' ? 'opacity-90' : ''}`}>
-                    <div className="flex justify-between items-center mb-4 sm:mb-6">
-                      <h3 className="text-lg font-bold text-slate-900 flex items-center">
-                        <PlusCircle className="w-5 h-5 mr-2 text-indigo-600"/> 
-                        Bulk Operations
-                      </h3>
-                      {processor.plan !== 'starter' && (
-                        <span className="bg-emerald-100 text-emerald-700 text-[10px] uppercase font-bold px-2 py-1 rounded-md tracking-wide">
-                          Active
-                        </span>
-                      )}
-                    </div>
-                    {processor.plan === 'starter' ? (
-                      <LockedFeature 
-                        title="Bulk Import Locked" 
-                        desc="Process large historical datasets by uploading CSV or JSON files directly." 
-                        setActiveTab={setActiveTab} 
-                      />
-                    ) : (
-                      <div className="h-32 sm:h-48 border-2 border-dashed border-indigo-200 rounded-xl flex flex-col items-center justify-center text-indigo-400 hover:bg-indigo-50 hover:border-indigo-300 cursor-pointer transition bg-indigo-50/30">
-                        <div className="bg-white p-2 sm:p-3 rounded-full shadow-sm mb-2 sm:mb-3">
-                          <PlusCircle className="w-6 h-6 sm:w-8 sm:h-8 text-indigo-500" />
-                        </div>
-                        <span className="font-medium text-sm sm:text-base">Drop CSV file here</span>
-                        <span className="text-xs mt-1 opacity-70">or click to browse</span>
+                  <FeatureCard 
+                    title="Bulk Operations" 
+                    desc="Process large historical datasets by uploading CSV or JSON files directly."
+                    setActiveTab={setActiveTab}
+                    cookiesAccepted={cookiesAccepted}
+                  >
+                    <div className="h-32 sm:h-48 border-2 border-dashed border-indigo-200 rounded-xl flex flex-col items-center justify-center text-indigo-400 hover:bg-indigo-50 hover:border-indigo-300 cursor-pointer transition bg-indigo-50/30">
+                      <div className="bg-white p-2 sm:p-3 rounded-full shadow-sm mb-2 sm:mb-3">
+                        <PlusCircle className="w-6 h-6 sm:w-8 sm:h-8 text-indigo-500" />
                       </div>
-                    )}
-                  </div>
+                      <span className="font-medium text-sm sm:text-base">Drop CSV file here</span>
+                      <span className="text-xs mt-1 opacity-70">or click to browse</span>
+                    </div>
+                  </FeatureCard>
                 </div>
               </div>
             )}
@@ -988,90 +1113,114 @@ function App() {
 
         {activeTab === 'create' && (
           <div className="max-w-2xl mx-auto pt-4 sm:pt-6 animate-in px-4 sm:px-0">
-            <CreateProcessor />
+            {cookiesAccepted ? (
+              <CreateProcessor />
+            ) : (
+              <div className="bg-white rounded-2xl shadow-lg p-8 border border-slate-100 text-center">
+                <LockedFeature 
+                  title="Registration Locked" 
+                  message="You must accept cookies to create an account and get your API key."
+                />
+                <button 
+                  onClick={() => setShowCookieBanner(true)}
+                  className="mt-6 bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700 transition"
+                >
+                  Accept Cookies to Continue
+                </button>
+              </div>
+            )}
           </div>
         )}
 
         {activeTab === 'events' && (
           <div className="max-w-xl mx-auto bg-white rounded-2xl shadow-lg p-6 sm:p-8 border border-slate-100 mt-8 mb-8 animate-in px-4 sm:px-0">
-            <div className="flex items-center mb-8 pb-6 border-b border-slate-100">
-              <div className="p-3 bg-blue-50 rounded-xl mr-4">
-                <FileText className="w-7 h-7 text-blue-600"/> 
-              </div>
-              <div>
-                <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">Log New Event</h2>
-                <p className="text-slate-500 text-sm mt-1">Manually record an audit event in your secure trail</p>
-              </div>
-            </div>
-            
-            <form onSubmit={logEvent} className="space-y-6">
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-3">Event Type</label>
-                <input 
-                  type="text" 
-                  className="w-full p-4 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition bg-white hover:border-slate-400" 
-                  placeholder="e.g. user_login, data_access, file_download" 
-                  value={eventData.event_type} 
-                  onChange={e => setEventData({...eventData, event_type: e.target.value})} 
-                  required 
-                />
-                <p className="text-xs text-slate-500 mt-2">Enter a descriptive event type for easy categorization</p>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-3">User Identifier</label>
-                <input 
-                  type="text" 
-                  className="w-full p-4 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition bg-white hover:border-slate-400" 
-                  placeholder="e.g. email@company.com, user123, employee_id" 
-                  value={eventData.user_identifier} 
-                  onChange={e => setEventData({...eventData, user_identifier: e.target.value})} 
-                />
-                <p className="text-xs text-slate-500 mt-2 flex items-center bg-blue-50 p-3 rounded-lg border border-blue-100">
-                  <ShieldCheck className="w-4 h-4 mr-2 text-blue-500"/> 
-                  User identifiers are automatically hashed with SHA-256 for privacy protection before storage
-                </p>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-3">Event Data (JSON)</label>
-                <textarea 
-                  className="w-full p-4 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none font-mono text-sm h-40 bg-white hover:border-slate-400 resize-vertical" 
-                  placeholder='{"action": "login", "ip_address": "192.168.1.1", "user_agent": "Mozilla/5.0..."}'
-                  value={eventData.event_data} 
-                  onChange={e => setEventData({...eventData, event_data: e.target.value})} 
-                  required 
-                />
-                <p className="text-xs text-slate-500 mt-2">Enter valid JSON with additional event details and metadata</p>
-              </div>
-              
-              <button 
-                type="submit" 
-                disabled={isLoading} 
-                className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:from-blue-700 hover:to-indigo-700 transition shadow-lg hover:shadow-blue-600/30 hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-              >
-                {isLoading ? (
-                  <span className="flex items-center justify-center">
-                    <div className="animate-spin mr-3 h-5 w-5 border-2 border-b-0 border-white rounded-full"></div>
-                    Processing Event...
-                  </span>
-                ) : (
-                  'Log Secure Event'
-                )}
-              </button>
-            </form>
-            
-            <div className="mt-6 p-4 bg-slate-50 rounded-xl border border-slate-200">
-              <h4 className="font-semibold text-slate-700 mb-2 flex items-center">
-                <Check className="w-4 h-4 mr-2 text-emerald-500" />
-                Event Successfully Logged When:
-              </h4>
-              <ul className="text-sm text-slate-600 space-y-1">
-                <li>• Event is encrypted and added to the immutable audit trail</li>
-                <li>• Hash chain is updated to maintain data integrity</li>
-                <li>• Real-time dashboard statistics are refreshed</li>
-              </ul>
-            </div>
+            {cookiesAccepted ? (
+              <>
+                <div className="flex items-center mb-8 pb-6 border-b border-slate-100">
+                  <div className="p-3 bg-blue-50 rounded-xl mr-4">
+                    <FileText className="w-7 h-7 text-blue-600"/> 
+                  </div>
+                  <div>
+                    <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">Log New Event</h2>
+                    <p className="text-slate-500 text-sm mt-1">Manually record an audit event in your secure trail</p>
+                  </div>
+                </div>
+                
+                <form onSubmit={logEvent} className="space-y-6">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-3">Event Type</label>
+                    <input 
+                      type="text" 
+                      className="w-full p-4 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition bg-white hover:border-slate-400" 
+                      placeholder="e.g. user_login, data_access, file_download" 
+                      value={eventData.event_type} 
+                      onChange={e => setEventData({...eventData, event_type: e.target.value})} 
+                      required 
+                    />
+                    <p className="text-xs text-slate-500 mt-2">Enter a descriptive event type for easy categorization</p>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-3">User Identifier</label>
+                    <input 
+                      type="text" 
+                      className="w-full p-4 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition bg-white hover:border-slate-400" 
+                      placeholder="e.g. email@company.com, user123, employee_id" 
+                      value={eventData.user_identifier} 
+                      onChange={e => setEventData({...eventData, user_identifier: e.target.value})} 
+                    />
+                    <p className="text-xs text-slate-500 mt-2 flex items-center bg-blue-50 p-3 rounded-lg border border-blue-100">
+                      <ShieldCheck className="w-4 h-4 mr-2 text-blue-500"/> 
+                      User identifiers are automatically hashed with SHA-256 for privacy protection before storage
+                    </p>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-3">Event Data (JSON)</label>
+                    <textarea 
+                      className="w-full p-4 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none font-mono text-sm h-40 bg-white hover:border-slate-400 resize-vertical" 
+                      placeholder='{"action": "login", "ip_address": "192.168.1.1", "user_agent": "Mozilla/5.0..."}'
+                      value={eventData.event_data} 
+                      onChange={e => setEventData({...eventData, event_data: e.target.value})} 
+                      required 
+                    />
+                    <p className="text-xs text-slate-500 mt-2">Enter valid JSON with additional event details and metadata</p>
+                  </div>
+                  
+                  <button 
+                    type="submit" 
+                    disabled={isLoading} 
+                    className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:from-blue-700 hover:to-indigo-700 transition shadow-lg hover:shadow-blue-600/30 hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                  >
+                    {isLoading ? (
+                      <span className="flex items-center justify-center">
+                        <div className="animate-spin mr-3 h-5 w-5 border-2 border-b-0 border-white rounded-full"></div>
+                        Processing Event...
+                      </span>
+                    ) : (
+                      'Log Secure Event'
+                    )}
+                  </button>
+                </form>
+                
+                <div className="mt-6 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                  <h4 className="font-semibold text-slate-700 mb-2 flex items-center">
+                    <Check className="w-4 h-4 mr-2 text-emerald-500" />
+                    Event Successfully Logged When:
+                  </h4>
+                  <ul className="text-sm text-slate-600 space-y-1">
+                    <li>• Event is encrypted and added to the immutable audit trail</li>
+                    <li>• Hash chain is updated to maintain data integrity</li>
+                    <li>• Real-time dashboard statistics are refreshed</li>
+                  </ul>
+                </div>
+              </>
+            ) : (
+              <LockedFeature 
+                title="Event Logging Locked" 
+                message="Accept cookies to unlock event logging functionality and start creating secure audit trails."
+              />
+            )}
           </div>
         )}
 
@@ -1111,42 +1260,33 @@ function App() {
         </div>
       </footer>
 
-      {showCookieBanner && (
+      {/* Cookie Banner for already accepted users who might want to review */}
+      {showCookieBanner && cookiesAccepted && (
         <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-in fade-in duration-300">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 sm:p-8 text-center transform transition-all scale-100 border border-slate-200 mx-4">
             <div className="bg-blue-50 w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6">
               <ShieldCheck className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600" />
             </div>
             
-            <h3 className="text-xl sm:text-2xl font-bold text-slate-900 mb-3">Privacy & Security</h3>
+            <h3 className="text-xl sm:text-2xl font-bold text-slate-900 mb-3">Cookie Settings</h3>
             
             <p className="text-slate-600 mb-6 sm:mb-8 leading-relaxed text-sm">
-              To ensure GDPR compliance and security, we need your consent to store essential session tokens. 
-              <strong> No tracking cookies</strong> or third-party analytics are used.
-              <br /><br />
-              <span className="text-amber-600 font-medium">You can preview our policy without accepting.</span>
+              You have already accepted our essential security cookies. These are required for the application to function securely.
             </p>
             
             <div className="space-y-3">
               <button 
-                onClick={() => {
-                  setCookiesAccepted(true); 
-                  setShowCookieBanner(false);
-                  localStorage.setItem('cookiesAccepted', 'true');
-                }}
+                onClick={() => setShowCookieBanner(false)}
                 className="w-full bg-blue-600 text-white py-3 sm:py-3.5 rounded-xl font-bold hover:bg-blue-700 transition shadow-lg hover:shadow-blue-600/30"
               >
-                Accept & Continue
+                Continue Using App
               </button>
               
               <button 
-                onClick={() => {
-                  setActiveTab('privacy');
-                  setShowCookieBanner(false);
-                }}
+                onClick={() => setActiveTab('privacy')}
                 className="text-sm text-slate-500 hover:text-blue-600 font-medium underline decoration-slate-300 underline-offset-4 hover:decoration-blue-600 transition"
               >
-                Read Privacy Policy Preview
+                Review Privacy Policy
               </button>
             </div>
           </div>
