@@ -3,8 +3,11 @@ import CryptoJS from 'crypto-js';
 import './App.css';
 import CreateProcessor from './components/CreateProcessor';
 
-// Production API URL - ändra till din domain
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://your-backend.railway.app';
+// --- VIKTIG ÄNDRING HÄR ---
+// Vi sätter denna till tom sträng. 
+// Detta gör att anropen blir relativa (t.ex. "/api/pricing").
+// Då fångar Netlify upp dem och skickar dem till Render via din netlify.toml.
+const API_BASE_URL = ''; 
 
 function App() {
   const [activeTab, setActiveTab] = useState('pricing');
@@ -44,11 +47,13 @@ function App() {
       setApiKey(savedApiKey);
       if (savedProcessor) {
         setProcessor(JSON.parse(savedProcessor));
-        fetchDashboard();
+        // Vi kan inte anropa fetchDashboard här direkt pga beroenden, 
+        // men vi kan sätta statet om vi vill, eller låta användaren klicka "Access"
       }
     }
 
     fetchPricing();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Enhanced API call with error handling
@@ -67,7 +72,14 @@ function App() {
     }
 
     try {
+      // Här blir det nu "/api/..." vilket är korrekt för Netlify proxy
       const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
+      
+      // Hantera 204 No Content (kan hända vid preflight eller vissa svar)
+      if (response.status === 204) {
+        return null;
+      }
+
       const data = await response.json();
 
       if (!response.ok) {
@@ -107,9 +119,11 @@ function App() {
       setStats(data.stats);
       
       localStorage.setItem('auditorProcessor', JSON.stringify(data.processor));
+      localStorage.setItem('auditorApiKey', apiKey); // Spara nyckeln också om inloggningen lyckas
       
     } catch (error) {
       console.error('Dashboard fetch failed:', error);
+      alert('Failed to access dashboard. Please check your API Key.');
     } finally {
       setIsLoading(false);
     }
@@ -122,7 +136,7 @@ function App() {
     setIsLoading(true);
     try {
       const data = await apiCall('/api/events');
-      setEvents(data.events);
+      setEvents(data.events || []); // Ensure it's an array
     } catch (error) {
       console.error('Events fetch failed:', error);
     } finally {
@@ -176,6 +190,7 @@ function App() {
 
     } catch (error) {
       console.error('Event logging failed:', error);
+      alert(`Error: ${error.message}`);
     } finally {
       setIsLoading(false);
     }
