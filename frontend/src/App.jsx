@@ -118,69 +118,22 @@ const LockScreen = ({ onUnlock }) => (
   </div>
 );
 
-// --- COOKIE WALL COMPONENT ---
-const CookieWall = ({ onAccept }) => (
-  <div className="fixed inset-0 z-[10000] bg-slate-900/95 backdrop-blur-md flex items-center justify-center p-4">
-    <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full p-8 text-center animate-in zoom-in duration-500">
-      <div className="bg-blue-50 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6">
-        <ShieldCheck className="w-10 h-10 text-blue-600" />
-      </div>
-      
-      <h1 className="text-3xl font-extrabold text-slate-900 mb-4">Privacy & Security Required</h1>
-      
-      <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 mb-6 text-left">
-        <h3 className="font-bold text-amber-800 mb-3 flex items-center">
-          <AlertTriangle className="w-5 h-5 mr-2" />
-          Mandatory Cookie Acceptance
-        </h3>
-        <p className="text-amber-700 text-sm mb-4">
-          To ensure GDPR compliance and the security of your audit data, you must accept our essential cookies before accessing any features.
-        </p>
-        <ul className="text-amber-600 text-sm space-y-2">
-          <li className="flex items-start">
-            <Check className="w-4 h-4 mr-2 mt-0.5 text-amber-600" />
-            <span>Session security tokens for encrypted communications</span>
-          </li>
-          <li className="flex items-start">
-            <Check className="w-4 h-4 mr-2 mt-0.5 text-amber-600" />
-            <span>Local storage of API keys for your convenience</span>
-          </li>
-          <li className="flex items-start">
-            <Check className="w-4 h-4 mr-2 mt-0.5 text-amber-600" />
-            <span>No tracking cookies or third-party analytics</span>
-          </li>
-        </ul>
-      </div>
-
-      <p className="text-slate-600 mb-6 leading-relaxed">
-        Auditor Veritas processes sensitive audit data that requires strict security measures. 
-        Essential cookies are mandatory to maintain the integrity and confidentiality of your information.
-      </p>
-
-      <div className="space-y-4">
-        <button 
-          onClick={onAccept}
-          className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-blue-700 transition shadow-lg hover:shadow-blue-600/30 transform hover:-translate-y-0.5"
-        >
-          Accept & Continue Securely
-        </button>
-        
-        <p className="text-xs text-slate-500">
-          By continuing, you agree to our <span className="font-semibold">Privacy Policy</span> and the use of essential security cookies.
-        </p>
-      </div>
-    </div>
-  </div>
-);
-
 // --- LOCKED FEATURE COMPONENT ---
-const LockedFeature = ({ title, message }) => (
+const LockedFeature = ({ title, message, onAcceptCookies }) => (
   <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
     <div className="bg-slate-100 w-16 h-16 rounded-2xl flex items-center justify-center mb-4">
       <Lock className="w-8 h-8 text-slate-400" />
     </div>
     <h3 className="text-xl font-bold text-slate-700 mb-2">{title}</h3>
-    <p className="text-slate-500 max-w-md">{message}</p>
+    <p className="text-slate-500 max-w-md mb-6">{message}</p>
+    {onAcceptCookies && (
+      <button 
+        onClick={onAcceptCookies}
+        className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700 transition"
+      >
+        Accept Cookies to Unlock
+      </button>
+    )}
   </div>
 );
 
@@ -272,7 +225,7 @@ const Navbar = ({ activeTab, setActiveTab, cookiesAccepted }) => {
 };
 
 // --- INTERACTIVE HOW IT WORKS ---
-const HowItWorks = ({ setActiveTab, cookiesAccepted }) => {
+const HowItWorks = ({ setActiveTab, cookiesAccepted, onAcceptCookies }) => {
   const [activeStep, setActiveStep] = useState(0);
   const [terminalOutput, setTerminalOutput] = useState(null);
   const [isSimulating, setIsSimulating] = useState(false);
@@ -388,8 +341,9 @@ const HowItWorks = ({ setActiveTab, cookiesAccepted }) => {
     if (!cookiesAccepted) {
       return (
         <LockedFeature 
-          title="Feature Locked" 
+          title="Interactive Demos Locked" 
           message="Accept cookies to unlock interactive demonstrations and explore how our security features work."
+          onAcceptCookies={onAcceptCookies}
         />
       );
     }
@@ -563,7 +517,7 @@ const HowItWorks = ({ setActiveTab, cookiesAccepted }) => {
               ))}
             </ul>
             <button 
-              onClick={() => setActiveTab(steps[activeStep].action)} 
+              onClick={() => cookiesAccepted && setActiveTab(steps[activeStep].action)} 
               disabled={!cookiesAccepted}
               className={`px-6 py-2 rounded-lg font-bold transition ${
                 cookiesAccepted 
@@ -581,13 +535,14 @@ const HowItWorks = ({ setActiveTab, cookiesAccepted }) => {
   );
 };
 
-const StatsCards = ({ stats, processor, cookiesAccepted }) => {
+const StatsCards = ({ stats, processor, cookiesAccepted, onAcceptCookies }) => {
   if (!cookiesAccepted) {
     return (
-      <div className="bg-white rounded-2xl shadow-sm p-8 border border-slate-100 text-center">
+      <div className="bg-white rounded-2xl shadow-sm p-8 border border-slate-100">
         <LockedFeature 
-          title="Dashboard Locked" 
+          title="Dashboard Statistics Locked" 
           message="Accept cookies to access your dashboard statistics and usage analytics."
+          onAcceptCookies={onAcceptCookies}
         />
       </div>
     );
@@ -638,14 +593,14 @@ const StatsCards = ({ stats, processor, cookiesAccepted }) => {
   );
 };
 
-const FeatureCard = ({ title, desc, setActiveTab, cookiesAccepted, children }) => (
+const FeatureCard = ({ title, desc, cookiesAccepted, onAcceptCookies, children }) => (
   <div className={`bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-slate-100 ${!cookiesAccepted ? 'opacity-90' : ''}`}>
     <div className="flex justify-between items-center mb-4 sm:mb-6">
       <h3 className="text-lg font-bold text-slate-900">{title}</h3>
       {cookiesAccepted && <span className="bg-emerald-100 text-emerald-700 text-[10px] uppercase font-bold px-2 py-1 rounded-md tracking-wide">Active</span>}
     </div>
     {!cookiesAccepted ? (
-      <LockedFeature title={`${title} Locked`} desc={desc} />
+      <LockedFeature title={`${title} Locked`} message={desc} onAcceptCookies={onAcceptCookies} />
     ) : (
       children
     )}
@@ -653,19 +608,27 @@ const FeatureCard = ({ title, desc, setActiveTab, cookiesAccepted, children }) =
 );
 
 // --- COMPLETE PRIVACY POLICY ---
-const PrivacyPolicy = ({ setActiveTab, cookiesAccepted, setShowCookieBanner }) => (
+const PrivacyPolicy = ({ setActiveTab, cookiesAccepted, onAcceptCookies }) => (
   <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-500 px-4 sm:px-0">
     
     {!cookiesAccepted && (
-      <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 text-center shadow-sm">
+      <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6 text-center shadow-sm">
         <div className="flex items-center justify-center mb-3">
-          <Lock className="w-6 h-6 text-amber-600 mr-2" />
-          <h3 className="text-lg font-bold text-amber-800">Accept Cookies to Continue</h3>
+          <ShieldCheck className="w-6 h-6 text-blue-600 mr-2" />
+          <h3 className="text-lg font-bold text-blue-800">Accept Cookies to Continue</h3>
         </div>
-        <p className="text-amber-700 mb-4">You must accept our essential security cookies to access all features of Auditor Veritas.</p>
-        <button onClick={() => setShowCookieBanner(true)} className="bg-amber-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-amber-700 transition shadow-sm">
-          Accept Cookies Now
+        <p className="text-blue-700 mb-4">
+          To ensure GDPR compliance and access all features of Auditor Veritas, please accept our essential security cookies.
+        </p>
+        <button 
+          onClick={onAcceptCookies}
+          className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700 transition shadow-lg hover:shadow-blue-600/30"
+        >
+          Accept Cookies & Continue
         </button>
+        <p className="text-xs text-blue-600 mt-3">
+          By accepting, you agree to our Privacy Policy and the use of essential security cookies
+        </p>
       </div>
     )}
     
@@ -804,8 +767,11 @@ const PrivacyPolicy = ({ setActiveTab, cookiesAccepted, setShowCookieBanner }) =
 
     {!cookiesAccepted && (
       <div className="text-center pt-8">
-        <button onClick={() => setShowCookieBanner(true)} className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700 transition">
-          Accept Cookies to Unlock All Features
+        <button 
+          onClick={onAcceptCookies}
+          className="bg-blue-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:bg-blue-700 transition shadow-lg hover:shadow-blue-600/30 transform hover:-translate-y-0.5"
+        >
+          Accept Cookies & Unlock All Features
         </button>
       </div>
     )}
@@ -821,7 +787,6 @@ function App() {
   const [stats, setStats] = useState({ totalEvents: 0, monthlyEvents: 0, eventsLimit: 100, utilization: '0%' });
   const [pricingPlans, setPricingPlans] = useState({});
   const [isLoading, setIsLoading] = useState(false);
-  const [showCookieBanner, setShowCookieBanner] = useState(false);
   const [cookiesAccepted, setCookiesAccepted] = useState(false);
   
   const { isLocked, setIsLocked } = useInactivityTimer(300000, !!processor && cookiesAccepted);
@@ -833,11 +798,7 @@ function App() {
     
     if (savedCookies === 'true') {
       setCookiesAccepted(true);
-      setShowCookieBanner(false);
       setActiveTab('pricing'); // Switch to pricing after accepting
-    } else {
-      // Show cookie wall immediately if not accepted
-      setShowCookieBanner(true);
     }
 
     if (savedApiKey) {
@@ -869,7 +830,6 @@ function App() {
 
   const handleAcceptCookies = () => {
     setCookiesAccepted(true);
-    setShowCookieBanner(false);
     localStorage.setItem('cookiesAccepted', 'true');
     setActiveTab('pricing'); // Redirect to pricing after acceptance
   };
@@ -923,7 +883,6 @@ function App() {
     e.preventDefault();
     if (!cookiesAccepted) { 
       alert('❌ You must accept cookies before logging events'); 
-      setShowCookieBanner(true);
       return; 
     }
     if (!apiKey) return alert('❌ API Key required');
@@ -951,11 +910,6 @@ function App() {
     }
   };
 
-  // Show cookie wall if not accepted
-  if (!cookiesAccepted && showCookieBanner) {
-    return <CookieWall onAccept={handleAcceptCookies} />;
-  }
-
   if (isLocked && processor) {
     return <LockScreen onUnlock={() => setIsLocked(false)} />;
   }
@@ -973,53 +927,64 @@ function App() {
               <p className="text-lg text-slate-600">Start small and scale securely. All plans include full GDPR compliance features.</p>
             </div>
             
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8 px-4 sm:px-0">
-              {Object.entries(pricingPlans).map(([key, plan]) => (
-                <div key={key} className={`relative rounded-2xl p-6 sm:p-8 transition-all duration-300 hover:scale-105 hover:shadow-xl flex flex-col ${
-                  plan.featured ? 'bg-white ring-4 ring-blue-500/20 shadow-xl scale-105' : 'bg-white shadow-lg border border-slate-100'
-                }`}>
-                  {plan.featured && (
-                    <div className="absolute -top-3 sm:-top-4 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-3 sm:px-4 py-1 rounded-full text-xs sm:text-sm font-bold shadow-lg tracking-wide">
-                      MOST POPULAR
+            {!cookiesAccepted ? (
+              <div className="bg-white rounded-2xl shadow-lg p-8 border border-slate-100 text-center">
+                <LockedFeature 
+                  title="Pricing Information Locked" 
+                  message="Accept cookies to view our pricing plans and choose the right solution for your organization."
+                  onAcceptCookies={handleAcceptCookies}
+                />
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8 px-4 sm:px-0">
+                {Object.entries(pricingPlans).map(([key, plan]) => (
+                  <div key={key} className={`relative rounded-2xl p-6 sm:p-8 transition-all duration-300 hover:scale-105 hover:shadow-xl flex flex-col ${
+                    plan.featured ? 'bg-white ring-4 ring-blue-500/20 shadow-xl scale-105' : 'bg-white shadow-lg border border-slate-100'
+                  }`}>
+                    {plan.featured && (
+                      <div className="absolute -top-3 sm:-top-4 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-3 sm:px-4 py-1 rounded-full text-xs sm:text-sm font-bold shadow-lg tracking-wide">
+                        MOST POPULAR
+                      </div>
+                    )}
+                    <h3 className="text-2xl font-bold text-slate-900 mb-2">{plan.name}</h3>
+                    <div className="mb-6 flex items-baseline justify-center">
+                      <span className="text-3xl sm:text-4xl font-extrabold text-slate-900">${plan.price}</span>
+                      <span className="text-slate-500 ml-2 font-medium">/month</span>
                     </div>
-                  )}
-                  <h3 className="text-2xl font-bold text-slate-900 mb-2">{plan.name}</h3>
-                  <div className="mb-6 flex items-baseline justify-center">
-                    <span className="text-3xl sm:text-4xl font-extrabold text-slate-900">${plan.price}</span>
-                    <span className="text-slate-500 ml-2 font-medium">/month</span>
+                    <ul className="space-y-3 sm:space-y-4 mb-6 sm:mb-8 flex-1">
+                      {plan.features.map((feat, i) => (
+                        <li key={i} className="flex items-start text-slate-600 text-sm">
+                          <Check className="w-4 h-4 text-emerald-500 mr-2 mt-0.5" />
+                          {feat}
+                        </li>
+                      ))}
+                    </ul>
+                    <button 
+                      onClick={() => setActiveTab('create')}
+                      className="w-full py-3 sm:py-3.5 rounded-xl font-bold transition-all duration-200 shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 bg-slate-100 text-slate-800 hover:bg-slate-200"
+                    >
+                      {key === 'starter' ? 'Start for Free' : `Choose ${plan.name}`}
+                    </button>
                   </div>
-                  <ul className="space-y-3 sm:space-y-4 mb-6 sm:mb-8 flex-1">
-                    {plan.features.map((feat, i) => (
-                      <li key={i} className="flex items-start text-slate-600 text-sm">
-                        <Check className="w-4 h-4 text-emerald-500 mr-2 mt-0.5" />
-                        {feat}
-                      </li>
-                    ))}
-                  </ul>
-                  <button 
-                    onClick={() => cookiesAccepted && setActiveTab('create')}
-                    disabled={!cookiesAccepted}
-                    className={`w-full py-3 sm:py-3.5 rounded-xl font-bold transition-all duration-200 shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 ${
-                      cookiesAccepted
-                        ? plan.featured 
-                          ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700' 
-                          : 'bg-slate-100 text-slate-800 hover:bg-slate-200'
-                        : 'bg-slate-300 text-slate-500 cursor-not-allowed'
-                    }`}
-                  >
-                    {key === 'starter' ? 'Start for Free' : `Choose ${plan.name}`}
-                  </button>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
-        {activeTab === 'howitworks' && <HowItWorks setActiveTab={setActiveTab} cookiesAccepted={cookiesAccepted} />}
+        {activeTab === 'howitworks' && <HowItWorks setActiveTab={setActiveTab} cookiesAccepted={cookiesAccepted} onAcceptCookies={handleAcceptCookies} />}
 
         {activeTab === 'dashboard' && (
           <div className="animate-in px-4 sm:px-0">
-            {!processor ? (
+            {!cookiesAccepted ? (
+              <div className="bg-white rounded-2xl shadow-xl p-8 border border-slate-100">
+                <LockedFeature 
+                  title="Dashboard Locked" 
+                  message="Accept cookies to access your dashboard and manage your audit events securely."
+                  onAcceptCookies={handleAcceptCookies}
+                />
+              </div>
+            ) : !processor ? (
               <div className="max-w-md mx-auto bg-white rounded-2xl shadow-xl p-6 sm:p-8 border border-slate-100 mt-6 sm:mt-10">
                 <div className="text-center mb-6 sm:mb-8">
                   <div className="bg-blue-50 w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6 shadow-sm">
@@ -1037,23 +1002,15 @@ function App() {
                 />
                 <button 
                   onClick={fetchDashboard} 
-                  disabled={isLoading || !cookiesAccepted}
-                  className={`w-full py-3 sm:py-4 rounded-xl font-bold transition flex items-center justify-center shadow-md hover:shadow-lg ${
-                    cookiesAccepted
-                      ? 'bg-blue-600 text-white hover:bg-blue-700'
-                      : 'bg-slate-300 text-slate-500 cursor-not-allowed'
-                  }`}
+                  disabled={isLoading}
+                  className="w-full bg-blue-600 text-white py-3 sm:py-4 rounded-xl font-bold hover:bg-blue-700 transition flex items-center justify-center shadow-md hover:shadow-lg"
                 >
                   {isLoading ? (
                     <span className="flex items-center">
                       <div className="animate-spin mr-2 h-4 w-4 border-2 border-b-0 border-white rounded-full"></div>
                       Connecting...
                     </span>
-                  ) : cookiesAccepted ? (
-                    'Access Dashboard'
-                  ) : (
-                    'Accept Cookies to Access'
-                  )}
+                  ) : 'Access Dashboard'}
                 </button>
               </div>
             ) : (
@@ -1076,14 +1033,14 @@ function App() {
                   </div>
                 </div>
 
-                <StatsCards stats={stats} processor={processor} cookiesAccepted={cookiesAccepted} />
+                <StatsCards stats={stats} processor={processor} cookiesAccepted={cookiesAccepted} onAcceptCookies={handleAcceptCookies} />
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                   <FeatureCard 
                     title="Advanced Analytics" 
                     desc="Upgrade to Professional to see detailed usage trends, geo-maps and interaction insights."
-                    setActiveTab={setActiveTab}
                     cookiesAccepted={cookiesAccepted}
+                    onAcceptCookies={handleAcceptCookies}
                   >
                     <div className="h-32 sm:h-48 bg-blue-50/50 rounded-xl flex flex-col items-center justify-center text-blue-400 border border-blue-100">
                       <BarChart3 className="w-12 h-12 sm:w-16 sm:h-16 opacity-20 mb-2" />
@@ -1094,8 +1051,8 @@ function App() {
                   <FeatureCard 
                     title="Bulk Operations" 
                     desc="Process large historical datasets by uploading CSV or JSON files directly."
-                    setActiveTab={setActiveTab}
                     cookiesAccepted={cookiesAccepted}
+                    onAcceptCookies={handleAcceptCookies}
                   >
                     <div className="h-32 sm:h-48 border-2 border-dashed border-indigo-200 rounded-xl flex flex-col items-center justify-center text-indigo-400 hover:bg-indigo-50 hover:border-indigo-300 cursor-pointer transition bg-indigo-50/30">
                       <div className="bg-white p-2 sm:p-3 rounded-full shadow-sm mb-2 sm:mb-3">
@@ -1120,13 +1077,8 @@ function App() {
                 <LockedFeature 
                   title="Registration Locked" 
                   message="You must accept cookies to create an account and get your API key."
+                  onAcceptCookies={handleAcceptCookies}
                 />
-                <button 
-                  onClick={() => setShowCookieBanner(true)}
-                  className="mt-6 bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700 transition"
-                >
-                  Accept Cookies to Continue
-                </button>
               </div>
             )}
           </div>
@@ -1219,6 +1171,7 @@ function App() {
               <LockedFeature 
                 title="Event Logging Locked" 
                 message="Accept cookies to unlock event logging functionality and start creating secure audit trails."
+                onAcceptCookies={handleAcceptCookies}
               />
             )}
           </div>
@@ -1228,7 +1181,7 @@ function App() {
           <PrivacyPolicy 
             setActiveTab={setActiveTab} 
             cookiesAccepted={cookiesAccepted}
-            setShowCookieBanner={setShowCookieBanner}
+            onAcceptCookies={handleAcceptCookies}
           />
         )}
 
@@ -1259,39 +1212,6 @@ function App() {
           <p className="text-xs text-slate-600">&copy; 2025 Auditor Veritas. All rights reserved.</p>
         </div>
       </footer>
-
-      {/* Cookie Banner for already accepted users who might want to review */}
-      {showCookieBanner && cookiesAccepted && (
-        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-in fade-in duration-300">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 sm:p-8 text-center transform transition-all scale-100 border border-slate-200 mx-4">
-            <div className="bg-blue-50 w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6">
-              <ShieldCheck className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600" />
-            </div>
-            
-            <h3 className="text-xl sm:text-2xl font-bold text-slate-900 mb-3">Cookie Settings</h3>
-            
-            <p className="text-slate-600 mb-6 sm:mb-8 leading-relaxed text-sm">
-              You have already accepted our essential security cookies. These are required for the application to function securely.
-            </p>
-            
-            <div className="space-y-3">
-              <button 
-                onClick={() => setShowCookieBanner(false)}
-                className="w-full bg-blue-600 text-white py-3 sm:py-3.5 rounded-xl font-bold hover:bg-blue-700 transition shadow-lg hover:shadow-blue-600/30"
-              >
-                Continue Using App
-              </button>
-              
-              <button 
-                onClick={() => setActiveTab('privacy')}
-                className="text-sm text-slate-500 hover:text-blue-600 font-medium underline decoration-slate-300 underline-offset-4 hover:decoration-blue-600 transition"
-              >
-                Review Privacy Policy
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
