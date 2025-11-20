@@ -8,24 +8,32 @@ import {
   Key, Database, Search, Server,
   ArrowRight, Play, ArrowLeft, Menu, X,
   Smartphone, Globe, Cpu, Code, Eye, EyeOff,
-  Settings // Lägg till denna
+  Settings
 } from 'lucide-react';
 
-// VIKTIGT: Tom sträng för Netlify proxy
-const API_BASE_URL = ''; 
+const API_BASE_URL = '';
 
 // --- KOMPONENTER ---
 
-const Navbar = ({ activeTab, setActiveTab }) => {
+const Navbar = ({ activeTab, setActiveTab, cookiesAccepted }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const menuItems = ['Pricing', 'HowItWorks', 'Dashboard', 'Create', 'Events', 'Privacy'];
+
+  // Blockera navigation om cookies inte är accepterade
+  const handleTabChange = (tab) => {
+    if (!cookiesAccepted && tab !== 'privacy') {
+      setActiveTab('privacy');
+      return;
+    }
+    setActiveTab(tab);
+  };
 
   return (
     <header className="bg-gradient-to-r from-blue-800 to-indigo-900 text-white sticky top-0 z-50 shadow-lg border-b border-blue-700/50">
       <div className="container mx-auto px-4 sm:px-6 py-4">
         <div className="flex items-center justify-between">
           {/* Logo */}
-          <div className="flex items-center space-x-3 cursor-pointer hover:opacity-90 transition" onClick={() => { setActiveTab('pricing'); setMobileMenuOpen(false); }}>
+          <div className="flex items-center space-x-3 cursor-pointer hover:opacity-90 transition" onClick={() => { handleTabChange('pricing'); setMobileMenuOpen(false); }}>
             <div className="bg-white/10 p-2 rounded-lg">
               <ShieldCheck className="w-6 h-6 text-emerald-400" />
             </div>
@@ -40,12 +48,13 @@ const Navbar = ({ activeTab, setActiveTab }) => {
             {menuItems.map((item) => (
               <button
                 key={item}
-                onClick={() => setActiveTab(item.toLowerCase())}
+                onClick={() => handleTabChange(item.toLowerCase())}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                   activeTab === item.toLowerCase() 
                     ? 'bg-white/10 text-white shadow-sm backdrop-blur-sm' 
                     : 'text-blue-100 hover:bg-white/5 hover:text-white'
-                }`}
+                } ${!cookiesAccepted && item.toLowerCase() !== 'privacy' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                disabled={!cookiesAccepted && item.toLowerCase() !== 'privacy'}
               >
                 {item === 'HowItWorks' ? 'How It Works' : item}
               </button>
@@ -68,12 +77,13 @@ const Navbar = ({ activeTab, setActiveTab }) => {
               {menuItems.map((item) => (
                 <button
                   key={item}
-                  onClick={() => { setActiveTab(item.toLowerCase()); setMobileMenuOpen(false); }}
+                  onClick={() => { handleTabChange(item.toLowerCase()); setMobileMenuOpen(false); }}
                   className={`px-4 py-3 rounded-lg text-left font-medium transition-all duration-200 ${
                     activeTab === item.toLowerCase() 
                       ? 'bg-white/10 text-white' 
                       : 'text-blue-100 hover:bg-white/5'
-                  }`}
+                  } ${!cookiesAccepted && item.toLowerCase() !== 'privacy' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  disabled={!cookiesAccepted && item.toLowerCase() !== 'privacy'}
                 >
                   {item === 'HowItWorks' ? 'How It Works' : item}
                 </button>
@@ -146,205 +156,30 @@ const LockedFeature = ({ title, desc, setActiveTab }) => (
   </div>
 );
 
-const HowItWorks = ({ setActiveTab }) => {
-  const [activeStep, setActiveStep] = useState(0);
-  const [showCodeExample, setShowCodeExample] = useState(false);
-
-  const steps = [
-    {
-      title: "Registrering & API-nyckel",
-      icon: Key,
-      description: "Företag registrerar sig via vår webbportal och får en unik API-nyckel som fungerar som deras digitala ID-kort.",
-      details: ["Unik API-nyckel", "Säker behållare i databasen", "Omedelbar aktivering"],
-      action: "create",
-      actionText: "Skapa API-nyckel",
-      visual: "key"
-    },
-    {
-      title: "Automatisk Loggning",
-      icon: Settings,
-      description: "Integrera API-nyckeln i era system. Vid kritiska händelser skickas data automatiskt till Auditor Veritas.",
-      details: ["Integrera i system", "Automatisk signal", "Spårar: Vem, Vad, När"],
-      action: "events",
-      actionText: "Testa Loggning",
-      visual: "code"
-    },
-    {
-      title: "Säker Lagring & Kedjor",
-      icon: Lock,
-      description: "Varje händelse krypteras och länkas till föregående händelse för att skapa en oförstörbar kedja.",
-      details: ["SHA-256 hash", "Kedjelänkning", "GDPR-säkrad lagring"],
-      action: "privacy",
-      actionText: "Läs om Säkerhet",
-      visual: "chain"
-    },
-    {
-      title: "Dashboard & Analys",
-      icon: BarChart3,
-      description: "Följ upp och analysera all aktivitet via vår säkra dashboard med sökbara loggar och rapporter.",
-      details: ["Sökbar historik", "Exportera rapporter", "Avancerad analys (Premium)"],
-      action: "dashboard",
-      actionText: "Utforska Dashboard",
-      visual: "dashboard"
-    }
-  ];
-
-  const renderVisualization = () => {
-    switch(steps[activeStep].visual) {
-      case 'key':
-        return (
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-100 rounded-2xl p-6 border border-blue-200">
-            <div className="flex items-center justify-center mb-4">
-              <div className="bg-white p-4 rounded-xl shadow-lg border">
-                <Key className="w-12 h-12 text-blue-600" />
-              </div>
-            </div>
-            <p className="text-center text-blue-800 font-medium text-sm">
-              Din unika API-nyckel: <code className="bg-blue-100 px-2 py-1 rounded">av_123456789abc</code>
-            </p>
-          </div>
-        );
-      case 'code':
-        return (
-          <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl p-6 border border-slate-700">
-            <div className="flex justify-between items-center mb-4">
-              <span className="text-slate-300 text-sm font-mono">API Integration</span>
-              <button onClick={() => setShowCodeExample(!showCodeExample)} className="text-slate-400 hover:text-white transition">
-                {showCodeExample ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
-            </div>
-            {showCodeExample ? (
-              <pre className="text-slate-200 text-xs font-mono overflow-x-auto">
-{`fetch('https://api.auditorveritas.com/events', {
-  method: 'POST',
-  headers: { 'x-api-key': 'av_123...' },
-  body: JSON.stringify({ event_type: 'login' })
-});`}
-              </pre>
-            ) : (
-              <div className="text-center py-8">
-                <Code className="w-12 h-12 text-slate-500 mx-auto mb-4" />
-                <p className="text-slate-400 text-sm">Klicka för att visa kod</p>
-              </div>
-            )}
-          </div>
-        );
-      case 'chain':
-        return (
-          <div className="bg-gradient-to-br from-purple-50 to-pink-100 rounded-2xl p-6 border border-purple-200">
-            <div className="flex justify-center space-x-2 mb-4">
-              {[1, 2, 3].map((num) => (
-                <div key={num} className="flex items-center">
-                  <div className="bg-white w-10 h-10 rounded-lg border-2 border-purple-300 flex items-center justify-center shadow-sm">
-                    <span className="text-purple-600 font-bold text-sm">H{num}</span>
-                  </div>
-                  {num < 3 && <div className="w-6 h-0.5 bg-purple-300 mx-1"></div>}
-                </div>
-              ))}
-            </div>
-            <p className="text-center text-purple-800 text-sm">Obrutna hash-kedjor</p>
-          </div>
-        );
-      case 'dashboard':
-        return (
-          <div className="bg-gradient-to-br from-amber-50 to-orange-100 rounded-2xl p-6 border border-amber-200">
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              <div className="bg-white rounded-lg p-3 shadow-sm border">
-                <div className="text-amber-600 text-lg font-bold">1,247</div>
-                <div className="text-amber-800 text-xs">Events</div>
-              </div>
-              <div className="bg-white rounded-lg p-3 shadow-sm border">
-                <div className="text-amber-600 text-lg font-bold">100%</div>
-                <div className="text-amber-800 text-xs">Secure</div>
-              </div>
-            </div>
-          </div>
-        );
-      default: return null;
-    }
-  };
-
-  return (
-    <div className="max-w-6xl mx-auto space-y-12 sm:space-y-16 animate-in fade-in duration-500 px-4 sm:px-0">
-      <div className="text-center pt-4 sm:pt-8">
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 w-20 h-20 sm:w-24 sm:h-24 rounded-3xl flex items-center justify-center mx-auto mb-6 sm:mb-8 shadow-xl">
-          <ShieldCheck className="w-10 h-10 sm:w-12 sm:h-12 text-white" />
-        </div>
-        <h1 className="text-3xl sm:text-5xl font-extrabold text-slate-900 mb-4 tracking-tight">🛡️ How It Works</h1>
-        <p className="text-lg sm:text-xl text-slate-600 max-w-3xl mx-auto leading-relaxed">
-          Auditor Veritas är en säker, molnbaserad tjänst som hjälper företag att skapa oförstörbara loggar.
-        </p>
-      </div>
-
-      <div className="bg-white rounded-3xl shadow-xl border border-slate-100 overflow-hidden">
-        <div className="bg-gradient-to-r from-slate-900 to-slate-800 px-6 sm:px-8 py-6">
-          <h2 className="text-2xl sm:text-3xl font-bold text-white flex items-center justify-center sm:justify-start">
-            <Play className="w-6 h-6 sm:w-8 sm:h-8 mr-3 sm:mr-4 text-emerald-400" />
-            🚀 4-enkla-steg
-          </h2>
-        </div>
-        
-        <div className="p-4 sm:p-8">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 mb-8 sm:mb-12">
-            {steps.map((step, index) => (
-              <button
-                key={index}
-                onClick={() => setActiveStep(index)}
-                className={`p-3 sm:p-4 rounded-xl text-center transition-all duration-300 ${
-                  activeStep === index ? 'bg-blue-600 text-white shadow-lg transform scale-105' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                }`}
-              >
-                <step.icon className={`w-6 h-6 sm:w-8 sm:h-8 mx-auto mb-2 ${activeStep === index ? 'text-white' : 'text-blue-600'}`} />
-                <span className="font-semibold text-xs sm:text-sm">Steg {index + 1}</span>
-              </button>
-            ))}
-          </div>
-
-          <div className="flex flex-col lg:flex-row gap-6 sm:gap-8 items-start">
-            <div className="w-full lg:w-2/3">
-              <h3 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-4">{steps[activeStep].title}</h3>
-              <p className="text-lg text-slate-600 mb-6 leading-relaxed">{steps[activeStep].description}</p>
-              <div className="space-y-3 mb-6 sm:mb-8">
-                {steps[activeStep].details.map((detail, index) => (
-                  <div key={index} className="flex items-start">
-                    <div className="bg-emerald-100 p-2 rounded-lg mr-3 mt-1"><Check className="w-4 h-4 text-emerald-600" /></div>
-                    <span className="text-slate-700 text-sm sm:text-base">{detail}</span>
-                  </div>
-                ))}
-              </div>
-              <button 
-                onClick={() => setActiveTab(steps[activeStep].action)}
-                className="bg-blue-600 text-white px-6 py-3 sm:px-8 sm:py-4 rounded-xl font-bold text-lg hover:bg-blue-700 transition shadow-lg hover:scale-105 w-full sm:w-auto"
-              >
-                {steps[activeStep].actionText} →
-              </button>
-            </div>
-            <div className="w-full lg:w-1/3 mt-6 lg:mt-0">{renderVisualization()}</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const PrivacyPolicy = ({ setActiveTab, cookiesAccepted, setShowCookieBanner }) => (
+const PrivacyPolicy = ({ setActiveTab, cookiesAccepted, setCookiesAccepted }) => (
   <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-500 px-4 sm:px-0">
     
     {!cookiesAccepted && (
-      <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 text-center">
-        <div className="flex items-center justify-center mb-3">
-          <Lock className="w-6 h-6 text-amber-600 mr-2" />
-          <h3 className="text-lg font-bold text-amber-800">Privacy Policy Limited Access</h3>
+      <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-8 text-center mb-8">
+        <div className="flex items-center justify-center mb-4">
+          <Lock className="w-8 h-8 text-amber-600 mr-3" />
+          <h3 className="text-2xl font-bold text-amber-800">Required: Accept Privacy Policy</h3>
         </div>
-        <p className="text-amber-700 mb-4">
-          Please accept cookies to view the complete Privacy Policy context. Essential session cookies are required for security.
+        <p className="text-amber-700 mb-6 text-lg">
+          To use Auditor Veritas and ensure GDPR compliance, you must read and accept our Privacy Policy.
         </p>
         <button 
-          onClick={() => setShowCookieBanner(true)}
-          className="bg-amber-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-amber-700 transition"
+          onClick={() => {
+            setCookiesAccepted(true);
+            localStorage.setItem('cookiesAccepted', 'true');
+          }}
+          className="bg-amber-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:bg-amber-700 transition shadow-lg hover:shadow-amber-600/30"
         >
-          Open Cookie Settings
+          ✅ I Accept - Continue to Auditor Veritas
         </button>
+        <p className="text-amber-600 text-sm mt-4">
+          By accepting, you agree to our data processing practices in compliance with GDPR Article 6(1)(b)
+        </p>
       </div>
     )}
     
@@ -441,16 +276,231 @@ const PrivacyPolicy = ({ setActiveTab, cookiesAccepted, setShowCookieBanner }) =
       </div>
     </div>
 
-    <div className="text-center pt-8 pb-4">
-      <button onClick={() => setActiveTab('dashboard')} className="text-blue-600 font-semibold hover:text-blue-700 transition flex items-center justify-center mx-auto">
-        ← Back to Dashboard
-      </button>
+    {cookiesAccepted && (
+      <div className="text-center pt-8 pb-4">
+        <button onClick={() => setActiveTab('dashboard')} className="text-blue-600 font-semibold hover:text-blue-700 transition flex items-center justify-center mx-auto">
+          ← Back to Dashboard
+        </button>
+      </div>
+    )}
+  </div>
+);
+
+const HowItWorks = ({ setActiveTab }) => {
+  const [activeStep, setActiveStep] = useState(0);
+  const [showCodeExample, setShowCodeExample] = useState(false);
+
+  const steps = [
+    {
+      title: "Registration & API Key",
+      icon: Key,
+      description: "Companies register through our web portal and receive a unique API key that serves as their digital ID.",
+      details: ["Unique API key", "Secure container in database", "Immediate activation"],
+      action: "create",
+      actionText: "Create API Key",
+      visual: "key"
+    },
+    {
+      title: "Automatic Logging",
+      icon: Settings,
+      description: "Integrate the API key into your systems. During critical events, data is automatically sent to Auditor Veritas.",
+      details: ["Integrate into systems", "Automatic signaling", "Tracks: Who, What, When"],
+      action: "events",
+      actionText: "Test Logging",
+      visual: "code"
+    },
+    {
+      title: "Secure Storage & Chains",
+      icon: Lock,
+      description: "Each event is encrypted and linked to the previous event to create an immutable chain.",
+      details: ["SHA-256 hash", "Chain linking", "GDPR-secured storage"],
+      action: "privacy",
+      actionText: "Learn About Security",
+      visual: "chain"
+    },
+    {
+      title: "Dashboard & Analysis",
+      icon: BarChart3,
+      description: "Monitor and analyze all activity through our secure dashboard with searchable logs and reports.",
+      details: ["Searchable history", "Export reports", "Advanced analysis (Premium)"],
+      action: "dashboard",
+      actionText: "Explore Dashboard",
+      visual: "dashboard"
+    }
+  ];
+
+  const renderVisualization = () => {
+    switch(steps[activeStep].visual) {
+      case 'key':
+        return (
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-100 rounded-2xl p-6 border border-blue-200">
+            <div className="flex items-center justify-center mb-4">
+              <div className="bg-white p-4 rounded-xl shadow-lg border">
+                <Key className="w-12 h-12 text-blue-600" />
+              </div>
+            </div>
+            <p className="text-center text-blue-800 font-medium text-sm">
+              Your unique API key: <code className="bg-blue-100 px-2 py-1 rounded">av_123456789abc</code>
+            </p>
+          </div>
+        );
+      case 'code':
+        return (
+          <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl p-6 border border-slate-700">
+            <div className="flex justify-between items-center mb-4">
+              <span className="text-slate-300 text-sm font-mono">API Integration</span>
+              <button onClick={() => setShowCodeExample(!showCodeExample)} className="text-slate-400 hover:text-white transition">
+                {showCodeExample ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+            {showCodeExample ? (
+              <pre className="text-slate-200 text-xs font-mono overflow-x-auto">
+{`fetch('https://api.auditorveritas.com/events', {
+  method: 'POST',
+  headers: { 'x-api-key': 'av_123...' },
+  body: JSON.stringify({ event_type: 'login' })
+});`}
+              </pre>
+            ) : (
+              <div className="text-center py-8">
+                <Code className="w-12 h-12 text-slate-500 mx-auto mb-4" />
+                <p className="text-slate-400 text-sm">Click to show code</p>
+              </div>
+            )}
+          </div>
+        );
+      case 'chain':
+        return (
+          <div className="bg-gradient-to-br from-purple-50 to-pink-100 rounded-2xl p-6 border border-purple-200">
+            <div className="flex justify-center space-x-2 mb-4">
+              {[1, 2, 3].map((num) => (
+                <div key={num} className="flex items-center">
+                  <div className="bg-white w-10 h-10 rounded-lg border-2 border-purple-300 flex items-center justify-center shadow-sm">
+                    <span className="text-purple-600 font-bold text-sm">H{num}</span>
+                  </div>
+                  {num < 3 && <div className="w-6 h-0.5 bg-purple-300 mx-1"></div>}
+                </div>
+              ))}
+            </div>
+            <p className="text-center text-purple-800 text-sm">Immutable hash chains</p>
+          </div>
+        );
+      case 'dashboard':
+        return (
+          <div className="bg-gradient-to-br from-amber-50 to-orange-100 rounded-2xl p-6 border border-amber-200">
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <div className="bg-white rounded-lg p-3 shadow-sm border">
+                <div className="text-amber-600 text-lg font-bold">1,247</div>
+                <div className="text-amber-800 text-xs">Events</div>
+              </div>
+              <div className="bg-white rounded-lg p-3 shadow-sm border">
+                <div className="text-amber-600 text-lg font-bold">100%</div>
+                <div className="text-amber-800 text-xs">Secure</div>
+              </div>
+            </div>
+          </div>
+        );
+      default: return null;
+    }
+  };
+
+  return (
+    <div className="max-w-6xl mx-auto space-y-12 sm:space-y-16 animate-in fade-in duration-500 px-4 sm:px-0">
+      <div className="text-center pt-4 sm:pt-8">
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 w-20 h-20 sm:w-24 sm:h-24 rounded-3xl flex items-center justify-center mx-auto mb-6 sm:mb-8 shadow-xl">
+          <ShieldCheck className="w-10 h-10 sm:w-12 sm:h-12 text-white" />
+        </div>
+        <h1 className="text-3xl sm:text-5xl font-extrabold text-slate-900 mb-4 tracking-tight">🛡️ How It Works</h1>
+        <p className="text-lg sm:text-xl text-slate-600 max-w-3xl mx-auto leading-relaxed">
+          Auditor Veritas is a secure, cloud-based service that helps companies create immutable audit trails.
+        </p>
+      </div>
+
+      <div className="bg-white rounded-3xl shadow-xl border border-slate-100 overflow-hidden">
+        <div className="bg-gradient-to-r from-slate-900 to-slate-800 px-6 sm:px-8 py-6">
+          <h2 className="text-2xl sm:text-3xl font-bold text-white flex items-center justify-center sm:justify-start">
+            <Play className="w-6 h-6 sm:w-8 sm:h-8 mr-3 sm:mr-4 text-emerald-400" />
+            🚀 4 Simple Steps
+          </h2>
+        </div>
+        
+        <div className="p-4 sm:p-8">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 mb-8 sm:mb-12">
+            {steps.map((step, index) => (
+              <button
+                key={index}
+                onClick={() => setActiveStep(index)}
+                className={`p-3 sm:p-4 rounded-xl text-center transition-all duration-300 ${
+                  activeStep === index ? 'bg-blue-600 text-white shadow-lg transform scale-105' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
+              >
+                <step.icon className={`w-6 h-6 sm:w-8 sm:h-8 mx-auto mb-2 ${activeStep === index ? 'text-white' : 'text-blue-600'}`} />
+                <span className="font-semibold text-xs sm:text-sm">Step {index + 1}</span>
+              </button>
+            ))}
+          </div>
+
+          <div className="flex flex-col lg:flex-row gap-6 sm:gap-8 items-start">
+            <div className="w-full lg:w-2/3">
+              <h3 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-4">{steps[activeStep].title}</h3>
+              <p className="text-lg text-slate-600 mb-6 leading-relaxed">{steps[activeStep].description}</p>
+              <div className="space-y-3 mb-6 sm:mb-8">
+                {steps[activeStep].details.map((detail, index) => (
+                  <div key={index} className="flex items-start">
+                    <div className="bg-emerald-100 p-2 rounded-lg mr-3 mt-1"><Check className="w-4 h-4 text-emerald-600" /></div>
+                    <span className="text-slate-700 text-sm sm:text-base">{detail}</span>
+                  </div>
+                ))}
+              </div>
+              <button 
+                onClick={() => setActiveTab(steps[activeStep].action)}
+                className="bg-blue-600 text-white px-6 py-3 sm:px-8 sm:py-4 rounded-xl font-bold text-lg hover:bg-blue-700 transition shadow-lg hover:scale-105 w-full sm:w-auto"
+              >
+                {steps[activeStep].actionText} →
+              </button>
+            </div>
+            <div className="w-full lg:w-1/3 mt-6 lg:mt-0">{renderVisualization()}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Blocked Access Component för icke-accepterade användare
+const BlockedAccess = ({ setActiveTab, setCookiesAccepted }) => (
+  <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+    <div className="max-w-md w-full bg-white rounded-2xl shadow-2xl p-8 text-center border border-slate-200">
+      <div className="bg-red-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6">
+        <Lock className="w-8 h-8 text-red-600" />
+      </div>
+      
+      <h2 className="text-2xl font-bold text-slate-900 mb-4">Access Restricted</h2>
+      
+      <p className="text-slate-600 mb-6 leading-relaxed">
+        To ensure GDPR compliance and data protection, you must first read and accept our Privacy Policy before accessing Auditor Veritas.
+      </p>
+      
+      <div className="space-y-4">
+        <button 
+          onClick={() => {
+            setActiveTab('privacy');
+          }}
+          className="w-full bg-blue-600 text-white py-3.5 rounded-xl font-bold hover:bg-blue-700 transition shadow-lg hover:shadow-blue-600/30"
+        >
+          📖 Read Privacy Policy
+        </button>
+        
+        <p className="text-xs text-slate-500">
+          Required for GDPR Article 6(1)(b) compliance
+        </p>
+      </div>
     </div>
   </div>
 );
 
 function App() {
-  const [activeTab, setActiveTab] = useState('pricing');
+  const [activeTab, setActiveTab] = useState('privacy'); // Starta alltid med privacy
   const [processor, setProcessor] = useState(null);
   const [events, setEvents] = useState([]);
   const [apiKey, setApiKey] = useState('');
@@ -458,7 +508,6 @@ function App() {
   const [stats, setStats] = useState({ totalEvents: 0, monthlyEvents: 0, eventsLimit: 100, utilization: '0%' });
   const [pricingPlans, setPricingPlans] = useState({});
   const [isLoading, setIsLoading] = useState(false);
-  const [showCookieBanner, setShowCookieBanner] = useState(true);
   const [cookiesAccepted, setCookiesAccepted] = useState(false);
 
   useEffect(() => {
@@ -467,7 +516,9 @@ function App() {
     
     if (savedCookies === 'true') {
       setCookiesAccepted(true);
-      setShowCookieBanner(false);
+      setActiveTab('pricing'); // Byt till pricing om redan accepterat
+    } else {
+      setActiveTab('privacy'); // Tvinga till privacy om inte accepterat
     }
 
     if (savedApiKey) {
@@ -481,7 +532,15 @@ function App() {
     });
   }, []);
 
-  // Använd din gamla apiCall-funktion som fungerade
+  // Blockera tab-ändringar om cookies inte är accepterade
+  const handleTabChange = (tab) => {
+    if (!cookiesAccepted && tab !== 'privacy') {
+      setActiveTab('privacy');
+      return;
+    }
+    setActiveTab(tab);
+  };
+
   const apiCall = async (endpoint, options = {}) => {
     const config = {
       headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, ...options.headers },
@@ -501,9 +560,13 @@ function App() {
     }
   };
 
-  // Använd din gamla fetchDashboard som fungerade
   const fetchDashboard = async () => {
     if (!apiKey) return;
+    if (!cookiesAccepted) {
+      setActiveTab('privacy');
+      return;
+    }
+    
     setIsLoading(true);
     try {
       const data = await apiCall('/api/dashboard');
@@ -518,9 +581,13 @@ function App() {
     }
   };
 
-  // Använd din gamla logEvent som fungerade
   const logEvent = async (e) => {
     e.preventDefault();
+    if (!cookiesAccepted) {
+      setActiveTab('privacy');
+      alert('❌ Please accept the Privacy Policy first');
+      return;
+    }
     if (!apiKey) return alert('❌ API Key required');
     setIsLoading(true);
     try {
@@ -542,12 +609,17 @@ function App() {
     }
   };
 
+  // Om cookies inte är accepterade, visa endast Privacy Policy eller blocked access
+  if (!cookiesAccepted && activeTab !== 'privacy') {
+    return <BlockedAccess setActiveTab={setActiveTab} setCookiesAccepted={setCookiesAccepted} />;
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 font-sans flex flex-col">
-      <Navbar activeTab={activeTab} setActiveTab={setActiveTab} />
+      <Navbar activeTab={activeTab} setActiveTab={handleTabChange} cookiesAccepted={cookiesAccepted} />
 
       <main className="container mx-auto px-4 sm:px-6 py-6 sm:py-8 max-w-6xl flex-grow">
-        {activeTab === 'pricing' && (
+        {activeTab === 'pricing' && cookiesAccepted && (
           <div className="space-y-12 animate-in">
             <div className="text-center max-w-2xl mx-auto pt-4 sm:pt-8 px-4">
               <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 mb-4 tracking-tight">Transparent Pricing</h2>
@@ -576,7 +648,7 @@ function App() {
                     ))}
                   </ul>
                   <button 
-                    onClick={() => setActiveTab('create')}
+                    onClick={() => handleTabChange('create')}
                     className={`w-full py-3 sm:py-3.5 rounded-xl font-bold transition-all duration-200 shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 ${
                       plan.featured 
                         ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700' 
@@ -591,9 +663,9 @@ function App() {
           </div>
         )}
 
-        {activeTab === 'howitworks' && <HowItWorks setActiveTab={setActiveTab} />}
+        {activeTab === 'howitworks' && cookiesAccepted && <HowItWorks setActiveTab={handleTabChange} />}
 
-        {activeTab === 'dashboard' && (
+        {activeTab === 'dashboard' && cookiesAccepted && (
           <div className="animate-in px-4 sm:px-0">
             {!processor ? (
               <div className="max-w-md mx-auto bg-white rounded-2xl shadow-xl p-6 sm:p-8 border border-slate-100 mt-6 sm:mt-10">
@@ -650,7 +722,7 @@ function App() {
                       {processor.plan !== 'starter' && <span className="bg-emerald-100 text-emerald-700 text-[10px] uppercase font-bold px-2 py-1 rounded-md tracking-wide">Active</span>}
                     </div>
                     {processor.plan === 'starter' ? (
-                      <LockedFeature title="Analytics Locked" desc="Upgrade to Professional to see detailed usage trends, geo-maps and interaction insights." setActiveTab={setActiveTab} />
+                      <LockedFeature title="Analytics Locked" desc="Upgrade to Professional to see detailed usage trends, geo-maps and interaction insights." setActiveTab={handleTabChange} />
                     ) : (
                       <div className="h-32 sm:h-48 bg-blue-50/50 rounded-xl flex flex-col items-center justify-center text-blue-400 border border-blue-100">
                         <BarChart3 className="w-12 h-12 sm:w-16 sm:h-16 opacity-20 mb-2" />
@@ -665,7 +737,7 @@ function App() {
                       {processor.plan !== 'starter' && <span className="bg-emerald-100 text-emerald-700 text-[10px] uppercase font-bold px-2 py-1 rounded-md tracking-wide">Active</span>}
                     </div>
                     {processor.plan === 'starter' ? (
-                      <LockedFeature title="Bulk Import Locked" desc="Process large historical datasets by uploading CSV or JSON files directly." setActiveTab={setActiveTab} />
+                      <LockedFeature title="Bulk Import Locked" desc="Process large historical datasets by uploading CSV or JSON files directly." setActiveTab={handleTabChange} />
                     ) : (
                       <div className="h-32 sm:h-48 border-2 border-dashed border-indigo-200 rounded-xl flex flex-col items-center justify-center text-indigo-400 hover:bg-indigo-50 hover:border-indigo-300 cursor-pointer transition bg-indigo-50/30">
                         <div className="bg-white p-2 sm:p-3 rounded-full shadow-sm mb-2 sm:mb-3">
@@ -682,75 +754,100 @@ function App() {
           </div>
         )}
 
-        {activeTab === 'create' && (
+        {activeTab === 'create' && cookiesAccepted && (
           <div className="max-w-2xl mx-auto pt-4 sm:pt-6 animate-in px-4 sm:px-0">
             <CreateProcessor />
           </div>
         )}
 
-        {activeTab === 'events' && (
-          <div className="max-w-xl mx-auto bg-white rounded-2xl shadow-lg p-4 sm:p-8 border border-slate-100 mt-4 sm:mt-6 animate-in px-4 sm:px-0">
-            <div className="flex items-center mb-6 sm:mb-8 pb-4 border-b border-slate-100">
-              <div className="p-2 sm:p-3 bg-blue-50 rounded-xl mr-3 sm:mr-4">
-                <FileText className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600"/> 
+        {activeTab === 'events' && cookiesAccepted && (
+          <div className="max-w-xl mx-auto bg-white rounded-2xl shadow-lg p-6 sm:p-8 border border-slate-100 mt-8 mb-8 animate-in px-4 sm:px-0">
+            <div className="flex items-center mb-8 pb-6 border-b border-slate-100">
+              <div className="p-3 bg-blue-50 rounded-xl mr-4">
+                <FileText className="w-7 h-7 text-blue-600"/> 
               </div>
               <div>
-                <h2 className="text-xl sm:text-2xl font-bold text-slate-900">Log New Event</h2>
-                <p className="text-slate-500 text-sm">Manually record an audit event</p>
+                <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">Log New Event</h2>
+                <p className="text-slate-500 text-sm mt-1">Manually record an audit event in your secure trail</p>
               </div>
             </div>
             
-            <form onSubmit={logEvent} className="space-y-4 sm:space-y-6">
+            <form onSubmit={logEvent} className="space-y-6">
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">Event Type</label>
+                <label className="block text-sm font-semibold text-slate-700 mb-3">Event Type</label>
                 <input 
                   type="text" 
-                  className="w-full p-3 sm:p-3.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" 
-                  placeholder="e.g. user_login" 
+                  className="w-full p-4 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition bg-white hover:border-slate-400" 
+                  placeholder="e.g. user_login, data_access, file_download" 
                   value={eventData.event_type} 
                   onChange={e => setEventData({...eventData, event_type: e.target.value})} 
                   required 
                 />
+                <p className="text-xs text-slate-500 mt-2">Enter a descriptive event type for easy categorization</p>
               </div>
+              
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">User Identifier</label>
+                <label className="block text-sm font-semibold text-slate-700 mb-3">User Identifier</label>
                 <input 
                   type="text" 
-                  className="w-full p-3 sm:p-3.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" 
-                  placeholder="e.g. email@test.com" 
+                  className="w-full p-4 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition bg-white hover:border-slate-400" 
+                  placeholder="e.g. email@company.com, user123, employee_id" 
                   value={eventData.user_identifier} 
                   onChange={e => setEventData({...eventData, user_identifier: e.target.value})} 
                 />
-                <p className="text-xs text-slate-500 mt-2 flex items-center bg-slate-50 p-2 rounded-lg border border-slate-100">
-                  <ShieldCheck className="w-3 h-3 mr-1.5 text-emerald-500"/> 
-                  Securely hashed with SHA-256 before storage
+                <p className="text-xs text-slate-500 mt-2 flex items-center bg-blue-50 p-3 rounded-lg border border-blue-100">
+                  <ShieldCheck className="w-4 h-4 mr-2 text-blue-500"/> 
+                  User identifiers are automatically hashed with SHA-256 for privacy protection before storage
                 </p>
               </div>
+              
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">JSON Data</label>
+                <label className="block text-sm font-semibold text-slate-700 mb-3">Event Data (JSON)</label>
                 <textarea 
-                  className="w-full p-3 sm:p-3.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none font-mono text-sm h-24 sm:h-32 bg-slate-50" 
+                  className="w-full p-4 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none font-mono text-sm h-40 bg-white hover:border-slate-400 resize-vertical" 
+                  placeholder='{"action": "login", "ip_address": "192.168.1.1", "user_agent": "Mozilla/5.0..."}'
                   value={eventData.event_data} 
                   onChange={e => setEventData({...eventData, event_data: e.target.value})} 
                   required 
                 />
+                <p className="text-xs text-slate-500 mt-2">Enter valid JSON with additional event details and metadata</p>
               </div>
+              
               <button 
                 type="submit" 
                 disabled={isLoading} 
-                className="w-full bg-blue-600 text-white py-3 sm:py-4 rounded-xl font-bold text-lg hover:bg-blue-700 transition shadow-lg hover:shadow-blue-600/30 hover:-translate-y-0.5 active:translate-y-0"
+                className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:from-blue-700 hover:to-indigo-700 transition shadow-lg hover:shadow-blue-600/30 hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
               >
-                {isLoading ? 'Processing...' : 'Log Event'}
+                {isLoading ? (
+                  <span className="flex items-center justify-center">
+                    <div className="animate-spin mr-3 h-5 w-5 border-2 border-b-0 border-white rounded-full"></div>
+                    Processing Event...
+                  </span>
+                ) : (
+                  'Log Secure Event'
+                )}
               </button>
             </form>
+            
+            <div className="mt-6 p-4 bg-slate-50 rounded-xl border border-slate-200">
+              <h4 className="font-semibold text-slate-700 mb-2 flex items-center">
+                <Check className="w-4 h-4 mr-2 text-emerald-500" />
+                Event Successfully Logged When:
+              </h4>
+              <ul className="text-sm text-slate-600 space-y-1">
+                <li>• Event is encrypted and added to the immutable audit trail</li>
+                <li>• Hash chain is updated to maintain data integrity</li>
+                <li>• Real-time dashboard statistics are refreshed</li>
+              </ul>
+            </div>
           </div>
         )}
 
         {activeTab === 'privacy' && (
           <PrivacyPolicy 
-            setActiveTab={setActiveTab} 
+            setActiveTab={handleTabChange} 
             cookiesAccepted={cookiesAccepted}
-            setShowCookieBanner={setShowCookieBanner}
+            setCookiesAccepted={setCookiesAccepted}
           />
         )}
 
@@ -772,55 +869,13 @@ function App() {
           
           <div className="flex flex-col sm:flex-row justify-center space-y-3 sm:space-y-0 sm:space-x-6 text-sm font-medium mb-6 sm:mb-8">
             <a href="#" className="hover:text-white transition">Terms</a>
-            <button onClick={() => setActiveTab('privacy')} className="hover:text-white transition">Privacy</button>
+            <button onClick={() => handleTabChange('privacy')} className="hover:text-white transition">Privacy</button>
             <a href="#" className="hover:text-white transition">Security</a>
             <a href="mailto:hazarnodesweden@outlook.com" className="hover:text-white transition">Contact</a>
           </div>
           <p className="text-xs text-slate-600">&copy; 2025 Auditor Veritas. All rights reserved.</p>
         </div>
       </footer>
-
-      {showCookieBanner && (
-        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-in fade-in duration-300">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 sm:p-8 text-center transform transition-all scale-100 border border-slate-200 mx-4">
-            <div className="bg-blue-50 w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6">
-              <ShieldCheck className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600" />
-            </div>
-            
-            <h3 className="text-xl sm:text-2xl font-bold text-slate-900 mb-3">Privacy & Security</h3>
-            
-            <p className="text-slate-600 mb-6 sm:mb-8 leading-relaxed text-sm">
-              To ensure GDPR compliance and security, we need your consent to store essential session tokens. 
-              <strong> No tracking cookies</strong> or third-party analytics are used.
-              <br /><br />
-              <span className="text-amber-600 font-medium">You can preview our policy without accepting.</span>
-            </p>
-            
-            <div className="space-y-3">
-              <button 
-                onClick={() => {
-                  setCookiesAccepted(true); 
-                  setShowCookieBanner(false);
-                  localStorage.setItem('cookiesAccepted', 'true');
-                }}
-                className="w-full bg-blue-600 text-white py-3 sm:py-3.5 rounded-xl font-bold hover:bg-blue-700 transition shadow-lg hover:shadow-blue-600/30"
-              >
-                Accept & Continue
-              </button>
-              
-              <button 
-                onClick={() => {
-                  setActiveTab('privacy');
-                  setShowCookieBanner(false);
-                }}
-                className="text-sm text-slate-500 hover:text-blue-600 font-medium underline decoration-slate-300 underline-offset-4 hover:decoration-blue-600 transition"
-              >
-                Read Privacy Policy Preview
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
