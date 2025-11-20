@@ -4,7 +4,10 @@ import CryptoJS from 'crypto-js';
 import CreateProcessor from './components/CreateProcessor';
 import { 
   ShieldCheck, BarChart3, Users, FileText, Check, 
-  Lock, Zap, LayoutDashboard, LogOut, PlusCircle 
+  Lock, Zap, LayoutDashboard, LogOut, PlusCircle,
+  Key, Database, Link, Search, Cloud, Server,
+  ArrowRight, Play, BookOpen, Settings,
+  ArrowLeft, ArrowUp, Infinity
 } from 'lucide-react';
 
 // VIKTIGT: Tom sträng för Netlify proxy
@@ -26,7 +29,7 @@ const Navbar = ({ activeTab, setActiveTab }) => (
           </div>
         </div>
         <nav className="hidden md:flex space-x-1">
-          {['Pricing', 'Dashboard', 'Create', 'Events', 'Privacy'].map((item) => (
+          {['Pricing', 'HowItWorks', 'Dashboard', 'Create', 'Events', 'Privacy'].map((item) => (
             <button
               key={item}
               onClick={() => setActiveTab(item.toLowerCase())}
@@ -36,7 +39,7 @@ const Navbar = ({ activeTab, setActiveTab }) => (
                   : 'text-blue-100 hover:bg-white/5 hover:text-white'
               }`}
             >
-              {item}
+              {item === 'HowItWorks' ? 'How It Works' : item}
             </button>
           ))}
         </nav>
@@ -253,6 +256,240 @@ const PrivacyPolicy = ({ setActiveTab, cookiesAccepted, setShowCookieBanner }) =
   </div>
 );
 
+const HowItWorks = ({ setActiveTab }) => {
+  const [activeStep, setActiveStep] = useState(0);
+
+  const steps = [
+    {
+      title: "Registrering & API-nyckel",
+      icon: Key,
+      description: "Företag registrerar sig via vår webbportal och får en unik API-nyckel som fungerar som deras digitala ID-kort.",
+      details: [
+        "Unik API-nyckel för varje företag",
+        "Säker behållare i databasen",
+        "Omedelbar aktivering"
+      ],
+      action: "create",
+      actionText: "Skapa API-nyckel"
+    },
+    {
+      title: "Automatisk Loggning",
+      icon: Settings,
+      description: "Integrera API-nyckeln i era system. Vid kritiska händelser skickas data automatiskt till Auditor Veritas.",
+      details: [
+        "Integrera i lönesystem, journalsystem, webbutik",
+        "Automatisk signal vid kritiska händelser",
+        "Spårar: Vem, Vad, När"
+      ],
+      action: "events",
+      actionText: "Testa Loggning"
+    },
+    {
+      title: "Säker Lagring & Kedjor",
+      icon: Lock,
+      description: "Varje händelse krypteras och länkas till föregående händelse för att skapa en oförstörbar kedja.",
+      details: [
+        "SHA-256 hash för varje händelse",
+        "Kedjelänkning för integritet",
+        "GDPR-säkrad lagring i EU"
+      ],
+      action: "privacy",
+      actionText: "Läs om Säkerhet"
+    },
+    {
+      title: "Dashboard & Analys",
+      icon: BarChart3,
+      description: "Följ upp och analysera all aktivitet via vår säkra dashboard med sökbara loggar och rapporter.",
+      details: [
+        "Sökbar historik över alla händelser",
+        "Exportera rapporter för myndigheter",
+        "Avancerad analys (Premium)"
+      ],
+      action: "dashboard",
+      actionText: "Utforska Dashboard"
+    }
+  ];
+
+  return (
+    <div className="max-w-6xl mx-auto space-y-16 animate-in fade-in duration-500">
+      
+      {/* Hero Section */}
+      <div className="text-center pt-8">
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 w-24 h-24 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-xl">
+          <ShieldCheck className="w-12 h-12 text-white" />
+        </div>
+        <h1 className="text-5xl font-extrabold text-slate-900 mb-6 tracking-tight">
+          🛡️ How It Works
+        </h1>
+        <p className="text-xl text-slate-600 max-w-3xl mx-auto leading-relaxed">
+          Auditor Veritas är en säker, molnbaserad tjänst som hjälper företag att skapa oförstörbara loggar för GDPR-efterlevnad och ökad säkerhet.
+        </p>
+        <div className="mt-8 bg-blue-50 border border-blue-200 rounded-2xl p-6 max-w-2xl mx-auto">
+          <p className="text-blue-800 font-medium">
+            Tjänsten agerar som en "Svart Låda" för företagsdata - en oförstörbar historik över all kritisk aktivitet.
+          </p>
+        </div>
+      </div>
+
+      {/* Interactive Steps */}
+      <div className="bg-white rounded-3xl shadow-xl border border-slate-100 overflow-hidden">
+        <div className="bg-gradient-to-r from-slate-900 to-slate-800 px-8 py-6">
+          <h2 className="text-3xl font-bold text-white flex items-center">
+            <Play className="w-8 h-8 mr-4 text-emerald-400" />
+            🚀 4-enkla-steg till GDPR-efterlevnad
+          </h2>
+        </div>
+        
+        <div className="p-8">
+          {/* Step Navigation */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
+            {steps.map((step, index) => (
+              <button
+                key={index}
+                onClick={() => setActiveStep(index)}
+                className={`p-4 rounded-xl text-center transition-all duration-300 ${
+                  activeStep === index
+                    ? 'bg-blue-600 text-white shadow-lg transform scale-105'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
+              >
+                <step.icon className={`w-8 h-8 mx-auto mb-2 ${
+                  activeStep === index ? 'text-white' : 'text-blue-600'
+                }`} />
+                <span className="font-semibold text-sm">Steg {index + 1}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Active Step Content */}
+          <div className="flex flex-col lg:flex-row gap-8 items-start">
+            <div className="flex-shrink-0">
+              <div className={`w-32 h-32 rounded-3xl flex items-center justify-center shadow-xl ${
+                activeStep === 0 ? 'bg-blue-100' :
+                activeStep === 1 ? 'bg-green-100' :
+                activeStep === 2 ? 'bg-purple-100' : 'bg-amber-100'
+              }`}>
+                <steps[activeStep].icon className={`w-16 h-16 ${
+                  activeStep === 0 ? 'text-blue-600' :
+                  activeStep === 1 ? 'text-green-600' :
+                  activeStep === 2 ? 'text-purple-600' : 'text-amber-600'
+                }`} />
+              </div>
+            </div>
+            
+            <div className="flex-grow">
+              <h3 className="text-3xl font-bold text-slate-900 mb-4">
+                {steps[activeStep].title}
+              </h3>
+              
+              <p className="text-lg text-slate-600 mb-6 leading-relaxed">
+                {steps[activeStep].description}
+              </p>
+
+              <div className="space-y-3 mb-8">
+                {steps[activeStep].details.map((detail, index) => (
+                  <div key={index} className="flex items-start">
+                    <div className="bg-emerald-100 p-2 rounded-lg mr-3 mt-1">
+                      <Check className="w-4 h-4 text-emerald-600" />
+                    </div>
+                    <span className="text-slate-700">{detail}</span>
+                  </div>
+                ))}
+              </div>
+
+              <button 
+                onClick={() => setActiveTab(steps[activeStep].action)}
+                className="bg-blue-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:bg-blue-700 transition shadow-lg hover:shadow-blue-600/30 hover:scale-105"
+              >
+                {steps[activeStep].actionText} →
+              </button>
+            </div>
+          </div>
+
+          {/* Step Navigation Arrows */}
+          <div className="flex justify-between mt-12">
+            <button
+              onClick={() => setActiveStep(prev => Math.max(0, prev - 1))}
+              disabled={activeStep === 0}
+              className={`flex items-center px-6 py-3 rounded-xl font-semibold transition ${
+                activeStep === 0
+                  ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                  : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+              }`}
+            >
+              <ArrowLeft className="w-5 h-5 mr-2" />
+              Föregående
+            </button>
+            
+            <button
+              onClick={() => setActiveStep(prev => Math.min(steps.length - 1, prev + 1))}
+              disabled={activeStep === steps.length - 1}
+              className={`flex items-center px-6 py-3 rounded-xl font-semibold transition ${
+                activeStep === steps.length - 1
+                  ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                  : 'bg-blue-600 text-white hover:bg-blue-700'
+              }`}
+            >
+              Nästa
+              <ArrowRight className="w-5 h-5 ml-2" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Quick Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-white rounded-2xl p-6 shadow-lg border border-slate-100 text-center">
+          <div className="bg-blue-100 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <ShieldCheck className="w-8 h-8 text-blue-600" />
+          </div>
+          <h3 className="text-xl font-bold text-slate-900 mb-2">GDPR Compliant</h3>
+          <p className="text-slate-600">Fullständig efterlevnad med EU:s dataskyddsförordning</p>
+        </div>
+        
+        <div className="bg-white rounded-2xl p-6 shadow-lg border border-slate-100 text-center">
+          <div className="bg-green-100 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <Lock className="w-8 h-8 text-green-600" />
+          </div>
+          <h3 className="text-xl font-bold text-slate-900 mb-2">Bank-level Security</h3>
+          <p className="text-slate-600">SHA-256 hashing och end-to-end kryptering</p>
+        </div>
+        
+        <div className="bg-white rounded-2xl p-6 shadow-lg border border-slate-100 text-center">
+          <div className="bg-purple-100 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <Zap className="w-8 h-8 text-purple-600" />
+          </div>
+          <h3 className="text-xl font-bold text-slate-900 mb-2">Realtids-logging</h3>
+          <p className="text-slate-600">Omedelbar loggning och verifiering av händelser</p>
+        </div>
+      </div>
+
+      {/* CTA Section */}
+      <div className="text-center bg-gradient-to-r from-blue-600 to-indigo-600 rounded-3xl shadow-xl p-12 text-white">
+        <h2 className="text-3xl font-bold mb-4">Redo att komma igång?</h2>
+        <p className="text-blue-100 text-lg mb-8 max-w-2xl mx-auto">
+          Börja skapa oförstörbara audit trails för din organisation idag. 
+          GDPR-efterlevnad har aldrig varit enklare.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <button 
+            onClick={() => setActiveTab('create')}
+            className="bg-white text-blue-600 px-8 py-4 rounded-xl font-bold text-lg hover:bg-blue-50 transition shadow-2xl hover:scale-105"
+          >
+            Kom Igång Gratis
+          </button>
+          <button 
+            onClick={() => setActiveTab('pricing')}
+            className="bg-transparent border-2 border-white text-white px-8 py-4 rounded-xl font-bold text-lg hover:bg-white/10 transition"
+          >
+            Se Alla Priser
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 function App() {
   const [activeTab, setActiveTab] = useState('pricing');
   const [processor, setProcessor] = useState(null);
@@ -278,10 +515,44 @@ function App() {
       setApiKey(savedApiKey);
     }
 
+    // Uppdaterade priser med nya logg-gränser
     setPricingPlans({
-      starter: { name: 'Starter', events: 100, price: 0, features: ['Basic Audit Trail', 'GDPR Compliance', 'Email Support'] },
-      professional: { name: 'Professional', events: 50000, price: 49, features: ['Advanced Analytics', 'Bulk Import', 'Priority Support', 'Custom Events'], featured: true },
-      enterprise: { name: 'Enterprise', events: 500000, price: 199, features: ['Everything in Professional', 'Dedicated Support', 'SLA Guarantee', 'Custom Integrations'] }
+      starter: { 
+        name: 'Starter', 
+        events: 100, 
+        price: 0, 
+        features: [
+          '100 log events per month',
+          'Basic Audit Trail', 
+          'GDPR Compliance', 
+          'Email Support'
+        ] 
+      },
+      professional: { 
+        name: 'Professional', 
+        events: 5000, 
+        price: 49, 
+        features: [
+          '5,000 log events per month',
+          'Advanced Analytics', 
+          'Bulk Import', 
+          'Priority Support', 
+          'Custom Events'
+        ], 
+        featured: true 
+      },
+      enterprise: { 
+        name: 'Enterprise', 
+        events: 'Unlimited', 
+        price: 199, 
+        features: [
+          'Unlimited log events',
+          'Everything in Professional',
+          'Dedicated Support', 
+          'SLA Guarantee', 
+          'Custom Integrations'
+        ] 
+      }
     });
   }, []);
 
@@ -372,10 +643,27 @@ function App() {
                     </div>
                   )}
                   <h3 className="text-2xl font-bold text-slate-900 mb-2">{plan.name}</h3>
-                  <div className="mb-6 flex items-baseline">
+                  
+                  {/* Event Limits */}
+                  <div className="mb-4">
+                    <div className="flex items-baseline justify-center">
+                      {typeof plan.events === 'string' ? (
+                        <div className="flex items-center text-2xl font-bold text-slate-900">
+                          <Infinity className="w-8 h-8 mr-1" />
+                          <span>Unlimited</span>
+                        </div>
+                      ) : (
+                        <div className="text-3xl font-bold text-slate-900">{plan.events.toLocaleString()}</div>
+                      )}
+                      <span className="text-slate-500 ml-2 font-medium">events/month</span>
+                    </div>
+                  </div>
+                  
+                  <div className="mb-6 flex items-baseline justify-center">
                     <span className="text-4xl font-extrabold text-slate-900">${plan.price}</span>
                     <span className="text-slate-500 ml-2 font-medium">/month</span>
                   </div>
+                  
                   <ul className="space-y-4 mb-8 flex-1">
                     {plan.features.map((feat, i) => (
                       <li key={i} className="flex items-start text-slate-600 text-sm">
@@ -384,6 +672,7 @@ function App() {
                       </li>
                     ))}
                   </ul>
+                  
                   <button 
                     onClick={() => setActiveTab('create')}
                     className={`w-full py-3.5 rounded-xl font-bold transition-all duration-200 shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 ${
@@ -398,6 +687,11 @@ function App() {
               ))}
             </div>
           </div>
+        )}
+
+        {/* --- HOW IT WORKS TAB --- */}
+        {activeTab === 'howitworks' && (
+          <HowItWorks setActiveTab={setActiveTab} />
         )}
 
         {/* --- DASHBOARD TAB --- */}
