@@ -6,20 +6,21 @@
 [build.environment]
   NODE_VERSION = "18"
 
-# Redirect API calls to Render backend
+# 1. FIXAD Redirect API calls till Render backend (Tar bort /api/ från to-URL:en)
 [[redirects]]
   from = "/api/*"
-  to = "https://auditor-veritas-mvp.onrender.com/api/:splat"
+  to = "https://auditor-veritas-mvp.onrender.com/:splat" 
   status = 200
   force = true
 
-# 🔥 EXTRA REDIRECT FÖR DIRECT ANROP
+# 2. FIXAD EXTRA REDIRECT FÖR DIRECT ANROP (Tar bort /api/ från to-URL:en)
 [[redirects]]
   from = "/create-processor"
-  to = "https://auditor-veritas-mvp.onrender.com/api/create-processor"
+  to = "https://auditor-veritas-mvp.onrender.com/create-processor" # Får Render-servern att hantera anropet på rotnivå
   status = 200
   force = true
 
+# 3. SPA Fallback
 [[redirects]]
   from = "/*"
   to = "/index.html"
