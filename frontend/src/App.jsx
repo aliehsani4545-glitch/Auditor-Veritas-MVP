@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './App.css';
 import CryptoJS from 'crypto-js';
 import CreateProcessor from './components/CreateProcessor';
@@ -121,23 +121,38 @@ const LockScreen = ({ onUnlock }) => (
 );
 
 // --- LOCKED FEATURE COMPONENT ---
-const LockedFeature = ({ title, message, onAcceptCookies }) => (
-  <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
-    <div className="bg-slate-100 w-16 h-16 rounded-2xl flex items-center justify-center mb-4">
-      <Lock className="w-8 h-8 text-slate-400" />
+const LockedFeature = ({ title, message, onAcceptCookies, desc, setActiveTab }) => {
+  // Om onAcceptCookies finns, visa cookie-låst version
+  if (onAcceptCookies) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
+        <div className="bg-slate-100 w-16 h-16 rounded-2xl flex items-center justify-center mb-4">
+          <Lock className="w-8 h-8 text-slate-400" />
+        </div>
+        <h3 className="text-xl font-bold text-slate-700 mb-2">{title}</h3>
+        <p className="text-slate-500 max-w-md mb-6">{message}</p>
+        <button 
+          onClick={onAcceptCookies}
+          className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700 transition"
+        >
+          Accept Cookies to Unlock
+        </button>
+      </div>
+    );
+  }
+  
+  // Annars visa upgrade-låst version
+  return (
+    <div className="bg-slate-50/50 rounded-xl p-6 border border-dashed border-slate-300 flex flex-col items-center justify-center text-center h-full hover:bg-slate-50 transition">
+      <div className="bg-slate-200 p-3 rounded-full mb-4">
+        <Lock className="w-6 h-6 text-slate-500" />
+      </div>
+      <h3 className="text-lg font-bold text-slate-800 mb-2">{title}</h3>
+      <p className="text-sm text-slate-500 mb-6 max-w-xs leading-relaxed">{desc}</p>
+      <button onClick={() => setActiveTab('pricing')} className="text-sm bg-white border border-slate-200 px-4 py-2 rounded-lg font-semibold text-blue-600 hover:border-blue-200 hover:bg-blue-50 transition shadow-sm">Upgrade to Unlock</button>
     </div>
-    <h3 className="text-xl font-bold text-slate-700 mb-2">{title}</h3>
-    <p className="text-slate-500 max-w-md mb-6">{message}</p>
-    {onAcceptCookies && (
-      <button 
-        onClick={onAcceptCookies}
-        className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700 transition"
-      >
-        Accept Cookies to Unlock
-      </button>
-    )}
-  </div>
-);
+  );
+};
 
 // --- UI KOMPONENTER (Navbar, StatsCards, etc.) ---
 const Navbar = ({ activeTab, setActiveTab }) => {
@@ -803,17 +818,6 @@ const HowItWorks = ({ setActiveTab, cookiesAccepted, onAcceptCookies }) => {
     </div>
   );
 };
-
-const LockedFeature = ({ title, desc, setActiveTab }) => (
-  <div className="bg-slate-50/50 rounded-xl p-6 border border-dashed border-slate-300 flex flex-col items-center justify-center text-center h-full hover:bg-slate-50 transition">
-    <div className="bg-slate-200 p-3 rounded-full mb-4">
-      <Lock className="w-6 h-6 text-slate-500" />
-    </div>
-    <h3 className="text-lg font-bold text-slate-800 mb-2">{title}</h3>
-    <p className="text-sm text-slate-500 mb-6 max-w-xs leading-relaxed">{desc}</p>
-    <button onClick={() => setActiveTab('pricing')} className="text-sm bg-white border border-slate-200 px-4 py-2 rounded-lg font-semibold text-blue-600 hover:border-blue-200 hover:bg-blue-50 transition shadow-sm">Upgrade to Unlock</button>
-  </div>
-);
 
 // --- COMPLETE PRIVACY POLICY ---
 const PrivacyPolicy = ({ setActiveTab, cookiesAccepted, onAcceptCookies }) => (
