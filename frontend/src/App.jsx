@@ -12,18 +12,13 @@ import {
   Hash, Link, Cpu as CpuIcon, Shield, Database as DatabaseIcon,
   TrendingUp, Activity, Lock as LockIcon, Cpu as ChipIcon,
   ChevronRight, ChevronLeft, Circle, Sparkles, Rocket,
-  BadgeCheck, FileText as FileTextIcon
+  BadgeCheck, Copy as CopyIcon, Globe as GlobeIconLucide // Globe är nu Lucide-ikonen
 } from 'lucide-react';
 
-// ✅ FIXAT FÖR DRIFT: Måste vara tom för att Netlify-proxyn ska fånga anropet /api/*
+// ✅ KORREKT FÖR DRIFTSÄTTNING
 const API_BASE_URL = ''; 
 
-// --- HELPER IKONER ---
-const Copy = ({ className }) => (<svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>);
-const User = ({ className }) => (<svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>);
-const GlobeIconSVG = ({ className }) => (<svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>);
-
-// --- SÄKERHETSHOOKS (Från din funktionella kod) ---
+// --- DINA SÄKERHETSHOOKS (Intakta) ---
 const useSecurityProtections = () => {
   useEffect(() => {
     const handleContextMenu = (e) => { e.preventDefault(); return false; };
@@ -137,14 +132,13 @@ const LockedFeature = ({ title, message, onAcceptCookies, desc, setActiveTab }) 
   );
 };
 
-// [HowItWorks Component - INTEGRERAD AVANCERAD LOGIK OCH DESIGN]
+// --- HowItWorks Component (Integrerad avancerad logik och design) ---
 const HowItWorks = ({ setActiveTab, cookiesAccepted, onAcceptCookies }) => {
   const [activeStep, setActiveStep] = useState(0);
   const [terminalOutput, setTerminalOutput] = useState(null);
   const [isSimulating, setIsSimulating] = useState(false);
   const [apiKey, setApiKey] = useState('');
   const [isGeneratingKey, setIsGeneratingKey] = useState(false);
-  const [events, setEvents] = useState([]);
   const [liveEvents, setLiveEvents] = useState([]);
   const [hashInput, setHashInput] = useState('');
   const [hashOutput, setHashOutput] = useState('');
@@ -287,7 +281,6 @@ function App() {
     const config = { headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, ...options.headers }, ...options };
     if (options.body) config.body = JSON.stringify(options.body);
     try {
-      // API_BASE_URL är tom, så anropet blir relativt (/api/dashboard)
       const response = await fetch(`${API_BASE_URL}${endpoint}`, config); 
       if (response.status === 204) return null;
       const text = await response.text();
