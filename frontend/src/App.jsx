@@ -266,6 +266,47 @@ const HowItWorks = ({ setActiveTab, cookiesAccepted, onAcceptCookies }) => {
   const [securityScore, setSecurityScore] = useState(100);
   const [complianceStatus, setComplianceStatus] = useState('verified');
 
+  const steps = [
+    {
+      title: "Secure Registration",
+      icon: Shield,
+      description: "Get your enterprise-grade API key with military-grade security protocols.",
+      details: ["256-bit API key generation", "Instant secure container provisioning", "Multi-factor authentication ready", "GDPR Article 30 compliant setup"],
+      visual: "key",
+      action: "create",
+      actionText: "Get Started"
+    },
+    {
+      title: "Smart Event Processing",
+      icon: CpuIcon,
+      description: "Real-time event processing with automatic PII detection and cryptographic hashing.",
+      details: ["Smart PII detection & auto-hashing", "Real-time event validation", "JSON schema enforcement", "Rate limiting & throttling"],
+      visual: "code",
+      action: "events",
+      actionText: "Try Live Demo"
+    },
+    {
+      title: "Immutable Audit Chain",
+      icon: Link,
+      description: "Cryptographically chained events with tamper-evident architecture and real-time integrity verification.",
+      details: ["Merkle tree architecture", "Real-time integrity checks", "Tamper-evident design", "Automated compliance scoring"],
+      visual: "chain",
+      action: "privacy",
+      actionText: "View Security"
+    },
+    {
+      title: "Enterprise Dashboard",
+      icon: Activity,
+      description: "Comprehensive real-time monitoring with advanced analytics and compliance reporting.",
+      details: ["Live event streaming", "Advanced analytics engine", "Compliance reporting", "Automated audit trails"],
+      visual: "dashboard",
+      action: "dashboard",
+      actionText: "Access Dashboard"
+    }
+  ];
+
+  const currentStep = steps[activeStep];
+
   // Generate API Key
   const generateApiKey = () => {
     if (!cookiesAccepted) return;
@@ -367,45 +408,6 @@ const HowItWorks = ({ setActiveTab, cookiesAccepted, onAcceptCookies }) => {
     }, 4000);
   };
 
-  const steps = [
-    {
-      title: "Secure Registration",
-      icon: Shield,
-      description: "Get your enterprise-grade API key with military-grade security protocols.",
-      details: ["256-bit API key generation", "Instant secure container provisioning", "Multi-factor authentication ready", "GDPR Article 30 compliant setup"],
-      visual: "key",
-      action: "create",
-      actionText: "Get Started"
-    },
-    {
-      title: "Smart Event Processing",
-      icon: CpuIcon,
-      description: "Real-time event processing with automatic PII detection and cryptographic hashing.",
-      details: ["Smart PII detection & auto-hashing", "Real-time event validation", "JSON schema enforcement", "Rate limiting & throttling"],
-      visual: "code",
-      action: "events",
-      actionText: "Try Live Demo"
-    },
-    {
-      title: "Immutable Audit Chain",
-      icon: Link,
-      description: "Cryptographically chained events with tamper-evident architecture and real-time integrity verification.",
-      details: ["Merkle tree architecture", "Real-time integrity checks", "Tamper-evident design", "Automated compliance scoring"],
-      visual: "chain",
-      action: "privacy",
-      actionText: "View Security"
-    },
-    {
-      title: "Enterprise Dashboard",
-      icon: Activity,
-      description: "Comprehensive real-time monitoring with advanced analytics and compliance reporting.",
-      details: ["Live event streaming", "Advanced analytics engine", "Compliance reporting", "Automated audit trails"],
-      visual: "dashboard",
-      action: "dashboard",
-      actionText: "Access Dashboard"
-    }
-  ];
-
   const renderVisualization = () => {
     if (!cookiesAccepted) {
       return (
@@ -415,7 +417,7 @@ const HowItWorks = ({ setActiveTab, cookiesAccepted, onAcceptCookies }) => {
       );
     }
 
-    switch(steps[activeStep].visual) {
+    switch(currentStep.visual) {
       case 'key':
         return (
           <div className="bg-gradient-to-br from-blue-50 to-indigo-100 rounded-2xl p-6 border border-blue-200 h-96 flex flex-col items-center justify-center">
@@ -720,18 +722,18 @@ const HowItWorks = ({ setActiveTab, cookiesAccepted, onAcceptCookies }) => {
             <div className="sticky top-8">
               <div className="flex items-center mb-6">
                 <div className="p-3 bg-blue-100 rounded-2xl mr-4">
-                  <steps[activeStep].icon className="w-8 h-8 text-blue-600" />
+                  {React.createElement(currentStep.icon, { className: "w-8 h-8 text-blue-600" })}
                 </div>
                 <div>
-                  <h3 className="text-2xl font-bold text-slate-900">{steps[activeStep].title}</h3>
+                  <h3 className="text-2xl font-bold text-slate-900">{currentStep.title}</h3>
                   <p className="text-slate-500 mt-1">Step {activeStep + 1} of {steps.length}</p>
                 </div>
               </div>
               
-              <p className="text-lg text-slate-600 mb-6 leading-relaxed">{steps[activeStep].description}</p>
+              <p className="text-lg text-slate-600 mb-6 leading-relaxed">{currentStep.description}</p>
               
               <ul className="space-y-4 mb-8">
-                {steps[activeStep].details?.map((detail, i) => (
+                {currentStep.details?.map((detail, i) => (
                   <li key={i} className="flex items-start text-sm text-slate-600">
                     <div className="mt-0.5 mr-3 min-w-[20px]">
                       <Check className="w-4 h-4 text-green-500" />
@@ -743,7 +745,7 @@ const HowItWorks = ({ setActiveTab, cookiesAccepted, onAcceptCookies }) => {
               
               <div className="flex space-x-4">
                 <button 
-                  onClick={() => cookiesAccepted && setActiveTab(steps[activeStep].action)} 
+                  onClick={() => cookiesAccepted && setActiveTab(currentStep.action)} 
                   disabled={!cookiesAccepted}
                   className={`px-6 py-3 rounded-xl font-bold transition flex items-center space-x-2 ${
                     cookiesAccepted 
@@ -751,7 +753,7 @@ const HowItWorks = ({ setActiveTab, cookiesAccepted, onAcceptCookies }) => {
                       : 'bg-slate-300 text-slate-500 cursor-not-allowed'
                   }`}
                 >
-                  <span>{steps[activeStep].actionText}</span>
+                  <span>{currentStep.actionText}</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
                 
@@ -802,7 +804,6 @@ const HowItWorks = ({ setActiveTab, cookiesAccepted, onAcceptCookies }) => {
   );
 };
 
-// Resten av komponenterna förblir oförändrade...
 const LockedFeature = ({ title, desc, setActiveTab }) => (
   <div className="bg-slate-50/50 rounded-xl p-6 border border-dashed border-slate-300 flex flex-col items-center justify-center text-center h-full hover:bg-slate-50 transition">
     <div className="bg-slate-200 p-3 rounded-full mb-4">
@@ -1021,15 +1022,13 @@ function App() {
   };
 
   const handleGDPRExport = async () => {
-    // ... (GDPR Export logic remains the same, needs to be implemented in full)
     alert("GDPR Export simulation: JSON data ready for download.");
   };
 
-  const handleKeyRotation = async (apiKey, setApiKey, processorId) => {
+  const handleKeyRotation = async () => {
     if (!window.confirm("WARNING: This will invalidate the old API key and generate a new one. All connected systems must be updated immediately. Are you sure?")) {
         return;
     }
-    // SIMULATION: This should call your backend /api/processors/rotate-key/{processorId}
     alert("API Key Rotation NOT IMPLEMENTED IN BACKEND. SIMULATION: New key generated!");
     const newFakeKey = `av_${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`;
     setApiKey(newFakeKey);
@@ -1137,7 +1136,7 @@ function App() {
                   <div><h2 className="text-2xl font-bold text-slate-900">{processor.companyName}</h2><p className="text-sm text-slate-500">Dashboard</p></div>
                   <div className="flex space-x-2">
                     <button onClick={handleGDPRExport} className="px-4 py-2 bg-slate-50 border rounded-lg text-sm font-medium hover:bg-slate-100 flex items-center"><Download className="w-4 h-4 mr-2 text-blue-600"/> Export Data</button>
-                    <button onClick={() => handleKeyRotation(apiKey, setApiKey, processor.id)} className="px-4 py-2 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 hover:shadow-sm transition text-amber-700 font-medium text-sm flex items-center"><RefreshCw className="w-4 h-4 mr-2"/> Rotate Key</button>
+                    <button onClick={handleKeyRotation} className="px-4 py-2 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 hover:shadow-sm transition text-amber-700 font-medium text-sm flex items-center"><RefreshCw className="w-4 h-4 mr-2"/> Rotate Key</button>
                     <button onClick={() => {setProcessor(null); setApiKey('');}} className="px-4 py-2 bg-red-50 border border-red-100 rounded-lg hover:bg-red-100 hover:text-red-700 transition text-red-600 font-medium text-sm">Sign Out</button>
                   </div>
                 </div>
