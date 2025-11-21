@@ -39,6 +39,396 @@ const supabase = createClient(
   supabaseServiceKey || 'placeholder_key'
 );
 
+// --- MERKLE TREE IMPLEMENTATION ---
+class MerkleTree {
+  constructor(leaves = []) {
+    this.leaves = leaves.map(leaf => this.hash(leaf));
+    this.levels = this.buildTree(this.leaves);
+    this.root = this.levels.length > 0 ? this.levels[0][0] : this.hash('');
+  }
+
+  hash(data) {
+    if (typeof data === 'object') {
+      data = JSON.stringify(data, Object.keys(data).sort());
+    }
+    return CryptoJS.SHA256(data).toString();
+  }
+
+  buildTree(leaves) {
+    if (leaves.length === 0) return [['']];
+    
+    const levels = [leaves];
+    let currentLevel = leaves;
+
+    while (currentLevel.length > 1) {
+      const nextLevel = [];
+      
+      for (let i = 0; i < currentLevel.length; i += 2) {
+        const left = currentLevel[i];
+        const right = (i + 1 < currentLevel.length) ? currentLevel[i + 1] : left;
+        const combined = left + right;
+        nextLevel.push(this.hash(combined));
+      }
+      
+      levels.unshift(nextLevel);
+      currentLevel = nextLevel;
+    }
+
+    return levels;
+  }
+
+  getProof(leafHash) {
+    let index = this.leaves.indexOf(leafHash);
+    if (index === -1) return null;
+
+    const proof = [];
+    let currentIndex = index;
+
+    for (let i = this.levels.length - 1; i > 0; i--) {
+      const level = this.levels[i];
+      const isRightNode = currentIndex % 2 === 0;
+      const siblingIndex = isRightNode ? currentIndex + 1 : currentIndex - 1;
+
+      if (siblingIndex < level.length) {
+        proof.push({
+          hash: level[siblingIndex],
+          position: isRightNode ? 'right' : 'left'
+        });
+      }
+
+      currentIndex = Math.floor(currentIndex / 2);
+    }
+
+    return proof;
+  }
+
+  verifyProof(leafHash, proof, root) {
+    let computedHash = leafHash;
+
+    for (const node of proof) {
+      if (node.position === 'left') {
+        computedHash = this.hash(node.hash + computedHash);
+      } else {
+        computedHash = this.hash(computedHash + node.hash);
+      }
+    }
+
+    return computedHash === root;
+  }
+
+  addLeaf(leafData) {
+    const leafHash = this.hash(leafData);
+    this.leaves.push(leafHash);
+    this.levels = this.buildTree(this.leaves);
+    this.root = this.levels[0][0];
+    return leafHash;
+  }
+
+  getTreeSummary() {
+    return {
+      root: this.root,
+      leafCount: this.leaves.length,
+      levels: this.levels.length,
+      leaves: this.leaves.slice(0, 5)
+    };
+  }
+}
+
+// Global Merkle Tree storage
+const merkleTrees = new Map();
+
+// --- MERKLE TREE ENDPOINTS ---
+
+// Get or Create Merkle Tree for Processor
+app.get('/api/merkle/tree', authenticateApiKey, async (req, res) => {
+  try {
+    const processor = req.processor;
+    const treeId = `processor_${processor.id}`;
+
+    if (!merkleTrees.has(treeId)) {
+      // Build initial tree from existing events
+      const { data: events } = await supabase
+        .from('audit_events')
+        .select('*')
+        .eq('processor_id', processor.id)
+        .order('event_timestamp', { ascending: true });
+
+      const tree = new MerkleTree(events?.map(event => ({
+        id: event.id,
+        event_type: event.event_type,
+        event_data: event.event_data,
+        timestamp: event.event_timestamp,
+        data_hash: event.data_hash
+      })) || []);
+
+      merkleTrees.set(treeId, tree);
+    }
+
+    const tree = merkleTrees.get(treeId);
+    res.json({
+      treeId: treeId,
+      ...tree.getTreeSummary(),
+      message: 'Merkle Tree loaded successfully'
+    });
+
+  } catch (error) {
+    console.error('Merkle tree error:', error);
+    res.status(500).json({
+      error: 'Failed to load Merkle tree'
+    });
+  }
+});
+
+// Add Event to Merkle Tree
+app.post('/api/merkle/events', authenticateApiKey, async (req, res) => {
+  try {
+    const { event_type, event_data, user_identifier } = req.body;
+    const processor = req.processor;
+
+    if (!event_type?.trim()) {
+      return res.status(400).json({
+        error: 'Event type is required'
+      });
+    }
+
+    // Create the event first
+    const eventTimestamp = new Date().toISOString();
+    const hashData = {
+      processor_id: processor.id,
+      event_type: event_type.trim(),
+      event_data: event_data || {},
+      user_identifier: user_identifier,
+      event_timestamp: eventTimestamp
+    };
+
+    const data_hash = CryptoJS.SHA256(JSON.stringify(hashData)).toString();
+
+    const { data: event, error } = await supabase
+      .from('audit_events')
+      .insert([{
+        processor_id: processor.id,
+        event_type: event_type.trim(),
+        event_data: event_data || {},
+        user_identifier: user_identifier,
+        event_timestamp: eventTimestamp,
+        data_hash: data_hash
+      }])
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Add to Merkle Tree
+    const treeId = `processor_${processor.id}`;
+    if (!merkleTrees.has(treeId)) {
+      merkleTrees.set(treeId, new MerkleTree());
+    }
+
+    const tree = merkleTrees.get(treeId);
+    const leafHash = tree.addLeaf({
+      id: event.id,
+      event_type: event_type.trim(),
+      event_data: event_data || {},
+      timestamp: eventTimestamp,
+      data_hash: data_hash
+    });
+
+    res.json({
+      message: 'Event added to Merkle Tree',
+      eventId: event.id,
+      leafHash: leafHash,
+      merkleRoot: tree.root,
+      treeSummary: tree.getTreeSummary()
+    });
+
+  } catch (error) {
+    console.error('Merkle event error:', error);
+    res.status(500).json({
+      error: 'Failed to add event to Merkle tree'
+    });
+  }
+});
+
+// Generate Merkle Proof for Event
+app.get('/api/merkle/proof/:eventId', authenticateApiKey, async (req, res) => {
+  try {
+    const { eventId } = req.params;
+    const processor = req.processor;
+
+    // Get the event
+    const { data: event } = await supabase
+      .from('audit_events')
+      .select('*')
+      .eq('id', eventId)
+      .eq('processor_id', processor.id)
+      .single();
+
+    if (!event) {
+      return res.status(404).json({
+        error: 'Event not found'
+      });
+    }
+
+    const treeId = `processor_${processor.id}`;
+    if (!merkleTrees.has(treeId)) {
+      return res.status(404).json({
+        error: 'Merkle tree not found for processor'
+      });
+    }
+
+    const tree = merkleTrees.get(treeId);
+    const leafData = {
+      id: event.id,
+      event_type: event.event_type,
+      event_data: event.event_data,
+      timestamp: event.event_timestamp,
+      data_hash: event.data_hash
+    };
+
+    const leafHash = tree.hash(leafData);
+    const proof = tree.getProof(leafHash);
+
+    if (!proof) {
+      return res.status(404).json({
+        error: 'Event not found in Merkle tree'
+      });
+    }
+
+    // Verify the proof
+    const isValid = tree.verifyProof(leafHash, proof, tree.root);
+
+    res.json({
+      eventId: eventId,
+      leafHash: leafHash,
+      merkleRoot: tree.root,
+      proof: proof,
+      isValid: isValid,
+      verification: {
+        verified: isValid,
+        timestamp: new Date().toISOString(),
+        rootHash: tree.root
+      },
+      treeInfo: {
+        totalLeaves: tree.leaves.length,
+        treeLevels: tree.levels.length
+      }
+    });
+
+  } catch (error) {
+    console.error('Merkle proof error:', error);
+    res.status(500).json({
+      error: 'Failed to generate Merkle proof'
+    });
+  }
+});
+
+// Verify Merkle Proof
+app.post('/api/merkle/verify', authenticateApiKey, async (req, res) => {
+  try {
+    const { leafHash, proof, root } = req.body;
+    const processor = req.processor;
+
+    if (!leafHash || !proof || !root) {
+      return res.status(400).json({
+        error: 'leafHash, proof, and root are required'
+      });
+    }
+
+    const treeId = `processor_${processor.id}`;
+    if (!merkleTrees.has(treeId)) {
+      return res.status(404).json({
+        error: 'Merkle tree not found'
+      });
+    }
+
+    const tree = merkleTrees.get(treeId);
+    const isValid = tree.verifyProof(leafHash, proof, root);
+
+    res.json({
+      verified: isValid,
+      leafHash: leafHash,
+      providedRoot: root,
+      currentRoot: tree.root,
+      matchesCurrent: root === tree.root,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Merkle verify error:', error);
+    res.status(500).json({
+      error: 'Failed to verify Merkle proof'
+    });
+  }
+});
+
+// Get Merkle Tree Structure
+app.get('/api/merkle/structure', authenticateApiKey, async (req, res) => {
+  try {
+    const processor = req.processor;
+    const treeId = `processor_${processor.id}`;
+
+    if (!merkleTrees.has(treeId)) {
+      return res.status(404).json({
+        error: 'Merkle tree not found'
+      });
+    }
+
+    const tree = merkleTrees.get(treeId);
+    
+    res.json({
+      treeId: treeId,
+      root: tree.root,
+      leafCount: tree.leaves.length,
+      levels: tree.levels.length,
+      structure: {
+        leaves: tree.leaves.slice(0, 10),
+        levelCount: tree.levels.length,
+        treeSummary: tree.getTreeSummary()
+      }
+    });
+
+  } catch (error) {
+    console.error('Merkle structure error:', error);
+    res.status(500).json({
+      error: 'Failed to get Merkle tree structure'
+    });
+  }
+});
+
+// Initialize Merkle Trees on Server Start
+async function initializeMerkleTrees() {
+  try {
+    const { data: processors } = await supabase
+      .from('processors')
+      .select('id');
+
+    if (!processors) return;
+
+    for (const processor of processors) {
+      const treeId = `processor_${processor.id}`;
+      const { data: events } = await supabase
+        .from('audit_events')
+        .select('*')
+        .eq('processor_id', processor.id)
+        .order('event_timestamp', { ascending: true });
+
+      if (events && events.length > 0) {
+        const tree = new MerkleTree(events.map(event => ({
+          id: event.id,
+          event_type: event.event_type,
+          event_data: event.event_data,
+          timestamp: event.event_timestamp,
+          data_hash: event.data_hash
+        })));
+        merkleTrees.set(treeId, tree);
+        console.log(`🌳 Merkle Tree initialized for processor ${processor.id} with ${events.length} events`);
+      }
+    }
+  } catch (error) {
+    console.error('Error initializing Merkle trees:', error);
+  }
+}
+
 // Enhanced Middleware
 app.use(helmet({
   contentSecurityPolicy: isProduction ? {
@@ -56,7 +446,7 @@ app.use(helmet({
 // Production CORS settings
 app.use(cors({
   origin: isProduction ? [
-    /https:\/\/.*\.netlify\.app$/, // Regex för att tillåta alla Netlify-adresser
+    /https:\/\/.*\.netlify\.app$/,
     'https://auditor-veritas-mvp.onrender.com'
   ] : ['http://localhost:3000', 'http://localhost:5173'],
   credentials: true
@@ -66,8 +456,8 @@ app.use(express.json({ limit: '10mb' }));
 
 // Production Rate Limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 1000, // Generös gräns för API-anrop
+  windowMs: 15 * 60 * 1000,
+  max: 1000,
   message: {
     error: 'Too many requests from this IP, please try again later.',
     code: 'RATE_LIMIT_EXCEEDED'
@@ -123,10 +513,10 @@ const authenticateApiKey = async (req, res, next) => {
   }
 };
 
-// PRICING CONFIGURATION - UPPDATERADE GRÄNSER
+// PRICING CONFIGURATION
 const PRICING_PLANS = {
   starter: { 
-    events: 100,  // Sänkt till 100
+    events: 100,
     price: 0,
     features: ['Basic Audit Trail', 'GDPR Compliance', 'Email Support']
   },
@@ -367,7 +757,7 @@ app.get('/api/keys/status', authenticateApiKey, async (req, res) => {
 
     const lastRotation = new Date(processor.last_key_rotation);
     const daysSinceRotation = Math.floor((new Date() - lastRotation) / (1000 * 60 * 60 * 24));
-    const recommendedRotation = 90; // days
+    const recommendedRotation = 90;
     const rotationStatus = daysSinceRotation >= recommendedRotation ? 'overdue' : 
                           daysSinceRotation >= recommendedRotation - 30 ? 'due_soon' : 'current';
 
@@ -443,6 +833,11 @@ app.get('/api/dashboard', authenticateApiKey, async (req, res) => {
     const lastRotation = new Date(processor.last_key_rotation);
     const daysSinceRotation = Math.floor((new Date() - lastRotation) / (1000 * 60 * 60 * 24));
 
+    // Get Merkle Tree status
+    const treeId = `processor_${processor.id}`;
+    const hasMerkleTree = merkleTrees.has(treeId);
+    const merkleTree = hasMerkleTree ? merkleTrees.get(treeId) : null;
+
     res.json({
       processor: {
         id: processor.id,
@@ -470,7 +865,12 @@ app.get('/api/dashboard', authenticateApiKey, async (req, res) => {
         keyRotationStatus: daysSinceRotation > 90 ? 'overdue' : daysSinceRotation > 60 ? 'due_soon' : 'current',
         lastRotation: processor.last_key_rotation,
         encryption: 'AES-256',
-        compliance: 'GDPR Certified'
+        compliance: 'GDPR Certified',
+        merkleTree: {
+          active: hasMerkleTree,
+          rootHash: merkleTree?.root?.substring(0, 16) + '...',
+          eventCount: merkleTree?.leaves.length || 0
+        }
       },
       billing: {
         plan: processor.plan,
@@ -591,6 +991,21 @@ app.post('/api/events', authenticateApiKey, async (req, res) => {
       });
     }
 
+    // Add to Merkle Tree
+    const treeId = `processor_${processor.id}`;
+    if (!merkleTrees.has(treeId)) {
+      merkleTrees.set(treeId, new MerkleTree());
+    }
+
+    const tree = merkleTrees.get(treeId);
+    tree.addLeaf({
+      id: data[0].id,
+      event_type: event_type.trim(),
+      event_data: parsedEventData,
+      timestamp: eventTimestamp,
+      data_hash: data_hash
+    });
+
     // Update analytics
     await updateProcessorAnalytics(processor.id);
 
@@ -599,6 +1014,7 @@ app.post('/api/events', authenticateApiKey, async (req, res) => {
       eventId: data[0].id,
       event_timestamp: data[0].event_timestamp,
       data_hash: data[0].data_hash,
+      merkleRoot: tree.root,
       usage: {
         monthlyUsed: monthlyEvents.length + 1,
         remaining: processor.events_limit - (monthlyEvents.length + 1)
@@ -613,7 +1029,7 @@ app.post('/api/events', authenticateApiKey, async (req, res) => {
   }
 });
 
-// Bulk Event Import for Enterprise (UPPDATERAD MED FEATURE GATING)
+// Bulk Event Import for Enterprise
 app.post('/api/events/bulk', authenticateApiKey, async (req, res) => {
   try {
     const { events } = req.body;
@@ -633,7 +1049,7 @@ app.post('/api/events/bulk', authenticateApiKey, async (req, res) => {
       });
     }
 
-    // --- FEATURE GATING: Blockera Starter ---
+    // Feature Gating: Block Starter
     if (processor.plan === 'starter') {
       return res.status(403).json({
         error: 'Bulk import requires Professional or Enterprise plan',
@@ -690,6 +1106,23 @@ app.post('/api/events/bulk', authenticateApiKey, async (req, res) => {
       });
     }
 
+    // Add to Merkle Tree
+    const treeId = `processor_${processor.id}`;
+    if (!merkleTrees.has(treeId)) {
+      merkleTrees.set(treeId, new MerkleTree());
+    }
+
+    const tree = merkleTrees.get(treeId);
+    data.forEach(event => {
+      tree.addLeaf({
+        id: event.id,
+        event_type: event.event_type,
+        event_data: event.event_data,
+        timestamp: event.event_timestamp,
+        data_hash: event.data_hash
+      });
+    });
+
     // Update analytics
     await updateProcessorAnalytics(processor.id);
 
@@ -698,6 +1131,7 @@ app.post('/api/events/bulk', authenticateApiKey, async (req, res) => {
       imported: processedEvents.length,
       errors: errors.length,
       error_details: isProduction ? null : errors,
+      merkleRoot: tree.root,
       usage: {
         totalImported: processedEvents.length,
         failedImports: errors.length
@@ -821,6 +1255,22 @@ app.get('/api/events/:id/verify', async (req, res) => {
     // Verify chain integrity
     let chain_analysis = await analyzeChainIntegrity(event);
 
+    // Verify Merkle Tree inclusion if available
+    let merkle_proof = null;
+    const treeId = `processor_${event.processor_id}`;
+    if (merkleTrees.has(treeId)) {
+      const tree = merkleTrees.get(treeId);
+      const leafData = {
+        id: event.id,
+        event_type: event.event_type,
+        event_data: event.event_data,
+        timestamp: event.event_timestamp,
+        data_hash: event.data_hash
+      };
+      const leafHash = tree.hash(leafData);
+      merkle_proof = tree.getProof(leafHash);
+    }
+
     res.json({
       eventId: event.id,
       event_timestamp: event.event_timestamp,
@@ -831,6 +1281,11 @@ app.get('/api/events/:id/verify', async (req, res) => {
       stored_hash: event.data_hash,
       verification_timestamp: new Date().toISOString(),
       chain_analysis: chain_analysis,
+      merkle_proof: merkle_proof ? {
+        available: true,
+        root: merkleTrees.get(treeId)?.root,
+        proof_steps: merkle_proof.length
+      } : { available: false },
       gdpr_compliant: true
     });
 
@@ -863,6 +1318,10 @@ app.get('/api/gdpr/export/:processorId', authenticateApiKey, async (req, res) =>
         createdAt: processor.created_at
       },
       events: events,
+      merkleTree: merkleTrees.has(`processor_${processor.id}`) ? {
+        root: merkleTrees.get(`processor_${processor.id}`).root,
+        leafCount: merkleTrees.get(`processor_${processor.id}`).leaves.length
+      } : null,
       gdprNotice: 'This export contains all your data as per GDPR Right to Access Article 15',
       totalEvents: events?.length || 0
     };
@@ -894,7 +1353,7 @@ async function getUsageTrend(processorId) {
 
   return {
     last30Days: recentEvents?.length || 0,
-    trend: 'increasing' // Simplified - implement proper trend analysis
+    trend: 'increasing'
   };
 }
 
@@ -905,7 +1364,6 @@ function calculateDailyAverage(monthlyEvents) {
 }
 
 async function updateProcessorAnalytics(processorId) {
-  // Update processor analytics in background
   const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
   const { data: monthlyEvents } = await supabase
     .from('audit_events')
@@ -984,18 +1442,26 @@ app.use('*', (req, res) => {
       'POST /api/events/bulk',
       'GET  /api/events/search',
       'GET  /api/events/:id/verify',
-      'GET  /api/gdpr/export/:processorId'
+      'GET  /api/gdpr/export/:processorId',
+      'GET  /api/merkle/tree',
+      'POST /api/merkle/events',
+      'GET  /api/merkle/proof/:eventId',
+      'POST /api/merkle/verify',
+      'GET  /api/merkle/structure'
     ]
   });
 });
 
-// --- VIKTIGT: FIX FÖR RENDER ---
-// Måste lyssna på 0.0.0.0, inte bara localhost
+// Initialize Merkle Trees on server start
+initializeMerkleTrees();
+
+// Server startup
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`\n🚀 AUDITOR VERITAS ${isProduction ? 'PRODUCTION' : 'DEVELOPMENT'} BACKEND`);
   console.log(`📍 Server running on 0.0.0.0:${PORT}`);
   console.log(`💰 Pricing: Starter (Free) → Professional ($49) → Enterprise ($199)`);
   console.log(`🔑 Key Rotation: Automated security key management`);
+  console.log(`🌳 Merkle Trees: Cryptographic data integrity`);
   console.log(`🔒 GDPR Compliant • EU Data Centers • Ready for Production`);
   console.log(`\n📊 Business Endpoints:`);
   console.log(`   GET    /api/health          - System health & revenue metrics`);
@@ -1004,9 +1470,15 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`   POST   /api/keys/rotate     - Rotate API keys for security`);
   console.log(`   GET    /api/keys/status     - Check key rotation status`);
   console.log(`   GET    /api/dashboard       - Business analytics dashboard`);
-  console.log(`   POST   /api/events          - Log event (with usage tracking)`);
+  console.log(`   POST   /api/events          - Log event (with Merkle Tree)`);
   console.log(`   POST   /api/events/bulk     - Bulk import (Enterprise)`);
   console.log(`   GET    /api/events/search   - Advanced search & filtering`);
   console.log(`   GET    /api/gdpr/export     - GDPR data export`);
+  console.log(`\n🌳 Merkle Tree Endpoints:`);
+  console.log(`   GET    /api/merkle/tree     - Get Merkle Tree status`);
+  console.log(`   POST   /api/merkle/events   - Add event to Merkle Tree`);
+  console.log(`   GET    /api/merkle/proof/:id - Generate integrity proof`);
+  console.log(`   POST   /api/merkle/verify   - Verify Merkle proof`);
+  console.log(`   GET    /api/merkle/structure - Get tree structure`);
   console.log(`\n💼 ${isProduction ? 'PRODUCTION READY - MAKING MONEY! 💰' : 'DEVELOPMENT MODE - TESTING!'}`);
 });
