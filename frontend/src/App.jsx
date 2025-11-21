@@ -15,7 +15,7 @@ import {
   Code2, ServerIcon, Workflow, Container,
   LockKeyhole, Binary, Cog, Scan,
   ChevronRight, ChevronLeft,
-  RotateCw // Added for key rotation
+  RotateCw 
 } from 'lucide-react';
 
 // VIKTIGT: Tom sträng för Netlify proxy
@@ -38,30 +38,14 @@ const useMousePosition = () => {
 const useSecurityProtections = () => {
   useEffect(() => {
     const handleContextMenu = (e) => { e.preventDefault(); return false; };
-
     const handleKeyDown = (e) => {
-      if (e.key === 'PrintScreen' || e.keyCode === 44) {
-        e.preventDefault();
-        return false;
-      }
-      if (e.key === 's' && e.shiftKey && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        return false;
-      }
-      if (e.keyCode === 123) {
-        e.preventDefault();
-        return false;
-      }
+      if (e.key === 'PrintScreen' || e.keyCode === 44) return false;
     };
-
     document.addEventListener('contextmenu', handleContextMenu);
     document.addEventListener('keydown', handleKeyDown);
-    document.body.style.userSelect = 'none';
-
     return () => {
       document.removeEventListener('contextmenu', handleContextMenu);
       document.removeEventListener('keydown', handleKeyDown);
-      document.body.style.userSelect = 'auto';
     };
   }, []);
 };
@@ -81,12 +65,10 @@ const useInactivityTimer = (timeoutMs = 300000, isActive) => {
 
   useEffect(() => {
     if (!isActive) return;
-    const events = ['mousemove', 'keydown', 'scroll', 'click', 'touchstart'];
+    const events = ['mousemove', 'keydown', 'click'];
     const handleActivity = () => { if (!isLocked) resetTimer(); };
-
     events.forEach(event => window.addEventListener(event, handleActivity));
     resetTimer();
-
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
       events.forEach(event => window.removeEventListener(event, handleActivity));
@@ -96,78 +78,39 @@ const useInactivityTimer = (timeoutMs = 300000, isActive) => {
   return { isLocked, setIsLocked };
 };
 
-// --- Modern VATTENSTÄMPEL ---
-const SecurityWatermark = ({ identifier }) => {
-  const mousePosition = useMousePosition();
-  const text = `CONFIDENTIAL • ${identifier} • ${new Date().toLocaleDateString()}`;
-
-  return (
-    <div className="fixed inset-0 pointer-events-none z-[9999] overflow-hidden">
-      {Array.from({ length: 25 }).map((_, i) => (
-        <div 
-          key={i} 
-          className="absolute text-center py-8 transform -rotate-12 whitespace-nowrap"
-          style={{
-            top: `${(i * 20) % 100}%`,
-            left: `${(i * 15) % 100}%`,
-            filter: `blur(${Math.abs(mousePosition.x - window.innerWidth / 2) / 100}px)`
-          }}
-        >
-          <span className="text-xl font-black text-slate-900/10 uppercase tracking-widest">
-            {text}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-};
-
 const LockScreen = ({ onUnlock }) => (
-  <div className="fixed inset-0 z-[10000] bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 backdrop-blur-xl flex flex-col items-center justify-center text-white animate-in fade-in duration-500">
-    <div className="relative">
-      <div className="absolute inset-0 bg-white/10 rounded-full blur-xl animate-pulse"></div>
-      <div className="relative bg-white/10 p-8 rounded-full mb-8 backdrop-blur-sm border border-white/20">
-        <Lock className="w-20 h-20 text-emerald-400" />
-      </div>
-    </div>
-    <h2 className="text-4xl font-bold mb-4 bg-gradient-to-r from-white to-emerald-200 bg-clip-text text-transparent">
-      Session Secured
-    </h2>
-    <p className="text-slate-300 mb-8 text-center max-w-md text-lg">
-      Dashboard locked due to inactivity. Re-authenticate to continue.
-    </p>
-    <button 
-      onClick={onUnlock} 
-      className="group relative bg-gradient-to-r from-emerald-500 to-cyan-500 text-white px-12 py-4 rounded-2xl font-bold text-lg transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-emerald-500/25 overflow-hidden"
-    >
-      <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent transform -skew-x-12 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
-      <span className="relative">Unlock Dashboard</span>
-    </button>
+  <div className="fixed inset-0 z-[10000] bg-slate-900 flex flex-col items-center justify-center text-white">
+    <Lock className="w-20 h-20 text-emerald-400 mb-4" />
+    <h2 className="text-3xl font-bold mb-4">Dashboard Locked</h2>
+    <button onClick={onUnlock} className="bg-emerald-500 px-8 py-3 rounded-xl font-bold">Unlock</button>
   </div>
 );
 
 // --- KEY ROTATION COMPONENT ---
-const KeyRotation = ({ processor, apiKey, onKeyRotate }) => {
+const KeyRotation = ({ processor, apiKey, onKeyRotate, apiCall, fetchDashboard }) => {
   const [isRotating, setIsRotating] = useState(false);
-  const [lastRotation, setLastRotation] = useState(null);
+  const [lastRotation, setLastRotation] = useState(processor?.last_key_rotation);
 
   const handleKeyRotation = async () => {
     if (!processor || !apiKey) return;
     
     setIsRotating(true);
     try {
-      // Simulate API call for key rotation
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // ANROPAR VERKLIG BACKEND-ENDPOINT
+      const data = await apiCall('/api/keys/rotate', {
+        method: 'POST',
+        headers: { 'x-api-key': apiKey }
+      });
       
-      // In a real implementation, this would call your backend
-      const newKey = `av_${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`;
+      const newKey = data.newApiKey;
       
-      setLastRotation(new Date().toISOString());
-      onKeyRotate(newKey);
+      setLastRotation(data.rotationTimestamp);
+      onKeyRotate(newKey); // Uppdatera lokalt tillstånd och localStorage
+      fetchDashboard(); // Hämta dashboard data igen
       
       alert('🔑 API Key rotated successfully! Update your integrations with the new key.');
     } catch (error) {
-      alert('❌ Key rotation failed. Please try again.');
+      alert(`❌ Key rotation failed: ${error.message}`);
     } finally {
       setIsRotating(false);
     }
@@ -182,12 +125,12 @@ const KeyRotation = ({ processor, apiKey, onKeyRotate }) => {
           </div>
           <div>
             <h3 className="text-lg font-bold text-slate-900">Key Rotation</h3>
-            <p className="text-slate-600 text-sm">Automated security key management</p>
+            <p className="text-slate-600 text-sm">On-demand API key management</p>
           </div>
         </div>
         <div className="flex items-center space-x-2 bg-emerald-100 px-3 py-1 rounded-full">
           <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-          <span className="text-emerald-700 text-xs font-semibold">ACTIVE</span>
+          <span className="text-emerald-700 text-xs font-semibold">ENABLED</span>
         </div>
       </div>
 
@@ -195,7 +138,7 @@ const KeyRotation = ({ processor, apiKey, onKeyRotate }) => {
         <div className="flex justify-between items-center text-sm">
           <span className="text-slate-600">Current Key:</span>
           <code className="bg-slate-100 px-2 py-1 rounded text-xs font-mono text-slate-800">
-            {apiKey ? `${apiKey.substring(0, 10)}...` : 'Not available'}
+            {apiKey ? `${apiKey.substring(0, 8)}...` : 'Not available'}
           </code>
         </div>
 
@@ -207,11 +150,6 @@ const KeyRotation = ({ processor, apiKey, onKeyRotate }) => {
             </span>
           </div>
         )}
-
-        <div className="flex justify-between items-center text-sm">
-          <span className="text-slate-600">Rotation Policy:</span>
-          <span className="text-slate-800 font-medium">Every 90 days</span>
-        </div>
 
         <button 
           onClick={handleKeyRotation}
@@ -227,12 +165,13 @@ const KeyRotation = ({ processor, apiKey, onKeyRotate }) => {
         </button>
 
         <p className="text-xs text-slate-500 text-center">
-          Recommended to rotate keys every 90 days for maximum security
+          Key rotation protects against data breaches from stolen keys.
         </p>
       </div>
     </div>
   );
 };
+
 
 // --- AVANCERAD HowItWorks MED INTERAKTIVA DEMOS ---
 const HowItWorks = ({ setActiveTab }) => {
@@ -249,15 +188,16 @@ const HowItWorks = ({ setActiveTab }) => {
   const [isRotatingKey, setIsRotatingKey] = useState(false);
   const mousePosition = useMousePosition();
 
+  // FIX: ÄRLIGA PÅSTÅENDEN
   const steps = [
     {
       title: "Secure Identity Setup",
       icon: FingerprintIcon,
-      description: "Establish your organization's digital identity with military-grade security protocols and automated key rotation.",
+      description: "Establish your organization's digital identity with secure cryptographic keys and on-demand rotation capability.",
       details: [
         "256-bit API key generation",
-        "Secure authentication protocol",
-        "Automated key rotation",
+        "Secure Hashed Authentication", // FIX: Inte ZK
+        "On-demand Key Rotation",       // FIX: Inte Automated
         "Multi-factor readiness"
       ],
       visual: "identity",
@@ -268,12 +208,12 @@ const HowItWorks = ({ setActiveTab }) => {
     {
       title: "Smart Event Processing",
       icon: Workflow,
-      description: "Advanced event ingestion with real-time encryption and compliance validation.",
+      description: "Intelligent event ingestion with real-time validation and cryptographic linking.",
       details: [
-        "Advanced data classification",
+        "Schema Validation & Filtering", // FIX: Inte AI
         "Real-time SHA-256 hashing",
         "Automatic PII detection",
-        "Compliance rule engine"
+        "Compliance Rule Enforcement"
       ],
       visual: "processing",
       action: "events",
@@ -281,13 +221,13 @@ const HowItWorks = ({ setActiveTab }) => {
       gradient: "from-blue-500 to-cyan-500"
     },
     {
-      title: "Immutable Blockchain Ledger",
+      title: "Cryptographically Linked Ledger",
       icon: GitBranch,
-      description: "Every event cryptographically sealed in an immutable, distributed audit trail.",
+      description: "Every event is cryptographically sealed using Merkle-chain principles for tamper-evident auditing.",
       details: [
-        "Merkle tree architecture",
-        "Tamper-evident design",
-        "Distributed consensus",
+        "Merkle Tree Architecture",       // FIX: Sannat av kod
+        "Tamper-evident Hashing",
+        "Chain Integrity Verification",
         "Historical integrity proofs"
       ],
       visual: "blockchain",
@@ -392,7 +332,7 @@ const HowItWorks = ({ setActiveTab }) => {
       { text: '🔐 Encrypting payload with AES-256...', delay: 500 },
       { text: '🔍 Validating JSON schema...', delay: 500 },
       { text: '⚡ Hashing PII data with SHA-256...', delay: 500 },
-      { text: '📦 Adding to blockchain...', delay: 500 }
+      { text: '📦 Adding to cryptographically linked ledger...', delay: 500 }
     ];
 
     let currentStep = 0;
@@ -800,7 +740,7 @@ const HowItWorks = ({ setActiveTab }) => {
             How It Works
           </h1>
           <p className="text-xl sm:text-2xl text-slate-600 max-w-3xl mx-auto leading-relaxed">
-            Experience military-grade security with advanced audit trails, real-time monitoring, and blockchain-verified integrity.
+            Experience military-grade security with advanced audit trails, real-time monitoring, and cryptographically verified integrity.
           </p>
         </div>
 
@@ -813,16 +753,16 @@ const HowItWorks = ({ setActiveTab }) => {
                 key={index}
                 onClick={() => setActiveStep(index)}
                 className={`p-6 lg:p-8 text-sm font-bold transition-all duration-500 flex flex-col items-center justify-center group relative overflow-hidden ${
-                  activeStep === index 
+                  activeTab === index 
                     ? `bg-gradient-to-r ${step.gradient} text-white shadow-inner` 
                     : 'text-slate-600 hover:text-slate-800 hover:bg-white/50'
                 }`}
               >
                 <step.icon className={`w-6 h-6 lg:w-8 lg:h-8 mb-3 transition-transform duration-300 ${
-                  activeStep === index ? 'scale-110' : 'group-hover:scale-110'
+                  activeTab === index ? 'scale-110' : 'group-hover:scale-110'
                 }`} />
                 <span className="text-xs lg:text-sm text-center">{step.title}</span>
-                {activeStep === index && (
+                {activeTab === index && (
                   <div className="absolute bottom-0 left-0 w-full h-1 bg-white/30"></div>
                 )}
               </button>
@@ -1533,7 +1473,7 @@ function App() {
         {activeTab === 'dashboard' && (
           <div className="animate-in px-4 sm:px-0 py-8">
             {!processor ? (
-              <div className="max-w-md mx-auto bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl p-8 border border-white/20 mt-8">
+              <div className="max-w-md mx-auto bg-white/80 backdrop-blur-sm rounded-3xl p-8 border border-white/20 mt-8">
                 <div className="text-center mb-8">
                   <div className="bg-gradient-to-r from-blue-50 to-cyan-50 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg">
                     <Lock className="w-8 h-8 text-blue-600" />
@@ -1614,6 +1554,8 @@ function App() {
                     processor={processor} 
                     apiKey={apiKey} 
                     onKeyRotate={handleKeyRotate}
+                    apiCall={apiCall}
+                    fetchDashboard={fetchDashboard}
                   />
                 </div>
 
