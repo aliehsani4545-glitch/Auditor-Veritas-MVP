@@ -47,7 +47,6 @@ const useMousePosition = () => {
 const useSecurityProtections = () => {
   useEffect(() => {
     const handleContextMenu = (e) => { e.preventDefault(); return false; };
-
     const handleKeyDown = (e) => {
       if (e.key === 'PrintScreen' || e.keyCode === 44) {
         e.preventDefault();
@@ -165,10 +164,7 @@ const KeyRotation = ({ processor, apiKey, onKeyRotate }) => {
     
     setIsRotating(true);
     try {
-      // Simulate API call for key rotation
       await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // In a real implementation, this would call your backend
       const newKey = `av_${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`;
       
       setLastRotation(new Date().toISOString());
@@ -303,10 +299,99 @@ const LockedFeature = ({ title, desc, setActiveTab }) => (
     <p className="text-slate-600 mb-8 max-w-sm leading-relaxed">{desc}</p>
     <button 
       onClick={() => setActiveTab('pricing')} 
-      className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-blue-700 hover:to-cyan-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
+      className="btn-stripe bg-gradient-to-r from-blue-600 to-cyan-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-blue-700 hover:to-cyan-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
     >
       Upgrade to Unlock
     </button>
+  </div>
+);
+
+// --- Tangentbordsnavigering Hook ---
+const useKeyboardNavigation = (setActiveProduct, activeProduct) => {
+  useEffect(() => {
+    const handleKeyPress = (e) => {
+      const products = ['crypto', 'merkle', 'keys', 'compliance'];
+      const currentIndex = products.indexOf(activeProduct);
+      
+      switch(e.key) {
+        case 'ArrowRight':
+        case 'ArrowDown':
+          e.preventDefault();
+          const nextIndex = (currentIndex + 1) % products.length;
+          setActiveProduct(products[nextIndex]);
+          break;
+        case 'ArrowLeft':
+        case 'ArrowUp':
+          e.preventDefault();
+          const prevIndex = currentIndex === 0 ? products.length - 1 : currentIndex - 1;
+          setActiveProduct(products[prevIndex]);
+          break;
+        case '1':
+        case '2':
+        case '3':
+        case '4':
+          const num = parseInt(e.key) - 1;
+          if (products[num]) {
+            e.preventDefault();
+            setActiveProduct(products[num]);
+          }
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [setActiveProduct, activeProduct]);
+};
+
+// --- Code Example Component with Typewriter Effect ---
+const CodeExample = ({ code, fileName }) => {
+  const [displayedCode, setDisplayedCode] = useState('');
+
+  useEffect(() => {
+    setDisplayedCode('');
+    let i = 0;
+    
+    const typeWriter = setInterval(() => {
+      if (i < code.length) {
+        setDisplayedCode(prev => prev + code.charAt(i));
+        i++;
+      } else {
+        clearInterval(typeWriter);
+      }
+    }, 20);
+
+    return () => clearInterval(typeWriter);
+  }, [code]);
+
+  return (
+    <div className="bg-slate-900 rounded-2xl p-6 shadow-2xl border border-slate-800 relative overflow-hidden">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex space-x-2">
+          <div className="w-3 h-3 rounded-full bg-red-500"></div>
+          <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+          <div className="w-3 h-3 rounded-full bg-green-500"></div>
+        </div>
+        <span className="text-slate-400 text-sm font-mono">{fileName}</span>
+      </div>
+      <pre className="text-slate-200 text-sm leading-relaxed font-mono overflow-x-auto">
+        <code>{displayedCode}</code>
+        <span className="inline-block w-2 h-4 bg-cyan-400 ml-1 animate-pulse"></span>
+      </pre>
+    </div>
+  );
+};
+
+// --- Toast Notification Component ---
+const Toast = ({ message, type = 'success', show }) => (
+  <div className={`toast ${type === 'success' ? 'toast-success' : 'toast-error'} ${show ? 'show' : ''}`}>
+    <div className="flex items-center">
+      {type === 'success' ? 
+        <Check className="w-5 h-5 text-emerald-500 mr-3" /> : 
+        <AlertTriangle className="w-5 h-5 text-red-500 mr-3" />
+      }
+      <span className="text-slate-700 font-medium">{message}</span>
+    </div>
   </div>
 );
 
@@ -368,14 +453,11 @@ const ProductNetwork = ({ activeProduct, setActiveProduct }) => {
     }
   ];
 
-  // SVG paths for connections
   const getConnectionPath = (start, end) => {
     const startX = start.x;
     const startY = start.y;
     const endX = end.x;
     const endY = end.y;
-    
-    // Create curved paths
     const midX = (startX + endX) / 2;
     return `M ${startX} ${startY} C ${midX} ${startY} ${midX} ${endY} ${endX} ${endY}`;
   };
@@ -407,15 +489,14 @@ const ProductNetwork = ({ activeProduct, setActiveProduct }) => {
     };
   }, []);
 
-  // GSAP ScrollTrigger Animation with Active Product Updates
   useEffect(() => {
     if (!networkRef.current) return;
 
-    // Reset initial states
     gsap.set(nodesRef.current, {
       opacity: 0,
       scale: 0.8,
-      y: 20
+      y: 20,
+      rotation: -5
     });
 
     gsap.set(pathsRef.current, {
@@ -433,13 +514,11 @@ const ProductNetwork = ({ activeProduct, setActiveProduct }) => {
         onEnter: () => setActiveProduct(product.id),
         onEnterBack: () => setActiveProduct(product.id),
         onLeave: () => {
-          // Only update if we're moving to the next product
           if (index < products.length - 1) {
             setActiveProduct(products[index + 1].id);
           }
         },
         onLeaveBack: () => {
-          // Only update if we're moving to the previous product
           if (index > 0) {
             setActiveProduct(products[index - 1].id);
           }
@@ -447,7 +526,7 @@ const ProductNetwork = ({ activeProduct, setActiveProduct }) => {
       });
     });
 
-    // Create the main animation timeline
+    // Main animation timeline
     const tl = gsap.timeline({
       scrollTrigger: {
         trigger: networkRef.current,
@@ -458,34 +537,43 @@ const ProductNetwork = ({ activeProduct, setActiveProduct }) => {
       }
     });
 
-    // Animate nodes in sequence
+    // Animate nodes med offset delay (25ms mellan varje)
     nodesRef.current.forEach((node, index) => {
       tl.to(node, {
         opacity: 1,
         scale: 1,
         y: 0,
+        rotation: 0,
         duration: 0.8,
         ease: "back.out(1.7)"
-      }, `node-${index * 0.3}`);
+      }, `node-${index * 0.025}`);
     });
 
-    // Animate paths in sequence after nodes
+    // Animate paths med delay
     pathsRef.current.forEach((path, index) => {
       tl.to(path, {
         strokeDashoffset: 0,
         opacity: 1,
         duration: 1.5,
         ease: "power2.inOut"
-      }, `path-${1 + index * 0.4}`);
+      }, `path-${1 + index * 0.15}`);
     });
 
-    // Add continuous flow animation to active paths
+    // Continuous flow animation
     tl.to(pathsRef.current, {
       strokeDashoffset: -16,
       duration: 2,
       ease: "none",
       repeat: -1
     }, "path-flow");
+
+    // Puls animation för active nodes
+    const pulseTl = gsap.timeline({ repeat: -1, yoyo: true });
+    pulseTl.to(".product-node.active", {
+      boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+      duration: 2,
+      ease: "power1.inOut"
+    });
 
     return () => {
       ScrollTrigger.getAll().forEach(trigger => trigger.kill());
@@ -495,12 +583,10 @@ const ProductNetwork = ({ activeProduct, setActiveProduct }) => {
 
   return (
     <div ref={networkRef} className="relative h-[600px] w-full bg-gradient-to-br from-slate-50 to-slate-100 overflow-hidden">
-      {/* Animated background grid */}
       <div className="absolute inset-0 opacity-30">
         <div className="absolute inset-0 bg-grid-slate-200 [mask-image:linear-gradient(0deg,white,rgba(255,255,255,0.6))]" />
       </div>
 
-      {/* SVG Connections */}
       <svg className="absolute inset-0 w-full h-full pointer-events-none">
         {Array.from(allConnections).map((connection, index) => {
           const [id1, id2] = connection.split('-');
@@ -520,15 +606,12 @@ const ProductNetwork = ({ activeProduct, setActiveProduct }) => {
               stroke={isActive ? product1.color : '#cbd5e1'}
               strokeWidth={isActive ? 3 : 2}
               fill="none"
-              className={`transition-all duration-1000 ${
-                isActive ? 'opacity-100' : 'opacity-40'
-              }`}
+              className={`connection-line ${isActive ? 'active' : ''} transition-all duration-1000`}
             />
           );
         })}
       </svg>
 
-      {/* Product Nodes - REMOVED onClick and onMouseEnter */}
       {products.map((product, index) => {
         const ProductIcon = product.icon;
         const isActive = activeProduct === product.id;
@@ -537,23 +620,23 @@ const ProductNetwork = ({ activeProduct, setActiveProduct }) => {
           <div
             key={product.id}
             ref={el => nodesRef.current[index] = el}
-            className={`absolute transform -translate-x-1/2 -translate-y-1/2`}
+            className="absolute transform -translate-x-1/2 -translate-y-1/2"
             style={{
               left: `${product.position.x}%`,
               top: `${product.position.y}%`,
             }}
           >
             <div
-              className={`group relative p-6 rounded-2xl backdrop-blur-sm border-2 transition-all duration-300 ${
+              className={`product-node group relative p-6 rounded-2xl backdrop-blur-sm border-2 transition-all duration-300 ${
                 isActive
-                  ? 'bg-white shadow-2xl scale-110 border-slate-200'
+                  ? 'active bg-white shadow-2xl scale-110 border-slate-200'
                   : 'bg-white/80 shadow-lg border-slate-100'
               }`}
+              tabIndex={0}
             >
-              {/* Active glow effect */}
               {isActive && (
                 <div 
-                  className="absolute inset-0 rounded-2xl blur-xl opacity-50 transition-opacity duration-300"
+                  className="active-glow absolute inset-0 rounded-2xl blur-xl opacity-50 transition-opacity duration-300"
                   style={{ backgroundColor: product.color }}
                 />
               )}
@@ -577,7 +660,6 @@ const ProductNetwork = ({ activeProduct, setActiveProduct }) => {
                 </h3>
               </div>
 
-              {/* Connection points */}
               <div className="absolute -top-1 -left-1 w-2 h-2 bg-white rounded-full border-2 border-slate-300" />
               <div className="absolute -top-1 -right-1 w-2 h-2 bg-white rounded-full border-2 border-slate-300" />
               <div className="absolute -bottom-1 -left-1 w-2 h-2 bg-white rounded-full border-2 border-slate-300" />
@@ -587,7 +669,6 @@ const ProductNetwork = ({ activeProduct, setActiveProduct }) => {
         );
       })}
 
-      {/* Floating elements */}
       <div className="absolute top-1/4 left-1/4 w-4 h-4 bg-blue-400 rounded-full opacity-20 animate-float" />
       <div className="absolute top-1/3 right-1/3 w-6 h-6 bg-emerald-400 rounded-full opacity-20 animate-float" style={{ animationDelay: '1s' }} />
       <div className="absolute bottom-1/4 left-1/3 w-3 h-3 bg-purple-400 rounded-full opacity-20 animate-float" style={{ animationDelay: '2s' }} />
@@ -609,7 +690,8 @@ const StripeHeroSection = ({ setActiveTab, activeProduct, setActiveProduct }) =>
       code: `// Secure event hashing
 const eventHash = CryptoJS.SHA256(
   JSON.stringify(eventData)
-).toString();`
+).toString();`,
+      fileName: "crypto.js"
     },
     merkle: {
       title: "Merkle Tree Integrity", 
@@ -617,7 +699,8 @@ const eventHash = CryptoJS.SHA256(
       features: ["Merkle tree construction", "Cryptographic proofs", "Tamper-evident design"],
       code: `// Merkle tree verification
 const proof = merkleTree.getProof(eventHash);
-const isValid = tree.verifyProof(proof);`
+const isValid = tree.verifyProof(proof);`,
+      fileName: "merkle.js"
     },
     keys: {
       title: "Automated Key Rotation",
@@ -625,7 +708,8 @@ const isValid = tree.verifyProof(proof);`
       features: ["90-day key rotation", "HD key derivation", "Zero-downtime updates"],
       code: `// Automated key rotation
 const newKey = generateHDKey();
-await rotateAPIKey(previousKey, newKey);`
+await rotateAPIKey(previousKey, newKey);`,
+      fileName: "keys.js"
     },
     compliance: {
       title: "GDPR Compliance",
@@ -633,13 +717,13 @@ await rotateAPIKey(previousKey, newKey);`
       features: ["GDPR Article 32 compliant", "Right to erasure", "Data portability"],
       code: `// GDPR data export
 const userData = await exportUserData(userId);
-await fulfillGDPRRequest(userData);`
+await fulfillGDPRRequest(userData);`,
+      fileName: "compliance.js"
     }
   };
 
   const activeProductData = products[activeProduct] || products.crypto;
 
-  // GSAP ScrollTrigger for content animation
   useEffect(() => {
     if (!contentRef.current) return;
 
@@ -688,7 +772,6 @@ await fulfillGDPRRequest(userData);`
 
   return (
     <div ref={containerRef} className="relative bg-white overflow-hidden">
-      {/* Header Section */}
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-16">
         <div ref={contentRef} className={`content-section text-center mb-16 ${
           isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
@@ -712,80 +795,58 @@ await fulfillGDPRRequest(userData);`
           <div className="flex flex-col sm:flex-row gap-4 justify-center mt-8">
             <button 
               onClick={() => setActiveTab('create')}
-              className="group bg-slate-900 text-white px-8 py-4 rounded-2xl font-bold transition-all hover:bg-slate-800 flex items-center justify-center shadow-lg hover:shadow-xl hover:-translate-y-1"
+              className="btn-stripe group bg-slate-900 text-white px-8 py-4 rounded-2xl font-bold transition-all hover:bg-slate-800 flex items-center justify-center shadow-lg hover:shadow-xl hover:-translate-y-1"
             >
               Start integration
               <ArrowRight className="ml-2 w-5 h-5 transition-transform group-hover:translate-x-1" />
             </button>
             <button 
               onClick={() => setActiveTab('pricing')}
-              className="border-2 border-slate-300 text-slate-700 px-8 py-4 rounded-2xl font-bold transition-all hover:border-slate-400 hover:bg-slate-50 flex items-center justify-center"
+              className="btn-stripe border-2 border-slate-300 text-slate-700 px-8 py-4 rounded-2xl font-bold transition-all hover:border-slate-400 hover:bg-slate-50 flex items-center justify-center"
             >
               View pricing
             </button>
           </div>
         </div>
 
-        {/* Product Network */}
         <div className="content-section relative">
           <ProductNetwork activeProduct={activeProduct} setActiveProduct={setActiveProduct} />
         </div>
 
-        {/* Kontextuellt Innehåll (Mobile Illu + Text + Kod) */}
         <div className="content-section max-w-6xl mx-auto mt-16">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-              
-              {/* VÄNSTER: Mobile Payment Illustration (STICKY) */}
-              {/* Håller sig synlig medan användaren skrollar igenom produkterna */}
-              <div className="order-1 lg:order-1 flex justify-center h-[550px] sticky top-20">
-                  <MobilePaymentIllustration activeProduct={activeProduct} />
+            <div className="order-1 lg:order-1 flex justify-center h-[550px] sticky top-20">
+              <MobilePaymentIllustration activeProduct={activeProduct} />
+            </div>
+
+            <div className="order-2 lg:order-2 space-y-6">
+              <div className="space-y-6">
+                <h2 className="text-3xl lg:text-4xl font-bold text-slate-900">
+                  {activeProductData.title}
+                </h2>
+                <p className="text-lg text-slate-600 leading-relaxed">
+                  {activeProductData.description}
+                </p>
+                
+                <ul className="space-y-4">
+                  {activeProductData.features.map((feature, index) => (
+                    <li key={index} className="flex items-center text-slate-700">
+                      <Check className="w-5 h-5 text-emerald-500 mr-3 flex-shrink-0" />
+                      {feature}
+                    </li>
+                  ))}
+                </ul>
+
+                <button 
+                  onClick={() => setActiveTab('create')}
+                  className="btn-stripe bg-slate-900 text-white px-6 py-3 rounded-xl font-semibold hover:bg-slate-800 transition-colors"
+                >
+                  Start with {activeProductData.title}
+                </button>
               </div>
 
-              {/* HÖGER: Text Content + Code Example Wrapper */}
-              <div className="order-2 lg:order-2 space-y-6">
-                  
-                  {/* Text Content */}
-                  <div className="space-y-6">
-                    <h2 className="text-3xl lg:text-4xl font-bold text-slate-900">
-                      {activeProductData.title}
-                    </h2>
-                    <p className="text-lg text-slate-600 leading-relaxed">
-                      {activeProductData.description}
-                    </p>
-                    
-                    <ul className="space-y-4">
-                      {activeProductData.features.map((feature, index) => (
-                        <li key={index} className="flex items-center text-slate-700">
-                          <Check className="w-5 h-5 text-emerald-500 mr-3 flex-shrink-0" />
-                          {feature}
-                        </li>
-                      ))}
-                    </ul>
-
-                    <button 
-                      onClick={() => setActiveTab('create')}
-                      className="bg-slate-900 text-white px-6 py-3 rounded-xl font-semibold hover:bg-slate-800 transition-colors"
-                    >
-                      Start with {activeProductData.title}
-                    </button>
-                  </div>
-
-
-                  {/* Code Example */}
-                  <div className="bg-slate-900 rounded-2xl p-6 shadow-2xl">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex space-x-2">
-                        <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                        <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-                        <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                      </div>
-                      <span className="text-slate-400 text-sm font-mono">implementation.js</span>
-                    </div>
-                    <pre className="text-slate-200 text-sm leading-relaxed font-mono overflow-x-auto">
-                      <code>{activeProductData.code}</code>
-                    </pre>
-                  </div>
-              </div>
+              <CodeExample code={activeProductData.code} fileName={activeProductData.fileName} />
+            </div>
           </div>
         </div>
       </div>
@@ -794,7 +855,7 @@ await fulfillGDPRRequest(userData);`
 };
 
 // --- SCROLL-DRIVEN FEATURE REVEAL ---
-const ScrollRevealSection = ({ children, className = "" }) => {
+const ScrollRevealSection = ({ children, className = "", style = {} }) => {
   const sectionRef = useRef(null);
 
   useEffect(() => {
@@ -821,7 +882,7 @@ const ScrollRevealSection = ({ children, className = "" }) => {
   }, []);
 
   return (
-    <div ref={sectionRef} className={className}>
+    <div ref={sectionRef} className={className} style={style}>
       {children}
     </div>
   );
@@ -877,7 +938,7 @@ const StripeFeatureGrid = () => {
           </p>
         </ScrollRevealSection>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 fade-in-sequence">
           {features.map((feature, index) => {
             const FeatureIcon = feature.icon;
             const featureColorClass = colorClasses[feature.color];
@@ -885,7 +946,7 @@ const StripeFeatureGrid = () => {
             return (
               <ScrollRevealSection
                 key={index}
-                className="group relative bg-white rounded-2xl p-8 shadow-lg border border-slate-200 hover:shadow-xl transition-all duration-500"
+                className="feature-card animate-in group relative bg-white rounded-2xl p-8 shadow-lg border border-slate-200 hover:shadow-xl transition-all duration-500"
                 style={{ transitionDelay: `${index * 150}ms` }}
               >
                 <div className="relative z-10">
@@ -949,11 +1010,11 @@ const ModernPricingSection = ({ setActiveTab }) => {
           </p>
         </ScrollRevealSection>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-5xl mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-5xl mx-auto fade-in-sequence">
           {plans.map((plan, index) => (
             <ScrollRevealSection
               key={index}
-              className={`relative rounded-3xl p-8 transition-all duration-500 hover:scale-105 flex flex-col ${
+              className={`animate-in relative rounded-3xl p-8 transition-all duration-500 hover:scale-105 flex flex-col ${
                 plan.popular 
                   ? 'bg-gradient-to-br from-blue-50 to-cyan-50 border-2 border-blue-200 shadow-2xl scale-105' 
                   : 'bg-white border border-slate-200 shadow-xl'
@@ -988,7 +1049,7 @@ const ModernPricingSection = ({ setActiveTab }) => {
               
               <button 
                 onClick={() => setActiveTab('create')}
-                className={`w-full py-4 rounded-2xl font-bold transition-all duration-300 shadow-lg hover:shadow-xl hover:-translate-y-1 ${
+                className={`btn-stripe w-full py-4 rounded-2xl font-bold transition-all duration-300 shadow-lg hover:shadow-xl hover:-translate-y-1 ${
                   plan.popular 
                     ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white hover:from-blue-700 hover:to-cyan-700' 
                     : 'bg-slate-100 text-slate-800 hover:bg-slate-200'
@@ -1099,7 +1160,6 @@ const PrivacyPolicy = ({ onAccept }) => {
           </div>
         </div>
 
-        {/* Acceptance Section */}
         <div className="bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-200 rounded-2xl p-8 text-center shadow-lg">
           <div className="flex items-center justify-center mb-4">
             <ShieldCheck className="w-8 h-8 text-emerald-600 mr-3" />
@@ -1110,7 +1170,7 @@ const PrivacyPolicy = ({ onAccept }) => {
           </p>
           <button 
             onClick={onAccept}
-            className="bg-gradient-to-r from-emerald-600 to-green-600 text-white px-8 py-4 rounded-2xl font-bold hover:from-emerald-700 hover:to-green-700 transition-all duration-300 shadow-lg hover:shadow-xl flex items-center justify-center space-x-3 mx-auto"
+            className="btn-stripe bg-gradient-to-r from-emerald-600 to-green-600 text-white px-8 py-4 rounded-2xl font-bold hover:from-emerald-700 hover:to-green-700 transition-all duration-300 shadow-lg hover:shadow-xl flex items-center justify-center space-x-3 mx-auto"
           >
             <Check className="w-5 h-5" />
             <span>I Accept Privacy Policy</span>
@@ -1148,7 +1208,6 @@ const Navbar = ({ activeTab, setActiveTab, privacyAccepted }) => {
     <header className="bg-white/80 backdrop-blur-xl text-slate-900 sticky top-0 z-50 shadow-sm border-b border-slate-200/50">
       <div className="container mx-auto px-4 sm:px-6 py-4">
         <div className="flex items-center justify-between">
-          {/* Logo */}
           <div 
             className="flex items-center space-x-3 cursor-pointer hover:opacity-90 transition group"
             onClick={() => handleTabClick('pricing')}
@@ -1166,7 +1225,6 @@ const Navbar = ({ activeTab, setActiveTab, privacyAccepted }) => {
             </div>
           </div>
 
-          {/* Desktop Navigation */}
           <nav className="hidden lg:flex space-x-1 bg-white/50 backdrop-blur-sm rounded-2xl p-1 border border-slate-200/50">
             {menuItems.map((item) => {
               const isDisabled = !privacyAccepted && item.key !== 'privacy';
@@ -1190,7 +1248,6 @@ const Navbar = ({ activeTab, setActiveTab, privacyAccepted }) => {
             })}
           </nav>
 
-          {/* Mobile Menu Button */}
           <button 
             className="lg:hidden p-3 rounded-xl bg-white/50 backdrop-blur-sm border border-slate-200/50 hover:bg-slate-100/50 transition"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -1199,7 +1256,6 @@ const Navbar = ({ activeTab, setActiveTab, privacyAccepted }) => {
           </button>
         </div>
 
-        {/* Mobile Navigation */}
         {mobileMenuOpen && (
           <div className="lg:hidden mt-4 pb-4 border-t border-slate-200/50 pt-4 animate-in fade-in slide-in-from-top-2">
             <nav className="flex flex-col space-y-2 bg-white/50 backdrop-blur-sm rounded-2xl p-2 border border-slate-200/50">
@@ -1250,7 +1306,9 @@ function App() {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
 
+  useKeyboardNavigation(setActiveProduct, activeProduct);
   const { isLocked, setIsLocked } = useInactivityTimer(300000, !!processor);
   useSecurityProtections();
 
@@ -1270,21 +1328,27 @@ function App() {
     }
   }, []);
 
+  const showToast = (message, type = 'success') => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast(prev => ({ ...prev, show: false })), 3000);
+  };
+
   const handlePrivacyAccept = () => {
     localStorage.setItem('privacyAccepted', 'true');
     setPrivacyAccepted(true);
     setActiveTab('pricing');
+    showToast('Privacy policy accepted', 'success');
   };
 
   const handleKeyRotate = (newKey) => {
     setApiKey(newKey);
     localStorage.setItem('auditorApiKey', newKey);
+    showToast('API Key rotated successfully', 'success');
   };
 
   const apiCall = async (endpoint, options = {}) => {
     setIsLoading(true);
     try {
-      // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1000));
       return { success: true };
     } catch (error) {
@@ -1303,7 +1367,6 @@ function App() {
     
     try {
       await apiCall('/api/dashboard');
-      // Simulate processor data
       setProcessor({
         companyName: 'Demo Company',
         email: 'demo@company.com',
@@ -1338,10 +1401,10 @@ function App() {
         }
       });
       
-      alert('✅ Event logged successfully!');
+      showToast('Event logged successfully', 'success');
       setEventData({ event_type: '', event_data: '{}', user_identifier: '' });
     } catch (error) {
-      alert(`Error: ${error.message}`);
+      showToast(`Error: ${error.message}`, 'error');
     } finally {
       setIsLoading(false);
     }
@@ -1358,7 +1421,6 @@ function App() {
       <Navbar activeTab={activeTab} setActiveTab={setActiveTab} privacyAccepted={privacyAccepted} />
 
       <main className="flex-1">
-        {/* Pricing/Home Tab - Stripe Design */}
         {activeTab === 'pricing' && privacyAccepted && (
           <>
             <StripeHeroSection 
@@ -1387,7 +1449,6 @@ function App() {
           </div>
         )}
 
-        {/* How It Works Tab */}
         {activeTab === 'howitworks' && privacyAccepted && (
           <StripeHeroSection 
             setActiveTab={setActiveTab} 
@@ -1396,7 +1457,6 @@ function App() {
           />
         )}
 
-        {/* Dashboard Tab */}
         {activeTab === 'dashboard' && privacyAccepted && (
           <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/30 px-4 py-8">
             <div className="max-w-7xl mx-auto">
@@ -1419,7 +1479,7 @@ function App() {
                   <button 
                     onClick={fetchDashboard} 
                     disabled={isLoading}
-                    className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 text-white py-4 rounded-2xl font-bold hover:from-blue-700 hover:to-cyan-700 transition-all duration-300 mt-6 shadow-lg hover:shadow-xl"
+                    className="btn-stripe w-full bg-gradient-to-r from-blue-600 to-cyan-600 text-white py-4 rounded-2xl font-bold hover:from-blue-700 hover:to-cyan-700 transition-all duration-300 mt-6 shadow-lg hover:shadow-xl"
                   >
                     {isLoading ? (
                       <span className="flex items-center justify-center">
@@ -1440,7 +1500,7 @@ function App() {
                       </div>
                     </div>
                     <div className="flex space-x-3">
-                      <button onClick={fetchDashboard} className="flex items-center px-4 py-2 bg-slate-100 border border-slate-200 rounded-xl hover:bg-white hover:shadow-sm transition text-slate-700 font-medium">
+                      <button onClick={fetchDashboard} className="btn-stripe flex items-center px-4 py-2 bg-slate-100 border border-slate-200 rounded-xl hover:bg-white hover:shadow-sm transition text-slate-700 font-medium">
                         <RefreshCw className="w-4 h-4 mr-2 text-amber-500"/> Refresh
                       </button>
                       <button onClick={() => {setProcessor(null); setApiKey('');}} className="flex items-center px-4 py-2 bg-red-50 border border-red-100 rounded-xl hover:bg-red-100 hover:text-red-700 transition text-red-600 font-medium">
@@ -1553,14 +1613,12 @@ function App() {
           </div>
         )}
 
-        {/* Create Processor Tab */}
         {activeTab === 'create' && privacyAccepted && (
           <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/30 flex items-center justify-center px-4 py-8">
             <CreateProcessor />
           </div>
         )}
 
-        {/* Events Tab */}
         {activeTab === 'events' && privacyAccepted && (
           <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/30 px-4 py-8">
             <div className="max-w-4xl mx-auto">
@@ -1613,7 +1671,7 @@ function App() {
                   <button 
                     type="submit" 
                     disabled={isLoading}
-                    className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 text-white py-4 rounded-2xl font-bold hover:from-blue-700 hover:to-cyan-700 transition-all duration-300 shadow-lg hover:shadow-xl disabled:opacity-50"
+                    className="btn-stripe w-full bg-gradient-to-r from-blue-600 to-cyan-600 text-white py-4 rounded-2xl font-bold hover:from-blue-700 hover:to-cyan-700 transition-all duration-300 shadow-lg hover:shadow-xl disabled:opacity-50"
                   >
                     {isLoading ? (
                       <span className="flex items-center justify-center">
@@ -1628,11 +1686,12 @@ function App() {
           </div>
         )}
 
-        {/* Privacy Policy Tab */}
         {activeTab === 'privacy' && (
           <PrivacyPolicy onAccept={handlePrivacyAccept} />
         )}
       </main>
+
+      <Toast message={toast.message} type={toast.type} show={toast.show} />
     </div>
   );
 }
