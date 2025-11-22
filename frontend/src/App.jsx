@@ -1458,6 +1458,152 @@ const PrivacyPolicy = ({ setActiveTab, cookiesAccepted, setShowCookieBanner, onA
   </div>
 );
 
+
+
+
+
+
+
+// --- NY STRIPE-DESIGN KOMPONENT ---
+const StripeFeatureSection = () => {
+  const [isVisible, setIsVisible] = useState(false);
+  const containerRef = useRef(null);
+
+  // Data som ska visas i telefonen (rensat från AI/Bitcoin)
+  const auditLogs = [
+    { id: "LOG-921", user: "Admin User", action: "Policy Update", status: "Verified", time: "Just now", color: "bg-emerald-100 text-emerald-700" },
+    { id: "LOG-920", user: "System", action: "Key Rotation", status: "Processing", time: "2m ago", color: "bg-blue-100 text-blue-700" },
+    { id: "LOG-919", user: "Sarah J.", action: "Data Export", status: "Completed", time: "15m ago", color: "bg-slate-100 text-slate-700" },
+    { id: "LOG-918", user: "API Gateway", action: "Flagged IP", status: "Blocked", time: "1h ago", color: "bg-red-100 text-red-700" },
+    { id: "LOG-917", user: "System", action: "Backup", status: "Verified", time: "2h ago", color: "bg-emerald-100 text-emerald-700" }
+  ];
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+        }
+      },
+      { threshold: 0.2 } // Trigga när 20% av sektionen syns
+    );
+
+    if (containerRef.current) {
+      observer.observe(containerRef.current);
+    }
+
+    return () => {
+      if (containerRef.current) observer.unobserve(containerRef.current);
+    };
+  }, []);
+
+  return (
+    <div ref={containerRef} className="py-24 bg-white relative overflow-hidden">
+      {/* Bakgrundsdekoration (Stripe-ish) */}
+      <div className="absolute top-0 right-0 w-3/4 h-full bg-slate-50 skew-x-12 transform origin-top-right z-0" />
+      
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 flex flex-col lg:flex-row items-center">
+        
+        {/* VÄNSTER SIDA: Text */}
+        <div className="lg:w-1/2 mb-16 lg:mb-0 pr-0 lg:pr-16">
+          <h2 className="text-emerald-600 font-bold tracking-wide uppercase text-sm mb-4">
+            Enterprise Security
+          </h2>
+          <h1 className="text-4xl sm:text-5xl font-black text-slate-900 mb-6 leading-tight">
+            Immutable Audit Trails <br/>
+            <span className="text-slate-400">for Modern Compliance.</span>
+          </h1>
+          <p className="text-lg text-slate-600 mb-8 leading-relaxed">
+            Experience secure logging with cryptographic integrity. 
+            Everything operates seamlessly to ensure GDPR compliance and data verification 
+            without compromising performance.
+          </p>
+          
+          {/* Funktionslista (Ersätter de gamla punkterna) */}
+          <div className="space-y-4 mb-8">
+            {[
+              "Cryptographic Hashing (SHA-256)",
+              "Automated Integrity Checks",
+              "GDPR Article 32 Compliant"
+            ].map((item, index) => (
+              <div key={index} className="flex items-center text-slate-700 font-medium">
+                <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center mr-3 text-emerald-600">
+                  <Check size={14} strokeWidth={3} />
+                </div>
+                {item}
+              </div>
+            ))}
+          </div>
+
+          <button className="group bg-slate-900 text-white px-8 py-4 rounded-full font-bold transition-all hover:bg-slate-800 flex items-center shadow-lg hover:shadow-xl hover:-translate-y-1">
+            Start Integration
+            <ArrowRight className="ml-2 w-5 h-5 transition-transform group-hover:translate-x-1" />
+          </button>
+        </div>
+
+        {/* HÖGER SIDA: Telefon Mockup */}
+        <div className="lg:w-1/2 w-full flex justify-center phone-container">
+          <div className={`phone-mockup w-[360px] rounded-[40px] border-[8px] border-slate-100 overflow-hidden relative bg-white ${isVisible ? 'opacity-100' : 'opacity-0'} transition-opacity duration-1000`}>
+            
+            {/* Telefon Header */}
+            <div className="bg-white p-6 border-b border-slate-100 sticky top-0 z-20">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h3 className="font-bold text-slate-900 text-lg">Live Audit Feed</h3>
+                  <p className="text-xs text-slate-500">System Status: Active</p>
+                </div>
+                <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+              </div>
+            </div>
+
+            {/* Telefon Content (Lista) */}
+            <div className="p-4 bg-slate-50/50 min-h-[450px]">
+              {auditLogs.map((log, index) => (
+                <div 
+                  key={log.id}
+                  className={`stripe-card bg-white p-4 rounded-xl mb-3 shadow-sm border border-slate-100 flex items-center justify-between cursor-default hover:shadow-md transition-shadow ${isVisible ? 'visible' : ''}`}
+                  style={{ transitionDelay: `${index * 150}ms` }} // Vattenfallseffekt
+                >
+                  <div className="flex items-center">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center mr-3 ${index === 0 ? 'bg-emerald-100' : 'bg-slate-100'}`}>
+                      {index === 0 ? <ShieldCheck size={18} className="text-emerald-600"/> : <FileText size={18} className="text-slate-500"/>}
+                    </div>
+                    <div>
+                      <div className="font-bold text-slate-800 text-sm">{log.action}</div>
+                      <div className="text-xs text-slate-500">{log.user} • {log.id}</div>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end">
+                    <span className={`text-[10px] font-bold px-2 py-1 rounded-full mb-1 ${log.color}`}>
+                      {log.status}
+                    </span>
+                    <span className="text-[10px] text-slate-400">{log.time}</span>
+                  </div>
+                </div>
+              ))}
+              
+              {/* Fler element för att simulera scrollbar yta */}
+              <div className="h-20 flex items-center justify-center opacity-30">
+                <div className="w-1 h-1 bg-slate-400 rounded-full mx-1"></div>
+                <div className="w-1 h-1 bg-slate-400 rounded-full mx-1"></div>
+                <div className="w-1 h-1 bg-slate-400 rounded-full mx-1"></div>
+              </div>
+            </div>
+
+            {/* Telefon Footer/Nav bar */}
+            <div className="absolute bottom-0 left-0 right-0 bg-white/90 backdrop-blur border-t border-slate-100 p-4 flex justify-around items-center z-20">
+               <LayoutDashboard size={20} className="text-emerald-600" />
+               <Search size={20} className="text-slate-300" />
+               <Settings size={20} className="text-slate-300" />
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 function App() {
   const [activeTab, setActiveTab] = useState('privacy');
   const [processor, setProcessor] = useState(null);
@@ -2065,8 +2211,12 @@ function App() {
 
 
 
-        {activeTab === 'howitworks' && <HowItWorks setActiveTab={setActiveTab} />}
-
+       
+{/* Byt ut den gamla HowItWorks mot den nya */}
+{activeTab === 'howitworks' && (
+  // Vi kör inte gamla HowItWorks, utan den nya Stripe-designen
+  <StripeFeatureSection />
+)}
 
 
         {activeTab === 'dashboard' && (

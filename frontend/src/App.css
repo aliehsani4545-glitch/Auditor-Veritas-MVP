@@ -80,3 +80,39 @@ div, p, h1, h2, h3, h4, h5, h6, span, button {
   -ms-user-select: none;
   user-select: none;
 }
+
+
+
+
+
+
+
+/* --- STRIPE-LIKNANDE ANIMATIONER --- */
+.stripe-card {
+  opacity: 0;
+  transform: translateY(40px) scale(0.95);
+  transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1); /* Mjuk "Stripe"-kurva */
+}
+
+.stripe-card.visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+/* Telefonens glas-effekt och skugga */
+.phone-container {
+  perspective: 1000px;
+}
+
+.phone-mockup {
+  box-shadow: 0 50px 100px -20px rgba(50, 50, 93, 0.25), 
+              0 30px 60px -30px rgba(0, 0, 0, 0.3), 
+              inset 0 -2px 6px 0 rgba(10, 37, 64, 0.35);
+  transform: rotateY(-12deg) rotateX(5deg); /* Lite 3D lutning */
+  transition: transform 0.5s ease-out;
+  background: #ffffff;
+}
+
+.phone-mockup:hover {
+  transform: rotateY(0deg) rotateX(0deg); /* Rätar upp sig vid hover */
+}
