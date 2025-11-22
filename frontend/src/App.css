@@ -479,51 +479,28 @@ textarea:focus-visible {
 
 
 
+/* App.css tillägg */
 
-
-
-
-/* Loading skeleton */
-.skeleton {
-  background: linear-gradient(
-    90deg,
-    rgba(241, 245, 249, 0) 0%,
-    rgba(241, 245, 249, 0.5) 50%,
-    rgba(241, 245, 249, 0) 100%
-  );
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
+/* Flow animation for SVG lines */
+@keyframes flowAnimation {
+  from {
+    stroke-dashoffset: 100;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
 }
 
-@keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+.animate-flow {
+  animation: flowAnimation 1s linear infinite;
 }
 
-/* Toast notifications */
-.toast {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  background: white;
-  padding: 16px 24px;
-  border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
-  transform: translateY(100px);
-  opacity: 0;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  z-index: 1000;
+/* Spin slow for icons */
+@keyframes spinSlow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
-
-.toast.show {
-  transform: translateY(0);
-  opacity: 1;
-}
-
-.toast-success {
-  border-left: 4px solid #10b981;
-}
-
-.toast-error {
-  border-left: 4px solid #ef4444;
+.spin-slow {
+  animation: spinSlow 10s linear infinite;
+  transform-origin: center;
 }

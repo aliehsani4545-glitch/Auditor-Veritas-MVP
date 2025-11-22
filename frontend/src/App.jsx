@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './App.css';
 import CryptoJS from 'crypto-js';
-import CreateProcessor from './components/CreateProcessor';
-import MobilePaymentIllustration from './components/MobilePaymentIllustration';
+import CreateProcessor from './components/CreateProcessor'; // Se till att denna fil finns kvar
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { 
@@ -13,8 +12,7 @@ import {
   Smartphone, Globe, Cpu, Code, Eye, EyeOff,
   Mail, Fingerprint, Terminal, AlertTriangle,
   RefreshCw, Download, Cloud, Shield,
-  Sparkles, Rocket, Fingerprint as FingerprintIcon,
-  Network, GitBranch, Clock, Hash, Link2,
+  Sparkles, Rocket, Network, GitBranch, Clock, Hash, Link2,
   Code2, ServerIcon, Workflow, Container,
   LockKeyhole, Binary, Cog, Scan,
   ChevronRight, ChevronLeft,
@@ -26,9 +24,6 @@ import {
 if (typeof window !== 'undefined') {
   gsap.registerPlugin(ScrollTrigger);
 }
-
-// VIKTIGT: Tom sträng för Netlify proxy
-const API_BASE_URL = '';
 
 // --- Modern Design Hooks ---
 const useMousePosition = () => {
@@ -49,23 +44,18 @@ const useSecurityProtections = () => {
     const handleContextMenu = (e) => { e.preventDefault(); return false; };
     const handleKeyDown = (e) => {
       if (e.key === 'PrintScreen' || e.keyCode === 44) {
-        e.preventDefault();
-        return false;
+        e.preventDefault(); return false;
       }
       if (e.key === 's' && e.shiftKey && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        return false;
+        e.preventDefault(); return false;
       }
       if (e.keyCode === 123) {
-        e.preventDefault();
-        return false;
+        e.preventDefault(); return false;
       }
     };
-
     document.addEventListener('contextmenu', handleContextMenu);
     document.addEventListener('keydown', handleKeyDown);
     document.body.style.userSelect = 'none';
-
     return () => {
       document.removeEventListener('contextmenu', handleContextMenu);
       document.removeEventListener('keydown', handleKeyDown);
@@ -91,10 +81,8 @@ const useInactivityTimer = (timeoutMs = 300000, isActive) => {
     if (!isActive) return;
     const events = ['mousemove', 'keydown', 'scroll', 'click', 'touchstart'];
     const handleActivity = () => { if (!isLocked) resetTimer(); };
-
     events.forEach(event => window.addEventListener(event, handleActivity));
     resetTimer();
-
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
       events.forEach(event => window.removeEventListener(event, handleActivity));
@@ -108,7 +96,6 @@ const useInactivityTimer = (timeoutMs = 300000, isActive) => {
 const SecurityWatermark = ({ identifier }) => {
   const mousePosition = useMousePosition();
   const text = `CONFIDENTIAL • ${identifier} • ${new Date().toLocaleDateString()}`;
-
   return (
     <div className="fixed inset-0 pointer-events-none z-[9999] overflow-hidden">
       {Array.from({ length: 25 }).map((_, i) => (
@@ -161,18 +148,15 @@ const KeyRotation = ({ processor, apiKey, onKeyRotate }) => {
 
   const handleKeyRotation = async () => {
     if (!processor || !apiKey) return;
-    
     setIsRotating(true);
     try {
       await new Promise(resolve => setTimeout(resolve, 2000));
       const newKey = `av_${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`;
-      
       setLastRotation(new Date().toISOString());
       onKeyRotate(newKey);
-      
-      alert('🔑 API Key rotated successfully! Update your integrations with the new key.');
+      alert('🔑 API Key rotated successfully!');
     } catch (error) {
-      alert('❌ Key rotation failed. Please try again.');
+      alert('❌ Key rotation failed.');
     } finally {
       setIsRotating(false);
     }
@@ -195,7 +179,6 @@ const KeyRotation = ({ processor, apiKey, onKeyRotate }) => {
           <span className="text-emerald-700 text-xs font-semibold">ACTIVE</span>
         </div>
       </div>
-
       <div className="space-y-4">
         <div className="flex justify-between items-center text-sm">
           <span className="text-slate-600">Current Key:</span>
@@ -203,37 +186,14 @@ const KeyRotation = ({ processor, apiKey, onKeyRotate }) => {
             {apiKey ? `${apiKey.substring(0, 10)}...` : 'Not available'}
           </code>
         </div>
-
-        {lastRotation && (
-          <div className="flex justify-between items-center text-sm">
-            <span className="text-slate-600">Last Rotation:</span>
-            <span className="text-slate-800 font-medium">
-              {new Date(lastRotation).toLocaleDateString()}
-            </span>
-          </div>
-        )}
-
-        <div className="flex justify-between items-center text-sm">
-          <span className="text-slate-600">Rotation Policy:</span>
-          <span className="text-slate-800 font-medium">Every 90 days</span>
-        </div>
-
         <button 
           onClick={handleKeyRotation}
           disabled={isRotating || !processor}
           className="w-full bg-gradient-to-r from-amber-500 to-orange-500 text-white py-3 rounded-xl font-semibold hover:from-amber-600 hover:to-orange-600 transition-all duration-300 disabled:opacity-50 flex items-center justify-center space-x-2"
         >
-          {isRotating ? (
-            <RefreshCw className="w-4 h-4 animate-spin" />
-          ) : (
-            <RotateCw className="w-4 h-4" />
-          )}
+          {isRotating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <RotateCw className="w-4 h-4" />}
           <span>{isRotating ? 'Rotating Keys...' : 'Rotate API Key Now'}</span>
         </button>
-
-        <p className="text-xs text-slate-500 text-center">
-          Recommended to rotate keys every 90 days for maximum security
-        </p>
       </div>
     </div>
   );
@@ -254,28 +214,10 @@ const StatsCards = ({ stats, processor }) => (
         <div className="text-sm text-slate-500 font-medium">of {stats.eventsLimit}</div>
       </div>
       <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-        <div 
-          className="bg-gradient-to-r from-blue-500 to-cyan-500 h-2 rounded-full transition-all duration-500" 
-          style={{ width: stats.utilization }}
-        ></div>
+        <div className="bg-gradient-to-r from-blue-500 to-cyan-500 h-2 rounded-full transition-all duration-500" style={{ width: stats.utilization }}></div>
       </div>
     </div>
-
-    <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-white/20 shadow-lg hover:shadow-xl transition duration-300 group">
-      <div className="flex items-center mb-4">
-        <div className="p-3 bg-amber-50 rounded-xl group-hover:bg-amber-100 transition">
-          <Zap className="w-6 h-6 text-amber-500" />
-        </div>
-        <h3 className="ml-3 text-sm font-semibold text-slate-600 uppercase tracking-wide">Plan Status</h3>
-      </div>
-      <div className="text-2xl sm:text-3xl font-bold text-slate-900 capitalize mb-1">
-        {processor?.plan || 'Inactive'}
-      </div>
-      <div className="text-sm text-emerald-600 font-medium flex items-center">
-        <Check className="w-4 h-4 mr-1" /> Active subscription
-      </div>
-    </div>
-
+    {/* Fler kort här vid behov... */}
     <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-white/20 shadow-lg hover:shadow-xl transition duration-300 group">
       <div className="flex items-center mb-4">
         <div className="p-3 bg-purple-50 rounded-xl group-hover:bg-purple-100 transition">
@@ -299,379 +241,158 @@ const LockedFeature = ({ title, desc, setActiveTab }) => (
     <p className="text-slate-600 mb-8 max-w-sm leading-relaxed">{desc}</p>
     <button 
       onClick={() => setActiveTab('pricing')} 
-      className="btn-stripe bg-gradient-to-r from-blue-600 to-cyan-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-blue-700 hover:to-cyan-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
+      className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-blue-700 hover:to-cyan-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
     >
       Upgrade to Unlock
     </button>
   </div>
 );
 
-// --- Tangentbordsnavigering Hook ---
-const useKeyboardNavigation = (setActiveProduct, activeProduct) => {
+// --- NY STRIPE-INSPIRERAD MOBILE ILLUSTRATION (SVG) ---
+const MobilePaymentIllustration = ({ activeProduct }) => {
+  const svgRef = useRef(null);
+
+  const screens = {
+    crypto: (
+      <g id="screen-crypto" className="screen-content">
+        <path d="M20 40 H280" stroke="currentColor" strokeWidth="2" className="draw-line" />
+        <rect x="40" y="80" width="220" height="120" rx="8" stroke="currentColor" strokeWidth="2" fill="none" className="draw-line" />
+        <path d="M60 110 H240" stroke="currentColor" strokeWidth="2" strokeDasharray="4 4" opacity="0.5" />
+        <path d="M60 140 H240" stroke="currentColor" strokeWidth="2" strokeDasharray="4 4" opacity="0.5" />
+        <path d="M60 170 H180" stroke="currentColor" strokeWidth="2" strokeDasharray="4 4" opacity="0.5" />
+        <circle cx="150" cy="140" r="20" stroke="currentColor" strokeWidth="2" fill="#0f172a" className="draw-pop" />
+        <path d="M140 135 V130 A10 10 0 0 1 160 130 V135" stroke="white" strokeWidth="2" fill="none" />
+        <rect x="140" y="135" width="20" height="16" rx="2" fill="white" />
+        <text x="150" y="240" textAnchor="middle" fill="currentColor" fontSize="14" fontWeight="bold" className="fade-in">SHA-256 ENCRYPTED</text>
+      </g>
+    ),
+    merkle: (
+      <g id="screen-merkle" className="screen-content">
+        <circle cx="150" cy="60" r="15" stroke="currentColor" strokeWidth="2" fill="none" className="draw-pop" />
+        <path d="M150 75 V110" stroke="currentColor" strokeWidth="2" className="draw-line" />
+        <path d="M150 110 L100 140" stroke="currentColor" strokeWidth="2" className="draw-line" />
+        <path d="M150 110 L200 140" stroke="currentColor" strokeWidth="2" className="draw-line" />
+        <circle cx="100" cy="140" r="12" stroke="currentColor" strokeWidth="2" fill="none" className="draw-pop" />
+        <circle cx="200" cy="140" r="12" stroke="currentColor" strokeWidth="2" fill="none" className="draw-pop" />
+        <path d="M100 152 L70 180" stroke="currentColor" strokeWidth="2" className="draw-line" />
+        <path d="M100 152 L130 180" stroke="currentColor" strokeWidth="2" className="draw-line" />
+        <rect x="80" y="220" width="140" height="40" rx="20" fill="currentColor" opacity="0.1" className="fade-in" />
+        <text x="150" y="245" textAnchor="middle" fill="currentColor" fontSize="12" fontWeight="bold" className="fade-in">INTEGRITY VERIFIED</text>
+      </g>
+    ),
+    keys: (
+      <g id="screen-keys" className="screen-content">
+        <circle cx="150" cy="120" r="50" stroke="currentColor" strokeWidth="2" strokeDasharray="10 5" fill="none" className="spin-slow" />
+        <path d="M150 90 V70" stroke="currentColor" strokeWidth="2" />
+        <path d="M135 135 L165 105" stroke="currentColor" strokeWidth="3" className="draw-line" />
+        <circle cx="135" cy="135" r="8" stroke="currentColor" strokeWidth="2" fill="none" />
+        <rect x="50" y="200" width="200" height="6" rx="3" fill="currentColor" opacity="0.2" />
+        <rect x="50" y="200" width="120" height="6" rx="3" fill="#10b981" className="draw-width" />
+        <text x="50" y="225" fill="currentColor" fontSize="10" className="fade-in">Auto-rotation: 90 days</text>
+      </g>
+    ),
+    compliance: (
+      <g id="screen-compliance" className="screen-content">
+        <rect x="40" y="60" width="220" height="40" rx="8" stroke="currentColor" strokeWidth="2" fill="none" className="draw-line" />
+        <circle cx="60" cy="80" r="8" fill="#10b981" className="draw-pop" />
+        <text x="80" y="85" fill="currentColor" fontSize="14">GDPR Art. 32</text>
+        <rect x="40" y="115" width="220" height="40" rx="8" stroke="currentColor" strokeWidth="2" fill="none" className="draw-line" style={{animationDelay: '0.2s'}} />
+        <circle cx="60" cy="135" r="8" fill="#10b981" className="draw-pop" style={{animationDelay: '0.2s'}} />
+        <text x="80" y="140" fill="currentColor" fontSize="14">Data Residency (EU)</text>
+      </g>
+    )
+  };
+
   useEffect(() => {
-    const handleKeyPress = (e) => {
-      const products = ['crypto', 'merkle', 'keys', 'compliance'];
-      const currentIndex = products.indexOf(activeProduct);
-      
-      switch(e.key) {
-        case 'ArrowRight':
-        case 'ArrowDown':
-          e.preventDefault();
-          const nextIndex = (currentIndex + 1) % products.length;
-          setActiveProduct(products[nextIndex]);
-          break;
-        case 'ArrowLeft':
-        case 'ArrowUp':
-          e.preventDefault();
-          const prevIndex = currentIndex === 0 ? products.length - 1 : currentIndex - 1;
-          setActiveProduct(products[prevIndex]);
-          break;
-        case '1':
-        case '2':
-        case '3':
-        case '4':
-          const num = parseInt(e.key) - 1;
-          if (products[num]) {
-            e.preventDefault();
-            setActiveProduct(products[num]);
-          }
-          break;
-      }
-    };
+    const ctx = gsap.context(() => {
+      gsap.set(".draw-line", { strokeDasharray: 400, strokeDashoffset: 400 });
+      gsap.set(".draw-pop", { scale: 0, transformOrigin: "center" });
+      gsap.set(".fade-in", { opacity: 0, y: 10 });
+      gsap.set(".draw-width", { width: 0 });
 
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [setActiveProduct, activeProduct]);
-};
-
-// --- Code Example Component with Typewriter Effect ---
-const CodeExample = ({ code, fileName }) => {
-  const [displayedCode, setDisplayedCode] = useState('');
-
-  useEffect(() => {
-    setDisplayedCode('');
-    let i = 0;
-    
-    const typeWriter = setInterval(() => {
-      if (i < code.length) {
-        setDisplayedCode(prev => prev + code.charAt(i));
-        i++;
-      } else {
-        clearInterval(typeWriter);
-      }
-    }, 20);
-
-    return () => clearInterval(typeWriter);
-  }, [code]);
+      const tl = gsap.timeline();
+      tl.to(".draw-line", { strokeDashoffset: 0, duration: 1.2, ease: "power2.out", stagger: 0.1 })
+        .to(".draw-pop", { scale: 1, duration: 0.4, ease: "back.out(1.7)", stagger: 0.05 }, "-=0.8")
+        .to(".draw-width", { width: 120, duration: 1, ease: "power1.inOut" }, "-=1")
+        .to(".fade-in", { opacity: 1, y: 0, duration: 0.5, stagger: 0.1 }, "-=0.5");
+    }, svgRef);
+    return () => ctx.revert();
+  }, [activeProduct]);
 
   return (
-    <div className="bg-slate-900 rounded-2xl p-6 shadow-2xl border border-slate-800 relative overflow-hidden">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex space-x-2">
-          <div className="w-3 h-3 rounded-full bg-red-500"></div>
-          <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-          <div className="w-3 h-3 rounded-full bg-green-500"></div>
-        </div>
-        <span className="text-slate-400 text-sm font-mono">{fileName}</span>
-      </div>
-      <pre className="text-slate-200 text-sm leading-relaxed font-mono overflow-x-auto">
-        <code>{displayedCode}</code>
-        <span className="inline-block w-2 h-4 bg-cyan-400 ml-1 animate-pulse"></span>
-      </pre>
+    <div className="relative w-full max-w-[320px] aspect-[9/19] mx-auto transform transition-transform duration-500 hover:scale-105">
+      <svg ref={svgRef} viewBox="0 0 300 600" className="w-full h-full drop-shadow-2xl" style={{ color: '#334155' }}>
+        <defs>
+          <linearGradient id="screenGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#f8fafc" />
+            <stop offset="100%" stopColor="#e2e8f0" />
+          </linearGradient>
+        </defs>
+        <rect x="10" y="10" width="280" height="580" rx="40" fill="#1e293b" stroke="#475569" strokeWidth="8" />
+        <rect x="25" y="25" width="250" height="550" rx="32" fill="url(#screenGrad)" />
+        <g transform="translate(0, 50)">{screens[activeProduct] || screens.crypto}</g>
+        <rect x="100" y="35" width="100" height="24" rx="12" fill="#0f172a" />
+        <path d="M25 25 Q 275 25 275 50 V 200 L 25 400 Z" fill="white" opacity="0.05" pointerEvents="none" />
+      </svg>
     </div>
   );
 };
 
-// --- Toast Notification Component ---
-const Toast = ({ message, type = 'success', show }) => (
-  <div className={`toast ${type === 'success' ? 'toast-success' : 'toast-error'} ${show ? 'show' : ''}`}>
-    <div className="flex items-center">
-      {type === 'success' ? 
-        <Check className="w-5 h-5 text-emerald-500 mr-3" /> : 
-        <AlertTriangle className="w-5 h-5 text-red-500 mr-3" />
-      }
-      <span className="text-slate-700 font-medium">{message}</span>
-    </div>
-  </div>
-);
-
-// --- STRIPE-INSPIRERAD PRODUCT NETWORK MED SCROLL-DRIVEN ACTIVE PRODUCT ---
+// --- NY STRIPE-INSPIRERAD PRODUCT NETWORK (Glowing Lines) ---
 const ProductNetwork = ({ activeProduct, setActiveProduct }) => {
   const networkRef = useRef(null);
-  const nodesRef = useRef([]);
-  const pathsRef = useRef([]);
-  const [isVisible, setIsVisible] = useState(false);
 
   const products = [
-    {
-      id: 'crypto',
-      name: 'Cryptographic Hashing',
-      icon: ShieldCheck,
-      position: { x: 20, y: 30 },
-      connections: ['merkle', 'keys'],
-      color: '#10b981',
-      scrollTrigger: {
-        start: "top 70%",
-        end: "top 40%"
-      }
-    },
-    {
-      id: 'merkle',
-      name: 'Merkle Tree Integrity',
-      icon: TreePine,
-      position: { x: 70, y: 15 },
-      connections: ['crypto', 'compliance'],
-      color: '#3b82f6',
-      scrollTrigger: {
-        start: "top 60%", 
-        end: "top 30%"
-      }
-    },
-    {
-      id: 'keys',
-      name: 'Key Rotation',
-      icon: KeyRound,
-      position: { x: 10, y: 70 },
-      connections: ['crypto', 'compliance'],
-      color: '#8b5cf6',
-      scrollTrigger: {
-        start: "top 50%",
-        end: "top 20%"
-      }
-    },
-    {
-      id: 'compliance',
-      name: 'GDPR Compliance',
-      icon: FileLock2,
-      position: { x: 65, y: 75 },
-      connections: ['merkle', 'keys'],
-      color: '#f59e0b',
-      scrollTrigger: {
-        start: "top 40%",
-        end: "top 10%"
-      }
-    }
+    { id: 'crypto', name: 'Hashing', icon: ShieldCheck, x: 20, y: 30, color: '#10b981' },
+    { id: 'merkle', name: 'Merkle Tree', icon: TreePine, x: 70, y: 15, color: '#3b82f6' },
+    { id: 'keys', name: 'Key Rotation', icon: KeyRound, x: 15, y: 75, color: '#8b5cf6' },
+    { id: 'compliance', name: 'Compliance', icon: FileLock2, x: 65, y: 70, color: '#f59e0b' }
   ];
 
-  const getConnectionPath = (start, end) => {
-    const startX = start.x;
-    const startY = start.y;
-    const endX = end.x;
-    const endY = end.y;
-    const midX = (startX + endX) / 2;
-    return `M ${startX} ${startY} C ${midX} ${startY} ${midX} ${endY} ${endX} ${endY}`;
-  };
+  const connections = [
+    ['crypto', 'merkle'], ['crypto', 'keys'],
+    ['merkle', 'compliance'], ['keys', 'compliance'],
+    ['crypto', 'compliance']
+  ];
 
-  const allConnections = new Set();
-  products.forEach(product => {
-    product.connections.forEach(connection => {
-      const sortedIds = [product.id, connection].sort();
-      allConnections.add(`${sortedIds[0]}-${sortedIds[1]}`);
-    });
-  });
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setIsVisible(true);
-        }
-      },
-      { threshold: 0.3 }
-    );
-
-    if (networkRef.current) {
-      observer.observe(networkRef.current);
-    }
-
-    return () => {
-      if (networkRef.current) observer.unobserve(networkRef.current);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!networkRef.current) return;
-
-    gsap.set(nodesRef.current, {
-      opacity: 0,
-      scale: 0.8,
-      y: 20,
-      rotation: -5
-    });
-
-    gsap.set(pathsRef.current, {
-      strokeDasharray: "8 4",
-      strokeDashoffset: 100,
-      opacity: 0
-    });
-
-    // Create individual ScrollTriggers for each product
-    const productTriggers = products.map((product, index) => {
-      return ScrollTrigger.create({
-        trigger: networkRef.current,
-        start: product.scrollTrigger.start,
-        end: product.scrollTrigger.end,
-        onEnter: () => setActiveProduct(product.id),
-        onEnterBack: () => setActiveProduct(product.id),
-        onLeave: () => {
-          if (index < products.length - 1) {
-            setActiveProduct(products[index + 1].id);
-          }
-        },
-        onLeaveBack: () => {
-          if (index > 0) {
-            setActiveProduct(products[index - 1].id);
-          }
-        }
-      });
-    });
-
-    // Main animation timeline
-    const tl = gsap.timeline({
-      scrollTrigger: {
-        trigger: networkRef.current,
-        start: "top 70%",
-        end: "bottom 30%",
-        scrub: 1,
-        markers: false,
-      }
-    });
-
-    // Animate nodes med offset delay (25ms mellan varje)
-    nodesRef.current.forEach((node, index) => {
-      tl.to(node, {
-        opacity: 1,
-        scale: 1,
-        y: 0,
-        rotation: 0,
-        duration: 0.8,
-        ease: "back.out(1.7)"
-      }, `node-${index * 0.025}`);
-    });
-
-    // Animate paths med delay
-    pathsRef.current.forEach((path, index) => {
-      tl.to(path, {
-        strokeDashoffset: 0,
-        opacity: 1,
-        duration: 1.5,
-        ease: "power2.inOut"
-      }, `path-${1 + index * 0.15}`);
-    });
-
-    // Continuous flow animation
-    tl.to(pathsRef.current, {
-      strokeDashoffset: -16,
-      duration: 2,
-      ease: "none",
-      repeat: -1
-    }, "path-flow");
-
-    // Puls animation för active nodes
-    const pulseTl = gsap.timeline({ repeat: -1, yoyo: true });
-    pulseTl.to(".product-node.active", {
-      boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
-      duration: 2,
-      ease: "power1.inOut"
-    });
-
-    return () => {
-      ScrollTrigger.getAll().forEach(trigger => trigger.kill());
-      productTriggers.forEach(trigger => trigger.kill());
-    };
-  }, [setActiveProduct]);
+  const getPos = (id) => products.find(p => p.id === id);
 
   return (
-    <div ref={networkRef} className="relative h-[600px] w-full bg-gradient-to-br from-slate-50 to-slate-100 overflow-hidden">
-      <div className="absolute inset-0 opacity-30">
-        <div className="absolute inset-0 bg-grid-slate-200 [mask-image:linear-gradient(0deg,white,rgba(255,255,255,0.6))]" />
-      </div>
-
+    <div ref={networkRef} className="relative h-[600px] w-full bg-slate-50 overflow-hidden select-none">
+      <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(#cbd5e1 1px, transparent 1px)', backgroundSize: '30px 30px', opacity: 0.5 }}></div>
       <svg className="absolute inset-0 w-full h-full pointer-events-none">
-        {Array.from(allConnections).map((connection, index) => {
-          const [id1, id2] = connection.split('-');
-          const product1 = products.find(p => p.id === id1);
-          const product2 = products.find(p => p.id === id2);
-          
-          if (!product1 || !product2) return null;
-
-          const path = getConnectionPath(product1.position, product2.position);
-          const isActive = activeProduct === product1.id || activeProduct === product2.id;
+        {connections.map(([startId, endId], i) => {
+          const start = getPos(startId);
+          const end = getPos(endId);
+          const isActive = activeProduct === startId || activeProduct === endId;
+          const midX = (start.x + end.x) / 2;
+          const midY = (start.y + end.y) / 2;
+          const pathD = `M ${start.x}% ${start.y}% Q ${midX}% ${midY + (i % 2 === 0 ? 10 : -10)}% ${end.x}% ${end.y}%`;
 
           return (
-            <path
-              key={connection}
-              ref={el => pathsRef.current[index] = el}
-              d={path}
-              stroke={isActive ? product1.color : '#cbd5e1'}
-              strokeWidth={isActive ? 3 : 2}
-              fill="none"
-              className={`connection-line ${isActive ? 'active' : ''} transition-all duration-1000`}
-            />
+            <g key={`${startId}-${endId}`}>
+              <path d={pathD} stroke="#cbd5e1" strokeWidth="1" fill="none" />
+              <path d={pathD} stroke={isActive ? (activeProduct === startId ? start.color : end.color) : 'transparent'} strokeWidth="2" fill="none" strokeDasharray="10 10" className={`transition-all duration-1000 ${isActive ? 'opacity-100 animate-flow' : 'opacity-0'}`} />
+            </g>
           );
         })}
       </svg>
-
-      {products.map((product, index) => {
-        const ProductIcon = product.icon;
+      {products.map((product) => {
         const isActive = activeProduct === product.id;
-        
+        const ProductIcon = product.icon;
         return (
-          <div
-            key={product.id}
-            ref={el => nodesRef.current[index] = el}
-            className="absolute transform -translate-x-1/2 -translate-y-1/2"
-            style={{
-              left: `${product.position.x}%`,
-              top: `${product.position.y}%`,
-            }}
-          >
-            <div
-              className={`product-node group relative p-6 rounded-2xl backdrop-blur-sm border-2 transition-all duration-300 ${
-                isActive
-                  ? 'active bg-white shadow-2xl scale-110 border-slate-200'
-                  : 'bg-white/80 shadow-lg border-slate-100'
-              }`}
-              tabIndex={0}
-            >
-              {isActive && (
-                <div 
-                  className="active-glow absolute inset-0 rounded-2xl blur-xl opacity-50 transition-opacity duration-300"
-                  style={{ backgroundColor: product.color }}
-                />
-              )}
-              
-              <div className="relative z-10 text-center">
-                <div 
-                  className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 transition-colors duration-300 ${
-                    isActive ? 'bg-white' : 'bg-slate-50'
-                  }`}
-                >
-                  <ProductIcon 
-                    className={`w-8 h-8 transition-colors duration-300 ${
-                      isActive ? 'text-slate-900' : 'text-slate-600'
-                    }`}
-                  />
-                </div>
-                <h3 className={`font-semibold transition-colors duration-300 ${
-                  isActive ? 'text-slate-900' : 'text-slate-700'
-                }`}>
-                  {product.name}
-                </h3>
+          <div key={product.id} onClick={() => setActiveProduct(product.id)} className={`absolute transform -translate-x-1/2 -translate-y-1/2 cursor-pointer transition-all duration-500 ease-out ${isActive ? 'scale-110 z-20' : 'scale-100 z-10 grayscale opacity-70 hover:grayscale-0 hover:opacity-100'}`} style={{ left: `${product.x}%`, top: `${product.y}%` }}>
+            <div className={`absolute inset-0 rounded-full blur-xl transition-opacity duration-500 ${isActive ? 'opacity-60' : 'opacity-0'}`} style={{ backgroundColor: product.color, transform: 'scale(1.5)' }}></div>
+            <div className={`relative flex flex-col items-center bg-white p-4 rounded-2xl shadow-lg border transition-colors duration-300 ${isActive ? 'border-slate-300' : 'border-slate-100'}`}>
+              <div className="p-3 rounded-xl mb-2 transition-colors duration-300" style={{ backgroundColor: isActive ? `${product.color}20` : '#f1f5f9' }}>
+                <ProductIcon className={`w-6 h-6 transition-colors duration-300`} style={{ color: isActive ? product.color : '#64748b' }} />
               </div>
-
-              <div className="absolute -top-1 -left-1 w-2 h-2 bg-white rounded-full border-2 border-slate-300" />
-              <div className="absolute -top-1 -right-1 w-2 h-2 bg-white rounded-full border-2 border-slate-300" />
-              <div className="absolute -bottom-1 -left-1 w-2 h-2 bg-white rounded-full border-2 border-slate-300" />
-              <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-white rounded-full border-2 border-slate-300" />
+              <span className={`text-sm font-bold transition-colors ${isActive ? 'text-slate-900' : 'text-slate-500'}`}>{product.name}</span>
             </div>
+            {isActive && (<><div className="absolute top-1/2 -right-1 w-2 h-2 bg-white border border-slate-300 rounded-full"></div><div className="absolute top-1/2 -left-1 w-2 h-2 bg-white border border-slate-300 rounded-full"></div></>)}
           </div>
         );
       })}
-
-      <div className="absolute top-1/4 left-1/4 w-4 h-4 bg-blue-400 rounded-full opacity-20 animate-float" />
-      <div className="absolute top-1/3 right-1/3 w-6 h-6 bg-emerald-400 rounded-full opacity-20 animate-float" style={{ animationDelay: '1s' }} />
-      <div className="absolute bottom-1/4 left-1/3 w-3 h-3 bg-purple-400 rounded-full opacity-20 animate-float" style={{ animationDelay: '2s' }} />
     </div>
   );
 };
@@ -687,165 +408,120 @@ const StripeHeroSection = ({ setActiveTab, activeProduct, setActiveProduct }) =>
       title: "Cryptographic Hashing",
       description: "Every event secured with military-grade SHA-256 encryption. Ensure data integrity from the moment it's captured.",
       features: ["Real-time SHA-256 hashing", "Immutable data records", "Automated integrity checks"],
-      code: `// Secure event hashing
-const eventHash = CryptoJS.SHA256(
-  JSON.stringify(eventData)
-).toString();`,
-      fileName: "crypto.js"
+      code: `// Secure event hashing\nconst eventHash = CryptoJS.SHA256(\n  JSON.stringify(eventData)\n).toString();`
     },
     merkle: {
       title: "Merkle Tree Integrity", 
       description: "Blockchain-inspired verification with Merkle trees. Cryptographically prove data hasn't been altered.",
       features: ["Merkle tree construction", "Cryptographic proofs", "Tamper-evident design"],
-      code: `// Merkle tree verification
-const proof = merkleTree.getProof(eventHash);
-const isValid = tree.verifyProof(proof);`,
-      fileName: "merkle.js"
+      code: `// Merkle tree verification\nconst proof = merkleTree.getProof(eventHash);\nconst isValid = tree.verifyProof(proof);`
     },
     keys: {
       title: "Automated Key Rotation",
       description: "HD key management with automated 90-day rotation. Never worry about compromised credentials again.",
       features: ["90-day key rotation", "HD key derivation", "Zero-downtime updates"],
-      code: `// Automated key rotation
-const newKey = generateHDKey();
-await rotateAPIKey(previousKey, newKey);`,
-      fileName: "keys.js"
+      code: `// Automated key rotation\nconst newKey = generateHDKey();\nawait rotateAPIKey(previousKey, newKey);`
     },
     compliance: {
       title: "GDPR Compliance",
       description: "Full compliance with GDPR Article 32 requirements. Built-in data protection by design and by default.",
       features: ["GDPR Article 32 compliant", "Right to erasure", "Data portability"],
-      code: `// GDPR data export
-const userData = await exportUserData(userId);
-await fulfillGDPRRequest(userData);`,
-      fileName: "compliance.js"
+      code: `// GDPR data export\nconst userData = await exportUserData(userId);\nawait fulfillGDPRRequest(userData);`
     }
   };
 
   const activeProductData = products[activeProduct] || products.crypto;
 
+  // Scroll triggers för att byta aktiv produkt när man scrollar
   useEffect(() => {
     if (!contentRef.current) return;
-
-    const sections = gsap.utils.toArray('.content-section');
     
-    sections.forEach((section, index) => {
-      gsap.fromTo(section, {
-        opacity: 0,
-        y: 50
-      }, {
-        opacity: 1,
-        y: 0,
-        duration: 1,
-        scrollTrigger: {
-          trigger: section,
-          start: "top 80%",
-          end: "bottom 20%",
-          toggleActions: "play none none reverse"
-        }
-      });
+    // Enkel fade-in för hela sektionen
+    const section = contentRef.current;
+    gsap.fromTo(section, { opacity: 0, y: 50 }, {
+      opacity: 1, y: 0, duration: 1,
+      scrollTrigger: { trigger: section, start: "top 80%", end: "bottom 20%", toggleActions: "play none none reverse" }
     });
-
-    return () => {
-      ScrollTrigger.getAll().forEach(trigger => trigger.kill());
-    };
-  }, []);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setIsVisible(true);
-        }
-      },
-      { threshold: 0.1 }
-    );
-
-    if (containerRef.current) {
-      observer.observe(containerRef.current);
-    }
-
-    return () => {
-      if (containerRef.current) observer.unobserve(containerRef.current);
-    };
+    
+    return () => ScrollTrigger.getAll().forEach(trigger => trigger.kill());
   }, []);
 
   return (
     <div ref={containerRef} className="relative bg-white overflow-hidden">
+      {/* Header Section */}
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-16">
-        <div ref={contentRef} className={`content-section text-center mb-16 ${
-          isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
-        }`}>
+        <div ref={contentRef} className="text-center mb-16">
           <div className="inline-flex items-center bg-blue-50 text-blue-700 px-4 py-2 rounded-full text-sm font-semibold border border-blue-200 mb-8">
             <Sparkles className="w-4 h-4 mr-2" />
             Enterprise Cryptographic Security
           </div>
-          
           <h1 className="text-5xl sm:text-6xl lg:text-7xl font-black text-slate-900 mb-6 leading-tight">
             Immutable audit trails
             <span className="block text-slate-400">for modern compliance</span>
           </h1>
-          
           <p className="text-xl text-slate-600 max-w-3xl mx-auto leading-relaxed">
-            Cryptographic data integrity meets enterprise compliance. 
-            Everything operates seamlessly to ensure GDPR compliance 
-            without compromising performance.
+            Cryptographic data integrity meets enterprise compliance. Everything operates seamlessly to ensure GDPR compliance without compromising performance.
           </p>
-
           <div className="flex flex-col sm:flex-row gap-4 justify-center mt-8">
-            <button 
-              onClick={() => setActiveTab('create')}
-              className="btn-stripe group bg-slate-900 text-white px-8 py-4 rounded-2xl font-bold transition-all hover:bg-slate-800 flex items-center justify-center shadow-lg hover:shadow-xl hover:-translate-y-1"
-            >
-              Start integration
-              <ArrowRight className="ml-2 w-5 h-5 transition-transform group-hover:translate-x-1" />
+            <button onClick={() => setActiveTab('create')} className="group bg-slate-900 text-white px-8 py-4 rounded-2xl font-bold transition-all hover:bg-slate-800 flex items-center justify-center shadow-lg hover:shadow-xl hover:-translate-y-1">
+              Start integration <ArrowRight className="ml-2 w-5 h-5 transition-transform group-hover:translate-x-1" />
             </button>
-            <button 
-              onClick={() => setActiveTab('pricing')}
-              className="btn-stripe border-2 border-slate-300 text-slate-700 px-8 py-4 rounded-2xl font-bold transition-all hover:border-slate-400 hover:bg-slate-50 flex items-center justify-center"
-            >
+            <button onClick={() => setActiveTab('pricing')} className="border-2 border-slate-300 text-slate-700 px-8 py-4 rounded-2xl font-bold transition-all hover:border-slate-400 hover:bg-slate-50 flex items-center justify-center">
               View pricing
             </button>
           </div>
         </div>
 
-        <div className="content-section relative">
+        {/* Product Network */}
+        <div className="content-section relative mb-20">
           <ProductNetwork activeProduct={activeProduct} setActiveProduct={setActiveProduct} />
         </div>
 
+        {/* Kontextuellt Innehåll (Mobile Illu + Text + Kod) */}
         <div className="content-section max-w-6xl mx-auto mt-16">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            <div className="order-1 lg:order-1 flex justify-center h-[550px] sticky top-20">
-              <MobilePaymentIllustration activeProduct={activeProduct} />
+            
+            {/* VÄNSTER: Mobile Payment Illustration (STICKY) */}
+            <div className="order-1 lg:order-1 flex justify-center h-[600px] sticky top-20">
+                <MobilePaymentIllustration activeProduct={activeProduct} />
             </div>
 
+            {/* HÖGER: Text Content + Code Example Wrapper */}
             <div className="order-2 lg:order-2 space-y-6">
-              <div className="space-y-6">
-                <h2 className="text-3xl lg:text-4xl font-bold text-slate-900">
-                  {activeProductData.title}
-                </h2>
-                <p className="text-lg text-slate-600 leading-relaxed">
-                  {activeProductData.description}
-                </p>
-                
-                <ul className="space-y-4">
-                  {activeProductData.features.map((feature, index) => (
-                    <li key={index} className="flex items-center text-slate-700">
-                      <Check className="w-5 h-5 text-emerald-500 mr-3 flex-shrink-0" />
-                      {feature}
-                    </li>
-                  ))}
-                </ul>
+                <div className="space-y-6 animate-in fade-in duration-500" key={activeProduct}>
+                  <h2 className="text-3xl lg:text-4xl font-bold text-slate-900">
+                    {activeProductData.title}
+                  </h2>
+                  <p className="text-lg text-slate-600 leading-relaxed">
+                    {activeProductData.description}
+                  </p>
+                  <ul className="space-y-4">
+                    {activeProductData.features.map((feature, index) => (
+                      <li key={index} className="flex items-center text-slate-700">
+                        <Check className="w-5 h-5 text-emerald-500 mr-3 flex-shrink-0" />
+                        {feature}
+                      </li>
+                    ))}
+                  </ul>
+                  <button onClick={() => setActiveTab('create')} className="bg-slate-900 text-white px-6 py-3 rounded-xl font-semibold hover:bg-slate-800 transition-colors">
+                    Start with {activeProductData.title}
+                  </button>
+                </div>
 
-                <button 
-                  onClick={() => setActiveTab('create')}
-                  className="btn-stripe bg-slate-900 text-white px-6 py-3 rounded-xl font-semibold hover:bg-slate-800 transition-colors"
-                >
-                  Start with {activeProductData.title}
-                </button>
-              </div>
-
-              <CodeExample code={activeProductData.code} fileName={activeProductData.fileName} />
+                {/* Code Example */}
+                <div className="bg-slate-900 rounded-2xl p-6 shadow-2xl">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex space-x-2">
+                      <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                      <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                      <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                    </div>
+                    <span className="text-slate-400 text-sm font-mono">implementation.js</span>
+                  </div>
+                  <pre className="text-slate-200 text-sm leading-relaxed font-mono overflow-x-auto">
+                    <code>{activeProductData.code}</code>
+                  </pre>
+                </div>
             </div>
           </div>
         </div>
@@ -855,113 +531,51 @@ await fulfillGDPRRequest(userData);`,
 };
 
 // --- SCROLL-DRIVEN FEATURE REVEAL ---
-const ScrollRevealSection = ({ children, className = "", style = {} }) => {
+const ScrollRevealSection = ({ children, className = "" }) => {
   const sectionRef = useRef(null);
-
   useEffect(() => {
     if (!sectionRef.current) return;
-
-    gsap.fromTo(sectionRef.current, {
-      opacity: 0,
-      y: 60
-    }, {
-      opacity: 1,
-      y: 0,
-      duration: 1,
-      scrollTrigger: {
-        trigger: sectionRef.current,
-        start: "top 80%",
-        end: "bottom 20%",
-        toggleActions: "play none none reverse"
-      }
+    gsap.fromTo(sectionRef.current, { opacity: 0, y: 60 }, {
+      opacity: 1, y: 0, duration: 1,
+      scrollTrigger: { trigger: sectionRef.current, start: "top 80%", end: "bottom 20%", toggleActions: "play none none reverse" }
     });
-
-    return () => {
-      ScrollTrigger.getAll().forEach(trigger => trigger.kill());
-    };
+    return () => ScrollTrigger.getAll().forEach(trigger => trigger.kill());
   }, []);
-
-  return (
-    <div ref={sectionRef} className={className} style={style}>
-      {children}
-    </div>
-  );
+  return <div ref={sectionRef} className={className}>{children}</div>;
 };
 
-// --- STRIPE FEATURE GRID MED SCROLL ANIMATION ---
+// --- STRIPE FEATURE GRID ---
 const StripeFeatureGrid = () => {
   const features = [
-    {
-      icon: ShieldCheck,
-      title: "Cryptographic Integrity",
-      description: "Every event secured with SHA-256 hashing and Merkle tree verification.",
-      color: "emerald"
-    },
-    {
-      icon: KeyRound,
-      title: "Automated Key Rotation",
-      description: "HD key management with automated 90-day rotation for maximum security.",
-      color: "blue"
-    },
-    {
-      icon: FileLock2,
-      title: "GDPR Certified",
-      description: "Full compliance with GDPR Article 32 requirements for data protection.",
-      color: "orange"
-    },
-    {
-      icon: Database,
-      title: "EU Data Centers",
-      description: "All data resides in Frankfurt AWS eu-central-1 for GDPR compliance.",
-      color: "purple"
-    }
+    { icon: ShieldCheck, title: "Cryptographic Integrity", description: "Every event secured with SHA-256 hashing and Merkle tree verification.", color: "emerald" },
+    { icon: KeyRound, title: "Automated Key Rotation", description: "HD key management with automated 90-day rotation for maximum security.", color: "blue" },
+    { icon: FileLock2, title: "GDPR Certified", description: "Full compliance with GDPR Article 32 requirements for data protection.", color: "orange" },
+    { icon: Database, title: "EU Data Centers", description: "All data resides in Frankfurt AWS eu-central-1 for GDPR compliance.", color: "purple" }
   ];
-
   const colorClasses = {
     emerald: { text: 'text-emerald-600', bg: 'bg-emerald-100' },
     blue: { text: 'text-blue-600', bg: 'bg-blue-100' },
     orange: { text: 'text-orange-600', bg: 'bg-orange-100' },
     purple: { text: 'text-purple-600', bg: 'bg-purple-100' }
   };
-
   return (
     <div className="py-24 bg-slate-50 relative overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <ScrollRevealSection className="text-center mb-16">
-          <h2 className="text-4xl sm:text-5xl font-black text-slate-900 mb-6">
-            Built for security teams
-            <span className="block text-slate-400">Trusted by compliance officers</span>
-          </h2>
-          <p className="text-xl text-slate-600 max-w-2xl mx-auto">
-            Advanced cryptographic security meets enterprise compliance requirements 
-            in one seamless platform.
-          </p>
+          <h2 className="text-4xl sm:text-5xl font-black text-slate-900 mb-6">Built for security teams <span className="block text-slate-400">Trusted by compliance officers</span></h2>
+          <p className="text-xl text-slate-600 max-w-2xl mx-auto">Advanced cryptographic security meets enterprise compliance requirements in one seamless platform.</p>
         </ScrollRevealSection>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 fade-in-sequence">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {features.map((feature, index) => {
             const FeatureIcon = feature.icon;
-            const featureColorClass = colorClasses[feature.color];
-            
+            const c = colorClasses[feature.color];
             return (
-              <ScrollRevealSection
-                key={index}
-                className="feature-card animate-in group relative bg-white rounded-2xl p-8 shadow-lg border border-slate-200 hover:shadow-xl transition-all duration-500"
-                style={{ transitionDelay: `${index * 150}ms` }}
-              >
-                <div className="relative z-10">
-                  <div className={`w-12 h-12 rounded-xl ${featureColorClass.bg} flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300`}>
-                    <FeatureIcon className={`w-6 h-6 ${featureColorClass.text}`} />
-                  </div>
-                  
-                  <h3 className="text-xl font-bold text-slate-900 mb-3">
-                    {feature.title}
-                  </h3>
-                  
-                  <p className="text-slate-600 leading-relaxed">
-                    {feature.description}
-                  </p>
+              <ScrollRevealSection key={index} className="group relative bg-white rounded-2xl p-8 shadow-lg border border-slate-200 hover:shadow-xl transition-all duration-500">
+                <div className={`w-12 h-12 rounded-xl ${c.bg} flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300`}>
+                  <FeatureIcon className={`w-6 h-6 ${c.text}`} />
                 </div>
+                <h3 className="text-xl font-bold text-slate-900 mb-3">{feature.title}</h3>
+                <p className="text-slate-600 leading-relaxed">{feature.description}</p>
               </ScrollRevealSection>
             );
           })}
@@ -971,92 +585,31 @@ const StripeFeatureGrid = () => {
   );
 };
 
-// --- MODERN PRICING SECTION MED SCROLL ANIMATION ---
+// --- MODERN PRICING SECTION ---
 const ModernPricingSection = ({ setActiveTab }) => {
   const plans = [
-    {
-      name: 'Starter',
-      price: 0,
-      events: '100',
-      features: ['Basic Audit Trail', 'GDPR Compliance', 'Email Support', 'SHA-256 Hashing'],
-      popular: false
-    },
-    {
-      name: 'Professional',
-      price: 49,
-      events: '50,000',
-      features: ['Advanced Analytics', 'Bulk Import', 'Priority Support', 'Custom Events', 'Merkle Trees'],
-      popular: true
-    },
-    {
-      name: 'Enterprise',
-      price: 199,
-      events: '500,000',
-      features: ['Everything in Pro', 'Dedicated Support', 'SLA Guarantee', 'Custom Integrations'],
-      popular: false
-    }
+    { name: 'Starter', price: 0, events: '100', features: ['Basic Audit Trail', 'GDPR Compliance', 'Email Support', 'SHA-256 Hashing'], popular: false },
+    { name: 'Professional', price: 49, events: '50,000', features: ['Advanced Analytics', 'Bulk Import', 'Priority Support', 'Custom Events', 'Merkle Trees'], popular: true },
+    { name: 'Enterprise', price: 199, events: '500,000', features: ['Everything in Pro', 'Dedicated Support', 'SLA Guarantee', 'Custom Integrations'], popular: false }
   ];
 
   return (
     <div className="py-24 bg-white relative overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <ScrollRevealSection className="text-center mb-16">
-          <h2 className="text-4xl sm:text-5xl font-black text-slate-900 mb-6">
-            Simple, transparent pricing
-            <span className="block text-slate-400">No hidden fees</span>
-          </h2>
-          <p className="text-xl text-slate-600 max-w-2xl mx-auto">
-            Start small, scale securely. All plans include enterprise-grade security from day one.
-          </p>
+          <h2 className="text-4xl sm:text-5xl font-black text-slate-900 mb-6">Simple, transparent pricing <span className="block text-slate-400">No hidden fees</span></h2>
         </ScrollRevealSection>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-5xl mx-auto fade-in-sequence">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-5xl mx-auto">
           {plans.map((plan, index) => (
-            <ScrollRevealSection
-              key={index}
-              className={`animate-in relative rounded-3xl p-8 transition-all duration-500 hover:scale-105 flex flex-col ${
-                plan.popular 
-                  ? 'bg-gradient-to-br from-blue-50 to-cyan-50 border-2 border-blue-200 shadow-2xl scale-105' 
-                  : 'bg-white border border-slate-200 shadow-xl'
-              }`}
-              style={{ transitionDelay: `${index * 200}ms` }}
-            >
-              {plan.popular && (
-                <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white px-6 py-2 rounded-full text-sm font-bold shadow-lg">
-                  MOST POPULAR
-                </div>
-              )}
-              
+            <ScrollRevealSection key={index} className={`relative rounded-3xl p-8 transition-all duration-500 hover:scale-105 flex flex-col ${plan.popular ? 'bg-gradient-to-br from-blue-50 to-cyan-50 border-2 border-blue-200 shadow-2xl scale-105' : 'bg-white border border-slate-200 shadow-xl'}`}>
+              {plan.popular && (<div className="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white px-6 py-2 rounded-full text-sm font-bold shadow-lg">MOST POPULAR</div>)}
               <h3 className="text-2xl font-bold text-slate-900 mb-4">{plan.name}</h3>
-              
-              <div className="mb-6 flex items-baseline justify-center">
-                <span className="text-4xl font-black text-slate-900">${plan.price}</span>
-                <span className="text-slate-500 ml-2 font-medium">/month</span>
-              </div>
-              
-              <div className="text-center mb-6">
-                <span className="text-slate-600 font-semibold">{plan.events} events/month</span>
-              </div>
-              
+              <div className="mb-6 flex items-baseline justify-center"><span className="text-4xl font-black text-slate-900">${plan.price}</span><span className="text-slate-500 ml-2 font-medium">/month</span></div>
+              <div className="text-center mb-6"><span className="text-slate-600 font-semibold">{plan.events} events/month</span></div>
               <ul className="space-y-4 mb-8 flex-1">
-                {plan.features.map((feat, i) => (
-                  <li key={i} className="flex items-start text-slate-600">
-                    <Check className="w-5 h-5 text-emerald-500 mr-3 mt-0.5" />
-                    {feat}
-                  </li>
-                ))}
+                {plan.features.map((feat, i) => (<li key={i} className="flex items-start text-slate-600"><Check className="w-5 h-5 text-emerald-500 mr-3 mt-0.5" />{feat}</li>))}
               </ul>
-              
-              <button 
-                onClick={() => setActiveTab('create')}
-                className={`btn-stripe w-full py-4 rounded-2xl font-bold transition-all duration-300 shadow-lg hover:shadow-xl hover:-translate-y-1 ${
-                  plan.popular 
-                    ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white hover:from-blue-700 hover:to-cyan-700' 
-                    : 'bg-slate-100 text-slate-800 hover:bg-slate-200'
-                }`}
-              >
-                {plan.price === 0 ? 'Start for Free' : `Choose ${plan.name}`}
-              </button>
+              <button onClick={() => setActiveTab('create')} className={`w-full py-4 rounded-2xl font-bold transition-all duration-300 shadow-lg hover:shadow-xl hover:-translate-y-1 ${plan.popular ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white' : 'bg-slate-100 text-slate-800 hover:bg-slate-200'}`}>{plan.price === 0 ? 'Start for Free' : `Choose ${plan.name}`}</button>
             </ScrollRevealSection>
           ))}
         </div>
@@ -1065,633 +618,130 @@ const ModernPricingSection = ({ setActiveTab }) => {
   );
 };
 
-// --- MODERN PRIVACY POLICY ---
+// --- PRIVACY POLICY ---
 const PrivacyPolicy = ({ onAccept }) => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/30 px-4 py-8">
       <div className="max-w-4xl mx-auto space-y-8">
         <div className="text-center">
-          <div className="bg-gradient-to-r from-emerald-50 to-green-50 w-20 h-20 rounded-2xl rotate-3 flex items-center justify-center mx-auto mb-6 shadow-lg">
-            <ShieldCheck className="w-10 h-10 text-emerald-600 -rotate-3" />
-          </div>
-          <h2 className="text-4xl font-black text-slate-900 mb-4 bg-gradient-to-r from-slate-900 to-emerald-600 bg-clip-text text-transparent">
-            Privacy & Compliance
-          </h2>
-          <p className="text-xl text-slate-600 max-w-2xl mx-auto">
-            We process data in strict accordance with GDPR Article 6(1)(b) and industry security standards.
-          </p>
+          <div className="bg-gradient-to-r from-emerald-50 to-green-50 w-20 h-20 rounded-2xl rotate-3 flex items-center justify-center mx-auto mb-6 shadow-lg"><ShieldCheck className="w-10 h-10 text-emerald-600 -rotate-3" /></div>
+          <h2 className="text-4xl font-black text-slate-900 mb-4 bg-gradient-to-r from-slate-900 to-emerald-600 bg-clip-text text-transparent">Privacy & Compliance</h2>
         </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="bg-white/80 backdrop-blur-sm p-8 rounded-2xl shadow-lg border border-white/20">
-            <div className="flex items-center mb-6">
-              <div className="p-3 bg-blue-50 rounded-xl mr-4">
-                <Users className="w-7 h-7 text-blue-600" />
-              </div>
-              <h3 className="font-bold text-2xl text-slate-900">Data Storage</h3>
-            </div>
-            <ul className="space-y-5">
-              <li className="flex items-start group">
-                <div className="mt-1 mr-4 p-2 bg-emerald-100 rounded-full">
-                  <Check className="w-4 h-4 text-emerald-700"/>
-                </div>
-                <div>
-                  <strong className="block text-slate-900 text-base">🇪🇺 EU Data Centers</strong>
-                  <span className="text-slate-600">All data resides in Frankfurt (AWS eu-central-1).</span>
-                </div>
-              </li>
-              <li className="flex items-start group">
-                <div className="mt-1 mr-4 p-2 bg-emerald-100 rounded-full">
-                  <Check className="w-4 h-4 text-emerald-700"/>
-                </div>
-                <div>
-                  <strong className="block text-slate-900 text-base">🔒 Military-grade Encryption</strong>
-                  <span className="text-slate-600">AES-256 at rest and TLS 1.3 in transit.</span>
-                </div>
-              </li>
-              <li className="flex items-start group">
-                <div className="mt-1 mr-4 p-2 bg-emerald-100 rounded-full">
-                  <Check className="w-4 h-4 text-emerald-700"/>
-                </div>
-                <div>
-                  <strong className="block text-slate-900 text-base">👤 PII Hashing</strong>
-                  <span className="text-slate-600">User identifiers are SHA-256 hashed before storage.</span>
-                </div>
-              </li>
-            </ul>
-          </div>
-
-          <div className="bg-white/80 backdrop-blur-sm p-8 rounded-2xl shadow-lg border border-white/20">
-            <div className="flex items-center mb-6">
-              <div className="p-3 bg-purple-50 rounded-xl mr-4">
-                <Lock className="w-7 h-7 text-purple-600" />
-              </div>
-              <h3 className="font-bold text-2xl text-slate-900">Cookies & Tracking</h3>
-            </div>
-            <ul className="space-y-5">
-              <li className="flex items-start group">
-                <div className="mt-1 mr-4 p-2 bg-emerald-100 rounded-full">
-                  <Check className="w-4 h-4 text-emerald-700"/>
-                </div>
-                <div>
-                  <strong className="block text-slate-900 text-base">🍪 Essential Only</strong>
-                  <span className="text-slate-600">We only store a session token for security functionality.</span>
-                </div>
-              </li>
-              <li className="flex items-start group">
-                <div className="mt-1 mr-4 p-2 bg-emerald-100 rounded-full">
-                  <Check className="w-4 h-4 text-emerald-700"/>
-                </div>
-                <div>
-                  <strong className="block text-slate-900 text-base">🚫 Zero Tracking</strong>
-                  <span className="text-slate-600">No Google Analytics, Facebook Pixels, or ad trackers.</span>
-                </div>
-              </li>
-              <li className="flex items-start group">
-                <div className="mt-1 mr-4 p-2 bg-emerald-100 rounded-full">
-                  <Check className="w-4 h-4 text-emerald-700"/>
-                </div>
-                <div>
-                  <strong className="block text-slate-900 text-base">🛡️ Local Storage</strong>
-                  <span className="text-slate-600">API keys are stored locally on your device only.</span>
-                </div>
-              </li>
-            </ul>
-          </div>
-        </div>
-
-        <div className="bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-200 rounded-2xl p-8 text-center shadow-lg">
-          <div className="flex items-center justify-center mb-4">
-            <ShieldCheck className="w-8 h-8 text-emerald-600 mr-3" />
-            <h3 className="text-xl font-bold text-emerald-800">Privacy Policy Acceptance Required</h3>
-          </div>
-          <p className="text-emerald-700 mb-6 text-lg">
-            To continue using Auditor Veritas, please read and accept our Privacy Policy.
-          </p>
-          <button 
-            onClick={onAccept}
-            className="btn-stripe bg-gradient-to-r from-emerald-600 to-green-600 text-white px-8 py-4 rounded-2xl font-bold hover:from-emerald-700 hover:to-green-700 transition-all duration-300 shadow-lg hover:shadow-xl flex items-center justify-center space-x-3 mx-auto"
-          >
-            <Check className="w-5 h-5" />
-            <span>I Accept Privacy Policy</span>
-          </button>
+        <div className="bg-white/80 backdrop-blur-sm p-8 rounded-2xl shadow-lg border border-white/20">
+          <h3 className="font-bold text-2xl text-slate-900 mb-4">Data Storage & Encryption</h3>
+          <p className="text-slate-600 mb-4">All data is AES-256 encrypted and stored in Frankfurt (AWS eu-central-1). PII is SHA-256 hashed.</p>
+          <button onClick={onAccept} className="w-full bg-emerald-600 text-white px-8 py-4 rounded-2xl font-bold shadow-lg hover:bg-emerald-700 transition-all">I Accept Privacy Policy</button>
         </div>
       </div>
     </div>
   );
 };
 
-// --- MODERN NAVBAR ---
+// --- NAVBAR ---
 const Navbar = ({ activeTab, setActiveTab, privacyAccepted }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
   const menuItems = [
-    { key: 'pricing', label: 'Pricing' },
-    { key: 'howitworks', label: 'How it works' },
-    { key: 'dashboard', label: 'Dashboard' },
-    { key: 'create', label: 'Create' },
-    { key: 'events', label: 'Events' },
-    { key: 'privacy', label: 'Privacy' }
+    { key: 'pricing', label: 'Pricing' }, { key: 'howitworks', label: 'How it works' },
+    { key: 'dashboard', label: 'Dashboard' }, { key: 'create', label: 'Create' },
+    { key: 'events', label: 'Events' }, { key: 'privacy', label: 'Privacy' }
   ];
 
   const handleTabClick = (tab) => {
     if (!privacyAccepted && tab !== 'privacy') {
-      setActiveTab('privacy');
-      alert('Please read and accept the Privacy Policy first');
-      return;
+      setActiveTab('privacy'); alert('Please read and accept the Privacy Policy first'); return;
     }
-    setActiveTab(tab);
-    setMobileMenuOpen(false);
+    setActiveTab(tab); setMobileMenuOpen(false);
   };
 
   return (
     <header className="bg-white/80 backdrop-blur-xl text-slate-900 sticky top-0 z-50 shadow-sm border-b border-slate-200/50">
-      <div className="container mx-auto px-4 sm:px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div 
-            className="flex items-center space-x-3 cursor-pointer hover:opacity-90 transition group"
-            onClick={() => handleTabClick('pricing')}
-          >
-            <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-r from-emerald-400 to-cyan-400 rounded-xl blur opacity-75 group-hover:opacity-100 transition duration-300"></div>
-              <div className="relative bg-white p-2 rounded-xl shadow-sm">
-                <ShieldCheck className="w-6 h-6 text-emerald-600" />
-              </div>
-            </div>
-            <div>
-              <h1 className="text-xl font-bold tracking-tight bg-gradient-to-r from-slate-900 to-emerald-600 bg-clip-text text-transparent">
-                Auditor Veritas
-              </h1>
-            </div>
-          </div>
-
-          <nav className="hidden lg:flex space-x-1 bg-white/50 backdrop-blur-sm rounded-2xl p-1 border border-slate-200/50">
-            {menuItems.map((item) => {
-              const isDisabled = !privacyAccepted && item.key !== 'privacy';
-              
-              return (
-                <button
-                  key={item.key}
-                  onClick={() => handleTabClick(item.key)}
-                  className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 ${
-                    activeTab === item.key 
-                      ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg' 
-                      : isDisabled
-                      ? 'text-slate-400 cursor-not-allowed'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/50'
-                  }`}
-                  disabled={isDisabled}
-                >
-                  {item.label}
-                </button>
-              );
-            })}
-          </nav>
-
-          <button 
-            className="lg:hidden p-3 rounded-xl bg-white/50 backdrop-blur-sm border border-slate-200/50 hover:bg-slate-100/50 transition"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          >
-            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-          </button>
+      <div className="container mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+        <div className="flex items-center space-x-3 cursor-pointer" onClick={() => handleTabClick('pricing')}>
+          <ShieldCheck className="w-6 h-6 text-emerald-600" />
+          <h1 className="text-xl font-bold tracking-tight bg-gradient-to-r from-slate-900 to-emerald-600 bg-clip-text text-transparent">Auditor Veritas</h1>
         </div>
-
-        {mobileMenuOpen && (
-          <div className="lg:hidden mt-4 pb-4 border-t border-slate-200/50 pt-4 animate-in fade-in slide-in-from-top-2">
-            <nav className="flex flex-col space-y-2 bg-white/50 backdrop-blur-sm rounded-2xl p-2 border border-slate-200/50">
-              {menuItems.map((item) => {
-                const isDisabled = !privacyAccepted && item.key !== 'privacy';
-                
-                return (
-                  <button
-                    key={item.key}
-                    onClick={() => handleTabClick(item.key)}
-                    className={`px-4 py-3 rounded-xl text-left font-medium transition-all duration-200 ${
-                      activeTab === item.key 
-                        ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white' 
-                        : isDisabled
-                        ? 'text-slate-400 cursor-not-allowed'
-                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/50'
-                    }`}
-                    disabled={isDisabled}
-                  >
-                    {item.label}
-                  </button>
-                );
-              })}
-            </nav>
-          </div>
-        )}
+        <nav className="hidden lg:flex space-x-1 bg-white/50 backdrop-blur-sm rounded-2xl p-1 border border-slate-200/50">
+          {menuItems.map((item) => (
+            <button key={item.key} onClick={() => handleTabClick(item.key)} disabled={!privacyAccepted && item.key !== 'privacy'}
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${activeTab === item.key ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg' : 'text-slate-600 hover:text-slate-900'}`}>
+              {item.label}
+            </button>
+          ))}
+        </nav>
+        <button className="lg:hidden p-3" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+          {mobileMenuOpen ? <X /> : <Menu />}
+        </button>
       </div>
     </header>
   );
 };
 
-// --- MAIN APP COMPONENT ---
+// --- MAIN APP ---
 function App() {
   const [activeTab, setActiveTab] = useState('privacy');
   const [activeProduct, setActiveProduct] = useState('crypto');
   const [processor, setProcessor] = useState(null);
   const [apiKey, setApiKey] = useState('');
-  const [eventData, setEventData] = useState({ 
-    event_type: '', 
-    event_data: '{}', 
-    user_identifier: '' 
-  });
-  const [stats, setStats] = useState({ 
-    totalEvents: 1247, 
-    monthlyEvents: 234, 
-    eventsLimit: 50000, 
-    utilization: '25%' 
-  });
+  const [eventData, setEventData] = useState({ event_type: '', event_data: '{}', user_identifier: '' });
+  const [stats, setStats] = useState({ totalEvents: 1247, monthlyEvents: 234, eventsLimit: 50000, utilization: '25%' });
   const [isLoading, setIsLoading] = useState(false);
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
-  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
-
-  useKeyboardNavigation(setActiveProduct, activeProduct);
+  
   const { isLocked, setIsLocked } = useInactivityTimer(300000, !!processor);
   useSecurityProtections();
 
   useEffect(() => {
     const savedPrivacyAccepted = localStorage.getItem('privacyAccepted');
-    const savedApiKey = localStorage.getItem('auditorApiKey');
-
     if (savedPrivacyAccepted === 'true') {
-      setPrivacyAccepted(true);
-      setActiveTab('pricing');
-    } else {
-      setActiveTab('privacy');
-    }
-
-    if (savedApiKey) {
-      setApiKey(savedApiKey);
+      setPrivacyAccepted(true); setActiveTab('pricing');
     }
   }, []);
 
-  const showToast = (message, type = 'success') => {
-    setToast({ show: true, message, type });
-    setTimeout(() => setToast(prev => ({ ...prev, show: false })), 3000);
-  };
-
   const handlePrivacyAccept = () => {
     localStorage.setItem('privacyAccepted', 'true');
-    setPrivacyAccepted(true);
-    setActiveTab('pricing');
-    showToast('Privacy policy accepted', 'success');
+    setPrivacyAccepted(true); setActiveTab('pricing');
   };
 
-  const handleKeyRotate = (newKey) => {
-    setApiKey(newKey);
-    localStorage.setItem('auditorApiKey', newKey);
-    showToast('API Key rotated successfully', 'success');
-  };
-
-  const apiCall = async (endpoint, options = {}) => {
-    setIsLoading(true);
-    try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      return { success: true };
-    } catch (error) {
-      console.error('API call failed:', error);
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const fetchDashboard = async () => {
-    if (!apiKey) {
-      alert('Please enter an API key first');
-      return;
-    }
-    
-    try {
-      await apiCall('/api/dashboard');
-      setProcessor({
-        companyName: 'Demo Company',
-        email: 'demo@company.com',
-        plan: 'professional'
-      });
-    } catch (error) {
-      alert('Failed to access dashboard. Check API Key.');
-    }
-  };
-
-  const logEvent = async (e) => {
-    e.preventDefault();
-    if (!privacyAccepted) {
-      setActiveTab('privacy');
-      alert('❌ Please accept the Privacy Policy first');
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      let hashedId = null;
-      if (eventData.user_identifier) {
-        hashedId = CryptoJS.SHA256(eventData.user_identifier.trim().toLowerCase()).toString();
-      }
-      
-      await apiCall('/api/events', {
-        method: 'POST',
-        body: { 
-          ...eventData, 
-          event_data: JSON.parse(eventData.event_data || '{}'), 
-          user_identifier: hashedId 
-        }
-      });
-      
-      showToast('Event logged successfully', 'success');
-      setEventData({ event_type: '', event_data: '{}', user_identifier: '' });
-    } catch (error) {
-      showToast(`Error: ${error.message}`, 'error');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  if (isLocked && processor) {
-    return <LockScreen onUnlock={() => setIsLocked(false)} />;
-  }
+  if (isLocked && processor) return <LockScreen onUnlock={() => setIsLocked(false)} />;
 
   return (
     <div className="min-h-screen bg-white font-sans flex flex-col">
       {processor && <SecurityWatermark identifier={processor.email || processor.companyName} />}
-      
       <Navbar activeTab={activeTab} setActiveTab={setActiveTab} privacyAccepted={privacyAccepted} />
 
       <main className="flex-1">
         {activeTab === 'pricing' && privacyAccepted && (
           <>
-            <StripeHeroSection 
-              setActiveTab={setActiveTab} 
-              activeProduct={activeProduct}
-              setActiveProduct={setActiveProduct}
-            />
+            <StripeHeroSection setActiveTab={setActiveTab} activeProduct={activeProduct} setActiveProduct={setActiveProduct} />
             <StripeFeatureGrid />
             <ModernPricingSection setActiveTab={setActiveTab} />
           </>
         )}
 
-        {activeTab === 'pricing' && !privacyAccepted && (
-          <div className="min-h-screen flex items-center justify-center">
-            <div className="text-center">
-              <h2 className="text-2xl font-bold text-slate-900 mb-4">
-                Please accept our Privacy Policy first
-              </h2>
-              <button 
-                onClick={() => setActiveTab('privacy')}
-                className="bg-blue-600 text-white px-6 py-3 rounded-xl font-semibold"
-              >
-                Go to Privacy Policy
-              </button>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'howitworks' && privacyAccepted && (
-          <StripeHeroSection 
-            setActiveTab={setActiveTab} 
-            activeProduct={activeProduct}
-            setActiveProduct={setActiveProduct}
-          />
-        )}
-
         {activeTab === 'dashboard' && privacyAccepted && (
-          <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/30 px-4 py-8">
-            <div className="max-w-7xl mx-auto">
-              {!processor ? (
-                <div className="max-w-md mx-auto bg-white rounded-3xl shadow-2xl p-8 border border-white/20 mt-8">
-                  <div className="text-center mb-8">
-                    <div className="bg-gradient-to-r from-blue-50 to-cyan-50 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg">
-                      <Lock className="w-8 h-8 text-blue-600" />
-                    </div>
-                    <h2 className="text-2xl font-bold text-slate-900">Access Dashboard</h2>
-                    <p className="text-slate-600 mt-2">Enter your API key to securely manage your audit events</p>
-                  </div>
-                  <input
-                    type="text"
-                    value={apiKey}
-                    onChange={(e) => setApiKey(e.target.value)}
-                    placeholder="av_xxxxxxxx..."
-                    className="w-full p-4 border border-slate-300 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition bg-white font-mono shadow-sm"
-                  />
-                  <button 
-                    onClick={fetchDashboard} 
-                    disabled={isLoading}
-                    className="btn-stripe w-full bg-gradient-to-r from-blue-600 to-cyan-600 text-white py-4 rounded-2xl font-bold hover:from-blue-700 hover:to-cyan-700 transition-all duration-300 mt-6 shadow-lg hover:shadow-xl"
-                  >
-                    {isLoading ? (
-                      <span className="flex items-center justify-center">
-                        <RefreshCw className="w-5 h-5 mr-3 animate-spin" />
-                        Connecting...
-                      </span>
-                    ) : 'Access Dashboard'}
-                  </button>
-                </div>
-              ) : (
-                <div className="max-w-7xl mx-auto">
-                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-6 bg-white/80 backdrop-blur-sm p-6 rounded-3xl shadow-lg border border-white/20">
-                    <div>
-                      <h2 className="text-3xl font-bold text-slate-900">{processor.companyName}</h2>
-                      <div className="flex items-center mt-2 text-slate-600">
-                        <LayoutDashboard className="w-5 h-5 mr-2" />
-                        <p className="font-medium">Dashboard Overview</p>
-                      </div>
-                    </div>
-                    <div className="flex space-x-3">
-                      <button onClick={fetchDashboard} className="btn-stripe flex items-center px-4 py-2 bg-slate-100 border border-slate-200 rounded-xl hover:bg-white hover:shadow-sm transition text-slate-700 font-medium">
-                        <RefreshCw className="w-4 h-4 mr-2 text-amber-500"/> Refresh
-                      </button>
-                      <button onClick={() => {setProcessor(null); setApiKey('');}} className="flex items-center px-4 py-2 bg-red-50 border border-red-100 rounded-xl hover:bg-red-100 hover:text-red-700 transition text-red-600 font-medium">
-                        <LogOut className="w-4 h-4 mr-2"/> Sign Out
-                      </button>
-                    </div>
-                  </div>
-
-                  <StatsCards stats={stats} processor={processor} />
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className={`bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-white/20 shadow-lg ${processor.plan === 'starter' ? 'opacity-90' : ''}`}>
-                      <div className="flex justify-between items-center mb-6">
-                        <h3 className="text-xl font-bold text-slate-900 flex items-center">
-                          <BarChart3 className="w-6 h-6 mr-3 text-blue-600"/> 
-                          Advanced Analytics
-                        </h3>
-                        {processor.plan !== 'starter' && (
-                          <span className="bg-emerald-100 text-emerald-700 text-xs uppercase font-bold px-3 py-1 rounded-lg tracking-wide">
-                            Active
-                          </span>
-                        )}
-                      </div>
-                      {processor.plan === 'starter' ? (
-                        <LockedFeature 
-                          title="Analytics Locked" 
-                          desc="Upgrade to Professional to see detailed usage trends, geo-maps and interaction insights." 
-                          setActiveTab={setActiveTab} 
-                        />
-                      ) : (
-                        <div className="h-64 bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl flex flex-col items-center justify-center text-blue-400 border border-blue-200">
-                          <BarChart3 className="w-16 h-16 opacity-30 mb-4" />
-                          <span className="font-medium text-blue-500">Interactive Charts Active</span>
-                        </div>
-                      )}
-                    </div>
-
-                    <KeyRotation 
-                      processor={processor} 
-                      apiKey={apiKey} 
-                      onKeyRotate={handleKeyRotate}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                    <div className={`bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-white/20 shadow-lg ${processor.plan === 'starter' ? 'opacity-90' : ''}`}>
-                      <div className="flex justify-between items-center mb-6">
-                        <h3 className="text-xl font-bold text-slate-900 flex items-center">
-                          <PlusCircle className="w-6 h-6 mr-3 text-indigo-600"/> 
-                          Bulk Operations
-                        </h3>
-                        {processor.plan !== 'starter' && (
-                          <span className="bg-emerald-100 text-emerald-700 text-xs uppercase font-bold px-3 py-1 rounded-lg tracking-wide">
-                            Active
-                          </span>
-                        )}
-                      </div>
-                      {processor.plan === 'starter' ? (
-                        <LockedFeature 
-                          title="Bulk Import Locked" 
-                          desc="Process large historical datasets by uploading CSV or JSON files directly." 
-                          setActiveTab={setActiveTab} 
-                        />
-                      ) : (
-                        <div className="h-64 border-2 border-dashed border-indigo-300 rounded-xl flex flex-col items-center justify-center text-indigo-400 hover:bg-indigo-50 hover:border-indigo-400 cursor-pointer transition bg-indigo-50/50">
-                          <div className="bg-white p-3 rounded-full shadow-sm mb-4">
-                            <PlusCircle className="w-8 h-8 text-indigo-500" />
-                          </div>
-                          <span className="font-medium text-indigo-600">Drop CSV file here</span>
-                          <span className="text-sm mt-2 opacity-70">or click to browse</span>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-white/20 shadow-lg">
-                      <div className="flex justify-between items-center mb-6">
-                        <h3 className="text-xl font-bold text-slate-900 flex items-center">
-                          <ShieldCheck className="w-6 h-6 mr-3 text-emerald-600"/> 
-                          Security Status
-                        </h3>
-                        <span className="bg-emerald-100 text-emerald-700 text-xs uppercase font-bold px-3 py-1 rounded-lg tracking-wide">
-                          Secure
-                        </span>
-                      </div>
-                      <div className="space-y-4">
-                        <div className="flex justify-between items-center">
-                          <span className="text-slate-600">Encryption</span>
-                          <span className="text-emerald-600 font-semibold flex items-center">
-                            <Check className="w-4 h-4 mr-1" /> Active
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-slate-600">Key Rotation</span>
-                          <span className="text-emerald-600 font-semibold flex items-center">
-                            <Check className="w-4 h-4 mr-1" /> Enabled
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-slate-600">GDPR Compliance</span>
-                          <span className="text-emerald-600 font-semibold flex items-center">
-                            <Check className="w-4 h-4 mr-1" /> Certified
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'create' && privacyAccepted && (
-          <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/30 flex items-center justify-center px-4 py-8">
-            <CreateProcessor />
-          </div>
-        )}
-
-        {activeTab === 'events' && privacyAccepted && (
-          <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/30 px-4 py-8">
-            <div className="max-w-4xl mx-auto">
-              <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl p-8 border border-white/20">
-                <div className="text-center mb-8">
-                  <div className="bg-gradient-to-r from-blue-50 to-cyan-50 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg">
-                    <FileText className="w-8 h-8 text-blue-600" />
-                  </div>
-                  <h2 className="text-3xl font-bold text-slate-900">Log Audit Event</h2>
-                  <p className="text-slate-600 mt-2">Securely record events with automatic PII protection</p>
-                </div>
-
-                <form onSubmit={logEvent} className="space-y-6">
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-2">Event Type</label>
-                    <input
-                      type="text"
-                      value={eventData.event_type}
-                      onChange={(e) => setEventData({...eventData, event_type: e.target.value})}
-                      placeholder="e.g., user_login, data_access"
-                      className="w-full p-4 border border-slate-300 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition bg-white shadow-sm"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-2">Event Data (JSON)</label>
-                    <textarea
-                      value={eventData.event_data}
-                      onChange={(e) => setEventData({...eventData, event_data: e.target.value})}
-                      placeholder='{"key": "value"}'
-                      rows="4"
-                      className="w-full p-4 border border-slate-300 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition bg-white shadow-sm font-mono"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-2">User Identifier (Optional)</label>
-                    <input
-                      type="text"
-                      value={eventData.user_identifier}
-                      onChange={(e) => setEventData({...eventData, user_identifier: e.target.value})}
-                      placeholder="email or user ID - will be automatically hashed"
-                      className="w-full p-4 border border-slate-300 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition bg-white shadow-sm"
-                    />
-                    <p className="text-sm text-slate-500 mt-2">This will be automatically hashed with SHA-256 before storage</p>
-                  </div>
-
-                  <button 
-                    type="submit" 
-                    disabled={isLoading}
-                    className="btn-stripe w-full bg-gradient-to-r from-blue-600 to-cyan-600 text-white py-4 rounded-2xl font-bold hover:from-blue-700 hover:to-cyan-700 transition-all duration-300 shadow-lg hover:shadow-xl disabled:opacity-50"
-                  >
-                    {isLoading ? (
-                      <span className="flex items-center justify-center">
-                        <RefreshCw className="w-5 h-5 mr-3 animate-spin" />
-                        Logging Event...
-                      </span>
-                    ) : 'Log Secure Event'}
-                  </button>
-                </form>
+          <div className="min-h-screen bg-slate-50 p-8">
+            {!processor ? (
+              <div className="max-w-md mx-auto bg-white p-8 rounded-2xl shadow-xl text-center">
+                 <h2 className="text-2xl font-bold mb-4">Access Dashboard</h2>
+                 <input type="text" placeholder="API Key" className="w-full p-3 border rounded mb-4" value={apiKey} onChange={(e) => setApiKey(e.target.value)} />
+                 <button onClick={() => setProcessor({companyName: 'Demo Corp', plan: 'professional'})} className="w-full bg-blue-600 text-white p-3 rounded font-bold">Enter Demo</button>
               </div>
-            </div>
+            ) : (
+              <div className="max-w-7xl mx-auto">
+                <div className="flex justify-between items-center mb-8"><h2 className="text-3xl font-bold">{processor.companyName}</h2><button onClick={() => setProcessor(null)} className="text-red-500">Sign Out</button></div>
+                <StatsCards stats={stats} processor={processor} />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <KeyRotation processor={processor} apiKey={apiKey} onKeyRotate={setApiKey} />
+                </div>
+              </div>
+            )}
           </div>
         )}
 
-        {activeTab === 'privacy' && (
-          <PrivacyPolicy onAccept={handlePrivacyAccept} />
-        )}
+        {activeTab === 'create' && privacyAccepted && <div className="flex justify-center p-8"><CreateProcessor /></div>}
+        
+        {activeTab === 'privacy' && <PrivacyPolicy onAccept={handlePrivacyAccept} />}
       </main>
-
-      <Toast message={toast.message} type={toast.type} show={toast.show} />
     </div>
   );
 }
