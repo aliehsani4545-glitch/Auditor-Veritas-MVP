@@ -15,15 +15,17 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: false,
     rollupOptions: {
+      external: [], // Se till att detta är tomt
       output: {
         manualChunks: {
           vendor: ['react', 'react-dom'],
-          crypto: ['crypto-js']
+          crypto: ['crypto-js'],
+          animation: ['gsap'] // Lägg till GSAP här
         }
       }
     }
   },
   optimizeDeps: {
-    include: ['react', 'react-dom', 'crypto-js']
+    include: ['react', 'react-dom', 'crypto-js', 'gsap'] // Lägg till GSAP här
   }
 })
