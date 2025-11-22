@@ -79,40 +79,36 @@ div, p, h1, h2, h3, h4, h5, h6, span, button {
   user-select: none;
 }
 
-/* --- STRIPE-LIKNANDE ANIMATIONER --- */
-.stripe-card {
-  opacity: 0;
-  transform: translateY(40px) scale(0.95);
-  transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+/* --- STRIPE DESIGN SYSTEM MED GSAP --- */
+
+/* Background grid pattern */
+.bg-grid-slate-200 {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='32' height='32' fill='none' stroke='%23e2e8f0'%3e%3cpath d='m0 0 32 32M32 0 0 32'/%3e%3c/svg%3e");
 }
 
-.stripe-card.visible {
-  opacity: 1;
-  transform: translateY(0) scale(1);
+/* Floating animation */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
 }
 
-/* Telefonens glas-effekt och skugga */
-.phone-container {
-  perspective: 1000px;
-}
-
-.phone-mockup {
-  box-shadow: 
-    0 50px 100px -20px rgba(50, 50, 93, 0.25), 
-    0 30px 60px -30px rgba(0, 0, 0, 0.3), 
-    inset 0 -2px 6px 0 rgba(10, 37, 64, 0.35);
-  transform: rotateY(-8deg) rotateX(3deg);
-  transition: transform 0.5s ease-out;
-  background: #ffffff;
-}
-
-.phone-mockup:hover {
-  transform: rotateY(0deg) rotateX(0deg) scale(1.02);
+.animate-float {
+  animation: float 3s ease-in-out infinite;
 }
 
 /* Smooth scroll behavior */
 html {
   scroll-behavior: smooth;
+}
+
+/* GSAP Animation States */
+.gsap-ready {
+  opacity: 0;
+  transform: translateY(30px);
 }
 
 /* Custom animations */
@@ -141,14 +137,9 @@ html {
   @apply bg-white/80 backdrop-blur-xl border border-white/20;
 }
 
-/* Hover effects */
+/* Hover effects - UPDATED: Removed hover transforms for scroll-driven experience */
 .hover-lift {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.hover-lift:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
 }
 
 /* Custom button styles */
@@ -160,13 +151,9 @@ html {
   @apply border-2 border-slate-300 text-slate-700 px-6 py-3 rounded-xl font-semibold transition-all duration-300 hover:border-slate-400 hover:bg-slate-50;
 }
 
-/* Feature card animations */
+/* Feature card animations - UPDATED: Removed hover for scroll-driven */
 .feature-card {
   transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-.feature-card:hover {
-  transform: translateY(-8px) scale(1.02);
 }
 
 /* Loading animation */
@@ -195,15 +182,28 @@ html {
   animation: slideInSteps 0.6s ease-out forwards;
 }
 
+/* SVG stroke animation for GSAP */
+.path-animated {
+  stroke-dasharray: 8 4;
+  stroke-dashoffset: 100;
+}
+
+/* Network connection animations */
+.network-connection {
+  stroke-dasharray: 8 4;
+  animation: dash-flow 2s linear infinite;
+}
+
+@keyframes dash-flow {
+  to {
+    stroke-dashoffset: -16;
+  }
+}
+
 /* Mobile optimizations */
 @media (max-width: 640px) {
-  .phone-mockup {
-    transform: none;
-    margin: 0 auto;
-  }
-  
-  .phone-mockup:hover {
-    transform: none;
+  .product-network {
+    height: 400px !important;
   }
 }
 
@@ -238,4 +238,167 @@ textarea:focus-visible {
 .scroll-animate.visible {
   opacity: 1;
   transform: translateY(0);
+}
+
+/* Product network specific styles - UPDATED for scroll-driven */
+.product-node {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* REMOVED: .product-node:hover styles since we don't want hover interactions */
+
+.product-node.active {
+  transform: scale(1.1);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+/* Connection line styles */
+.connection-line {
+  stroke-dasharray: 8 4;
+  transition: all 0.5s ease-in-out;
+}
+
+.connection-line.active {
+  stroke-dasharray: 8 4;
+  animation: dash-flow 2s linear infinite;
+}
+
+/* GSAP ScrollTrigger debug markers (set markers: true for debugging) */
+.gsap-marker {
+  z-index: 1000;
+}
+
+/* Performance optimizations for animations */
+.will-change-transform {
+  will-change: transform;
+}
+
+.will-change-opacity {
+  will-change: opacity;
+}
+
+/* --- NEW: Scroll-driven active state animations --- */
+
+/* Active product glow animation */
+@keyframes active-glow {
+  0%, 100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.02);
+  }
+}
+
+.product-node.active .active-glow {
+  animation: active-glow 2s ease-in-out infinite;
+}
+
+/* Smooth content transition for product changes */
+.product-content {
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.product-content.entering {
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+.product-content.entered {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Scroll progress indicator */
+.scroll-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: linear-gradient(90deg, #10b981, #3b82f6, #8b5cf6, #f59e0b);
+  transform-origin: left;
+  z-index: 1000;
+}
+
+/* Enhanced grid background for better visual hierarchy */
+.enhanced-grid {
+  background-image: 
+    radial-gradient(circle at 1px 1px, rgba(0, 0, 0, 0.1) 1px, transparent 0),
+    radial-gradient(circle at 1px 1px, rgba(0, 0, 0, 0.05) 1px, transparent 0);
+  background-size: 20px 20px, 40px 40px;
+  background-position: 0 0, 10px 10px;
+}
+
+/* Smooth scroll snapping for better UX */
+.scroll-container {
+  scroll-behavior: smooth;
+}
+
+/* Product transition overlay */
+.product-transition-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    135deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.8) 50%,
+    transparent 100%
+  );
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.product-transition-overlay.active {
+  opacity: 1;
+}
+
+/* Enhanced focus indicators for accessibility */
+.product-node:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  
+  .animate-float,
+  .network-connection,
+  .active-glow {
+    animation: none !important;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .product-node.active {
+    outline: 3px solid #000;
+    outline-offset: 2px;
+  }
+  
+  .connection-line.active {
+    stroke-width: 4px;
+  }
+}
+
+/* Dark mode support (if needed in future) */
+@media (prefers-color-scheme: dark) {
+  .dark .product-network {
+    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  }
+  
+  .dark .product-node {
+    @apply bg-slate-800 border-slate-600;
+  }
+  
+  .dark .product-node.active {
+    @apply bg-slate-700;
+  }
 }
