@@ -2,8 +2,15 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Auditor Veritas - Immutable DPA Audit Ledger</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#1e40af">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Auditor Veritas">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
+    <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
+    <title>Auditor Veritas - GDPR Compliant Audit Trail</title>
     <style>
       * {
         margin: 0;
@@ -14,15 +21,77 @@
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         min-height: 100vh;
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        user-select: none;
+      }
+      
+      /* Loading animation */
+      .loading-spinner {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        color: white;
+        font-size: 1.2rem;
+      }
+      
+      .spinner {
+        border: 3px solid rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        border-top: 3px solid white;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+        margin-right: 15px;
+      }
+      
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
       }
     </style>
-    <script type="module" crossorigin src="/assets/index-1969898e.js"></script>
-    <link rel="modulepreload" crossorigin href="/assets/vendor-a4a0ee75.js">
-    <link rel="modulepreload" crossorigin href="/assets/crypto-483b2097.js">
-    <link rel="stylesheet" href="/assets/index-138a18ae.css">
+    <script type="module" crossorigin src="/assets/index-600feaff.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/vendor-869113fd.js">
+    <link rel="modulepreload" crossorigin href="/assets/crypto-d1ce5497.js">
+    <link rel="modulepreload" crossorigin href="/assets/animation-cf87e9ff.js">
+    <link rel="stylesheet" href="/assets/index-2108c37f.css">
   </head>
   <body>
+    <!-- Loading screen while React app loads -->
+    <div id="loading" class="loading-spinner">
+      <div class="spinner"></div>
+      <span>Loading Auditor Veritas...</span>
+    </div>
+    
     <div id="root"></div>
     
+    
+    <script>
+      // Hide loading screen when React app is ready
+      window.addEventListener('load', function() {
+        setTimeout(function() {
+          const loading = document.getElementById('loading');
+          if (loading) {
+            loading.style.display = 'none';
+          }
+        }, 1000);
+      });
+      
+      // Additional security measures
+      document.addEventListener('DOMContentLoaded', function() {
+        // Prevent any iframe embedding
+        if (window.location !== window.parent.location) {
+          window.top.location = window.location;
+        }
+        
+        // Prevent text selection
+        document.addEventListener('selectstart', function(e) {
+          e.preventDefault();
+          return false;
+        });
+      });
+    </script>
   </body>
 </html>
