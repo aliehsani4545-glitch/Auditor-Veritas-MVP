@@ -9,6 +9,7 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import AnimatedBackground from './components/AnimatedBackground'; 
 import PhoneDemo from './components/PhoneDemo'; 
 import Carousel3D from './components/Carousel3D'; 
+// VIKTIGT: Vi importerar den som PrivacyGate här
 import PrivacyGate from './components/PrivacyGate'; 
 import CreateProcessor from './components/CreateProcessor'; 
 
@@ -42,7 +43,7 @@ const apiCall = async (endpoint, options = {}, apiKey = '') => {
   }
 };
 
-// --- INTERACTIVE MERKLE DEMO (SVG FIXAD HÄR) ---
+// --- INTERACTIVE MERKLE DEMO ---
 const InteractiveMerkle = () => {
   return (
     <div className="py-24 bg-slate-50 relative overflow-hidden">
@@ -84,7 +85,7 @@ const InteractiveMerkle = () => {
                ROOT
              </motion.div>
              
-             {/* SVG Connectors - FIXADE HÄR (Inga procent, viewBox tillagd) */}
+             {/* SVG Connectors */}
              <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
                 <path d="M 50 45 L 30 65" stroke="#475569" strokeWidth="0.5" vectorEffect="non-scaling-stroke" />
                 <path d="M 50 45 L 70 65" stroke="#475569" strokeWidth="0.5" vectorEffect="non-scaling-stroke" />
@@ -235,8 +236,10 @@ function App() {
     }
   };
 
+  // --- RENDER ---
   if (!privacyAccepted) {
-    return <PrivacyPage onAccept={handlePrivacyAccept} />;
+    // HÄR VAR FELET TIDIGARE - NU KORRIGERAT TILL PrivacyGate
+    return <PrivacyGate onAccept={handlePrivacyAccept} />;
   }
 
   return (
@@ -283,6 +286,7 @@ function App() {
                <div className="max-w-md mx-auto bg-white p-10 rounded-3xl shadow-xl border border-slate-100 text-center animate-fade-in-up">
                  <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6"><Lock className="w-8 h-8 text-slate-400" /></div>
                  <h2 className="text-2xl font-bold mb-2 text-slate-900">Dashboard Access</h2>
+                 <p className="text-slate-500 mb-8">Enter your secure API key.</p>
                  <input type="text" placeholder="av_live_..." className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl mb-4 font-mono outline-none focus:ring-2 focus:ring-[#635bff]" value={apiKey} onChange={(e) => setApiKey(e.target.value)} />
                  <button onClick={fetchDashboard} disabled={isLoading} className="w-full bg-[#0a2540] text-white p-4 rounded-xl font-bold hover:bg-slate-800 transition-colors">{isLoading ? <RefreshCw className="animate-spin mx-auto"/> : 'Connect'}</button>
                </div>
@@ -292,11 +296,13 @@ function App() {
                     <h1 className="text-3xl font-bold text-slate-900">{processor.companyName}</h1>
                     <button onClick={() => setProcessor(null)} className="text-red-500 flex items-center gap-2 hover:bg-red-50 px-4 py-2 rounded-lg transition"><LogOut size={18}/> Sign Out</button>
                  </div>
+                 
                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                     <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100"><h3 className="font-bold text-slate-700">Total Events</h3><p className="text-3xl font-bold text-slate-900">{stats.totalEvents}</p></div>
                     <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100"><h3 className="font-bold text-slate-700">Usage</h3><p className="text-3xl font-bold text-slate-900">{stats.monthlyEvents}</p></div>
                     <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100"><h3 className="font-bold text-slate-700">Status</h3><span className="bg-emerald-100 text-emerald-700 px-2 py-1 rounded text-sm font-bold">Active</span></div>
                  </div>
+
                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     <div className="bg-white p-8 rounded-3xl shadow-lg border border-slate-100">
                       <h3 className="text-xl font-bold mb-6 flex items-center gap-2"><Zap className="text-amber-500"/> Log Event</h3>
