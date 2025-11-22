@@ -150,13 +150,40 @@ const LockScreen = ({ onUnlock }) => (
 // --- STRIPE-INSPIRERAD HERO SECTION ---
 const StripeHeroSection = ({ setActiveTab }) => {
   const [isVisible, setIsVisible] = useState(false);
+  const [currentStep, setCurrentStep] = useState(0);
   const containerRef = useRef(null);
+
+  const steps = [
+    {
+      title: "Cryptographic Hashing",
+      description: "Every event secured with SHA-256 encryption",
+      icon: ShieldCheck,
+      color: "emerald"
+    },
+    {
+      title: "Merkle Tree Integrity", 
+      description: "Blockchain-inspired data verification",
+      icon: TreePine,
+      color: "blue"
+    },
+    {
+      title: "GDPR Compliant",
+      description: "Full compliance with Article 32 requirements",
+      icon: FileLock2,
+      color: "purple"
+    }
+  ];
 
   useEffect(() => {
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
           setIsVisible(true);
+          // Start step-by-step animation
+          const interval = setInterval(() => {
+            setCurrentStep(prev => (prev + 1) % steps.length);
+          }, 3000);
+          return () => clearInterval(interval);
         }
       },
       { threshold: 0.1 }
@@ -206,21 +233,31 @@ const StripeHeroSection = ({ setActiveTab }) => {
               </p>
             </div>
 
-            {/* Funktionslista */}
-            <div className="space-y-3">
-              {[
-                "Cryptographic Hashing (SHA-256)",
-                "Automated Integrity Verification", 
-                "GDPR Article 32 Compliant",
-                "Real-time Monitoring"
-              ].map((item, index) => (
-                <div key={index} className="flex items-center text-slate-700 font-medium">
-                  <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center mr-3 text-emerald-600">
-                    <Check size={14} strokeWidth={3} />
+            {/* Animerade funktionssteg */}
+            <div className="space-y-4">
+              {steps.map((step, index) => {
+                const StepIcon = step.icon;
+                return (
+                  <div 
+                    key={index}
+                    className={`flex items-center space-x-4 p-4 rounded-2xl border-2 transition-all duration-500 ${
+                      currentStep === index 
+                        ? 'border-blue-500 bg-blue-50 scale-105' 
+                        : 'border-slate-200 bg-white'
+                    }`}
+                  >
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                      currentStep === index ? 'bg-blue-500 text-white' : 'bg-slate-100 text-slate-600'
+                    } transition-all duration-500`}>
+                      <StepIcon className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-slate-900">{step.title}</h3>
+                      <p className="text-slate-600 text-sm">{step.description}</p>
+                    </div>
                   </div>
-                  {item}
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* CTA Knappar */}
@@ -358,7 +395,6 @@ const StripeFeatureSection = () => {
     }
   ];
 
-  // FIX: Create color mapping to avoid dynamic class names
   const colorClasses = {
     emerald: {
       text: 'text-emerald-600',
@@ -397,7 +433,6 @@ const StripeFeatureSection = () => {
     };
   }, []);
 
-  // FIX: Get the active feature icon component
   const ActiveFeatureIcon = features[activeFeature].icon;
   const activeColor = features[activeFeature].color;
   const activeColorClass = colorClasses[activeColor];
@@ -496,7 +531,6 @@ const StripeFeatureSection = () => {
             <div className="relative">
               <div className="bg-gradient-to-br from-slate-50 to-blue-50 rounded-2xl p-8 border border-slate-200">
                 <div className="text-center">
-                  {/* FIX: Use the component variable instead of bracket notation */}
                   <ActiveFeatureIcon className={`w-16 h-16 ${activeColorClass.text} mx-auto mb-4`} />
                   <div className="text-sm text-slate-500 uppercase font-semibold tracking-wide">
                     Active Security Layer
@@ -523,7 +557,6 @@ const ModernPricingSection = ({ setActiveTab }) => {
       price: 0,
       events: '100',
       features: ['Basic Audit Trail', 'GDPR Compliance', 'Email Support', 'SHA-256 Hashing'],
-      gradient: 'from-slate-500 to-slate-700',
       popular: false
     },
     {
@@ -531,7 +564,6 @@ const ModernPricingSection = ({ setActiveTab }) => {
       price: 49,
       events: '50,000',
       features: ['Advanced Analytics', 'Bulk Import', 'Priority Support', 'Custom Events', 'Merkle Trees'],
-      gradient: 'from-blue-500 to-cyan-500',
       popular: true
     },
     {
@@ -539,7 +571,6 @@ const ModernPricingSection = ({ setActiveTab }) => {
       price: 199,
       events: '500,000',
       features: ['Everything in Pro', 'Dedicated Support', 'SLA Guarantee', 'Custom Integrations', 'AI Monitoring'],
-      gradient: 'from-purple-500 to-pink-500',
       popular: false
     }
   ];
@@ -635,6 +666,527 @@ const ModernPricingSection = ({ setActiveTab }) => {
             </div>
           ))}
         </div>
+      </div>
+    </div>
+  );
+};
+
+// --- MODERN DASHBOARD ---
+const ModernDashboard = ({ processor, apiKey, setApiKey, setProcessor, setActiveTab }) => {
+  const [stats, setStats] = useState({ 
+    totalEvents: 1247, 
+    monthlyEvents: 89, 
+    eventsLimit: 100, 
+    utilization: '89%' 
+  });
+  const [isLoading, setIsLoading] = useState(false);
+
+  const fetchDashboard = async () => {
+    if (!apiKey) return;
+    setIsLoading(true);
+    // Simulerad API-anrop
+    setTimeout(() => {
+      setStats({
+        totalEvents: 1247 + Math.floor(Math.random() * 100),
+        monthlyEvents: 89 + Math.floor(Math.random() * 10),
+        eventsLimit: 100,
+        utilization: `${Math.min(89 + Math.floor(Math.random() * 10), 100)}%`
+      });
+      setIsLoading(false);
+    }, 1000);
+  };
+
+  useEffect(() => {
+    if (processor) {
+      fetchDashboard();
+    }
+  }, [processor]);
+
+  if (!processor) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/30 flex items-center justify-center px-4">
+        <div className="max-w-md w-full bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl p-8 border border-white/20">
+          <div className="text-center mb-8">
+            <div className="bg-gradient-to-r from-blue-50 to-cyan-50 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg">
+              <Lock className="w-8 h-8 text-blue-600" />
+            </div>
+            <h2 className="text-2xl font-bold text-slate-900">Access Dashboard</h2>
+            <p className="text-slate-600 mt-2">Enter your API key to securely manage your audit events</p>
+          </div>
+          <input
+            type="text"
+            value={apiKey}
+            onChange={(e) => setApiKey(e.target.value)}
+            placeholder="av_xxxxxxxx..."
+            className="w-full p-4 border border-slate-300 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition bg-white font-mono shadow-sm"
+          />
+          <button 
+            onClick={() => setProcessor({ companyName: "Demo Company", plan: "professional" })} 
+            disabled={isLoading}
+            className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 text-white py-4 rounded-2xl font-bold hover:from-blue-700 hover:to-cyan-700 transition-all duration-300 mt-6 shadow-lg hover:shadow-xl"
+          >
+            {isLoading ? (
+              <span className="flex items-center justify-center">
+                <RefreshCw className="w-5 h-5 mr-3 animate-spin" />
+                Connecting...
+              </span>
+            ) : 'Access Dashboard'}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/30 px-4 py-8">
+      <div className="max-w-7xl mx-auto">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-6 bg-white/80 backdrop-blur-sm p-6 rounded-3xl shadow-lg border border-white/20">
+          <div>
+            <h2 className="text-3xl font-bold text-slate-900">{processor.companyName}</h2>
+            <div className="flex items-center mt-2 text-slate-600">
+              <LayoutDashboard className="w-5 h-5 mr-2" />
+              <p className="font-medium">Dashboard Overview</p>
+            </div>
+          </div>
+          <div className="flex space-x-3">
+            <button onClick={fetchDashboard} className="flex items-center px-4 py-2 bg-slate-100 border border-slate-200 rounded-xl hover:bg-white hover:shadow-sm transition text-slate-700 font-medium">
+              <RefreshCw className="w-4 h-4 mr-2 text-amber-500"/> Refresh
+            </button>
+            <button onClick={() => {setProcessor(null); setApiKey('');}} className="flex items-center px-4 py-2 bg-red-50 border border-red-100 rounded-xl hover:bg-red-100 hover:text-red-700 transition text-red-600 font-medium">
+              <LogOut className="w-4 h-4 mr-2"/> Sign Out
+            </button>
+          </div>
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-white/20 shadow-lg hover:shadow-xl transition duration-300 group">
+            <div className="flex items-center mb-4">
+              <div className="p-3 bg-blue-50 rounded-xl group-hover:bg-blue-100 transition">
+                <FileText className="w-6 h-6 text-blue-600" />
+              </div>
+              <h3 className="ml-3 text-sm font-semibold text-slate-600 uppercase tracking-wide">Monthly Usage</h3>
+            </div>
+            <div className="flex justify-between items-end mb-3">
+              <div className="text-2xl sm:text-3xl font-bold text-slate-900">{stats.monthlyEvents}</div>
+              <div className="text-sm text-slate-500 font-medium">of {stats.eventsLimit}</div>
+            </div>
+            <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+              <div 
+                className="bg-gradient-to-r from-blue-500 to-cyan-500 h-2 rounded-full transition-all duration-500" 
+                style={{ width: stats.utilization }}
+              ></div>
+            </div>
+          </div>
+
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-white/20 shadow-lg hover:shadow-xl transition duration-300 group">
+            <div className="flex items-center mb-4">
+              <div className="p-3 bg-amber-50 rounded-xl group-hover:bg-amber-100 transition">
+                <Zap className="w-6 h-6 text-amber-500" />
+              </div>
+              <h3 className="ml-3 text-sm font-semibold text-slate-600 uppercase tracking-wide">Plan Status</h3>
+            </div>
+            <div className="text-2xl sm:text-3xl font-bold text-slate-900 capitalize mb-1">
+              {processor?.plan || 'Inactive'}
+            </div>
+            <div className="text-sm text-emerald-600 font-medium flex items-center">
+              <Check className="w-4 h-4 mr-1" /> Active subscription
+            </div>
+          </div>
+
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-white/20 shadow-lg hover:shadow-xl transition duration-300 group">
+            <div className="flex items-center mb-4">
+              <div className="p-3 bg-purple-50 rounded-xl group-hover:bg-purple-100 transition">
+                <BarChart3 className="w-6 h-6 text-purple-600" />
+              </div>
+              <h3 className="ml-3 text-sm font-semibold text-slate-600 uppercase tracking-wide">Total Events</h3>
+            </div>
+            <div className="text-2xl sm:text-3xl font-bold text-slate-900 mb-1">{stats.totalEvents}</div>
+            <div className="text-sm text-slate-500 font-medium">All time record</div>
+          </div>
+        </div>
+
+        {/* Additional Dashboard Content */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-white/20 shadow-lg">
+            <h3 className="text-xl font-bold text-slate-900 mb-4">Recent Activity</h3>
+            <div className="space-y-3">
+              {[
+                { action: "User Login", user: "admin@company.com", time: "2 minutes ago", status: "success" },
+                { action: "Data Export", user: "analytics@company.com", time: "15 minutes ago", status: "success" },
+                { action: "Failed Login Attempt", user: "unknown@external.com", time: "1 hour ago", status: "warning" },
+                { action: "Policy Update", user: "security@company.com", time: "2 hours ago", status: "success" }
+              ].map((activity, index) => (
+                <div key={index} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                  <div>
+                    <div className="font-medium text-slate-900">{activity.action}</div>
+                    <div className="text-sm text-slate-500">{activity.user}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className={`text-xs font-semibold px-2 py-1 rounded-full ${
+                      activity.status === 'success' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                    }`}>
+                      {activity.status}
+                    </div>
+                    <div className="text-xs text-slate-400 mt-1">{activity.time}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-white/20 shadow-lg">
+            <h3 className="text-xl font-bold text-slate-900 mb-4">Security Status</h3>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-700">API Key Rotation</span>
+                <span className="text-emerald-600 font-semibold flex items-center">
+                  <Check className="w-4 h-4 mr-1" /> Active
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-700">Encryption</span>
+                <span className="text-emerald-600 font-semibold">AES-256</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-700">GDPR Compliance</span>
+                <span className="text-emerald-600 font-semibold flex items-center">
+                  <Check className="w-4 h-4 mr-1" /> Certified
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-700">Last Security Scan</span>
+                <span className="text-slate-600">Today, 08:42</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- MODERN EVENTS PAGE ---
+const ModernEventsPage = ({ setActiveTab }) => {
+  const [eventData, setEventData] = useState({ 
+    event_type: '', 
+    event_data: '{}', 
+    user_identifier: '' 
+  });
+  const [isLoading, setIsLoading] = useState(false);
+  const [recentEvents, setRecentEvents] = useState([]);
+
+  const logEvent = async (e) => {
+    e.preventDefault();
+    if (!eventData.event_type.trim()) {
+      alert('Please enter an event type');
+      return;
+    }
+
+    setIsLoading(true);
+    
+    // Simulerad API-anrop
+    setTimeout(() => {
+      const newEvent = {
+        id: `evt_${Date.now()}`,
+        type: eventData.event_type,
+        user: eventData.user_identifier || 'Anonymous',
+        timestamp: new Date().toLocaleTimeString(),
+        status: 'Processed'
+      };
+      
+      setRecentEvents(prev => [newEvent, ...prev.slice(0, 4)]);
+      setEventData({ event_type: '', event_data: '{}', user_identifier: '' });
+      setIsLoading(false);
+      
+      alert('✅ Event logged successfully!');
+    }, 1500);
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/30 px-4 py-8">
+      <div className="max-w-4xl mx-auto">
+        <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl p-8 border border-white/20">
+          <div className="text-center mb-8">
+            <div className="bg-gradient-to-r from-blue-50 to-cyan-50 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg">
+              <FileText className="w-8 h-8 text-blue-600" />
+            </div>
+            <h2 className="text-3xl font-bold text-slate-900">Log Audit Event</h2>
+            <p className="text-slate-600 mt-2">Securely record events with automatic PII protection</p>
+          </div>
+
+          <form onSubmit={logEvent} className="space-y-6">
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-2">Event Type</label>
+              <input
+                type="text"
+                value={eventData.event_type}
+                onChange={(e) => setEventData({...eventData, event_type: e.target.value})}
+                placeholder="e.g., user_login, data_access, policy_update"
+                className="w-full p-4 border border-slate-300 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition bg-white shadow-sm"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-2">Event Data (JSON)</label>
+              <textarea
+                value={eventData.event_data}
+                onChange={(e) => setEventData({...eventData, event_data: e.target.value})}
+                placeholder='{"key": "value", "action": "description"}'
+                rows="4"
+                className="w-full p-4 border border-slate-300 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition bg-white shadow-sm font-mono"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-2">User Identifier (Optional)</label>
+              <input
+                type="text"
+                value={eventData.user_identifier}
+                onChange={(e) => setEventData({...eventData, user_identifier: e.target.value})}
+                placeholder="email or user ID - will be automatically hashed"
+                className="w-full p-4 border border-slate-300 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition bg-white shadow-sm"
+              />
+              <p className="text-sm text-slate-500 mt-2">This will be automatically hashed with SHA-256 before storage</p>
+            </div>
+
+            <button 
+              type="submit" 
+              disabled={isLoading}
+              className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 text-white py-4 rounded-2xl font-bold hover:from-blue-700 hover:to-cyan-700 transition-all duration-300 shadow-lg hover:shadow-xl disabled:opacity-50"
+            >
+              {isLoading ? (
+                <span className="flex items-center justify-center">
+                  <RefreshCw className="w-5 h-5 mr-3 animate-spin" />
+                  Logging Event...
+                </span>
+              ) : 'Log Secure Event'}
+            </button>
+          </form>
+
+          {/* Recent Events */}
+          {recentEvents.length > 0 && (
+            <div className="mt-12">
+              <h3 className="text-xl font-bold text-slate-900 mb-6">Recent Events</h3>
+              <div className="space-y-3">
+                {recentEvents.map((event, index) => (
+                  <div key={event.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
+                    <div className="flex items-center space-x-4">
+                      <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
+                        <FileText className="w-5 h-5 text-emerald-600" />
+                      </div>
+                      <div>
+                        <div className="font-semibold text-slate-900">{event.type}</div>
+                        <div className="text-sm text-slate-500">{event.user}</div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm font-medium text-slate-700">{event.timestamp}</div>
+                      <div className="text-xs text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">
+                        {event.status}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- MODERN PRIVACY POLICY ---
+const ModernPrivacyPolicy = ({ onAccept, privacyAccepted }) => {
+  const [isVisible, setIsVisible] = useState(false);
+  const sectionRef = useRef(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (sectionRef.current) {
+      observer.observe(sectionRef.current);
+    }
+
+    return () => {
+      if (sectionRef.current) observer.unobserve(sectionRef.current);
+    };
+  }, []);
+
+  return (
+    <div ref={sectionRef} className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/30 px-4 py-8">
+      <div className="max-w-4xl mx-auto space-y-8">
+        {/* Header */}
+        <div className={`text-center mb-12 transition-all duration-700 ${
+          isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
+        }`}>
+          <div className="bg-gradient-to-r from-emerald-50 to-green-50 w-20 h-20 rounded-2xl rotate-3 flex items-center justify-center mx-auto mb-6 shadow-lg">
+            <ShieldCheck className="w-10 h-10 text-emerald-600 -rotate-3" />
+          </div>
+          <h2 className="text-4xl font-black text-slate-900 mb-4 bg-gradient-to-r from-slate-900 to-emerald-600 bg-clip-text text-transparent">
+            Privacy & Compliance
+          </h2>
+          <p className="text-xl text-slate-600 max-w-2xl mx-auto">
+            We process data in strict accordance with GDPR Article 6(1)(b) and industry security standards.
+          </p>
+        </div>
+
+        {/* Privacy Content */}
+        <div className={`grid grid-cols-1 md:grid-cols-2 gap-8 transition-all duration-700 delay-300 ${
+          isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
+        }`}>
+          <div className="bg-white/80 backdrop-blur-sm p-8 rounded-2xl shadow-lg border border-white/20 hover:shadow-xl transition">
+            <div className="flex items-center mb-6">
+              <div className="p-3 bg-blue-50 rounded-xl mr-4">
+                <Users className="w-7 h-7 text-blue-600" />
+              </div>
+              <h3 className="font-bold text-2xl text-slate-900">Data Storage</h3>
+            </div>
+            <ul className="space-y-5">
+              <li className="flex items-start group">
+                <div className="mt-1 mr-4 p-2 bg-emerald-100 rounded-full">
+                  <Check className="w-4 h-4 text-emerald-700"/>
+                </div>
+                <div>
+                  <strong className="block text-slate-900 text-base">🇪🇺 EU Data Centers</strong>
+                  <span className="text-slate-600">All data resides in Frankfurt (AWS eu-central-1).</span>
+                </div>
+              </li>
+              <li className="flex items-start group">
+                <div className="mt-1 mr-4 p-2 bg-emerald-100 rounded-full">
+                  <Check className="w-4 h-4 text-emerald-700"/>
+                </div>
+                <div>
+                  <strong className="block text-slate-900 text-base">🔒 Military-grade Encryption</strong>
+                  <span className="text-slate-600">AES-256 at rest and TLS 1.3 in transit.</span>
+                </div>
+              </li>
+              <li className="flex items-start group">
+                <div className="mt-1 mr-4 p-2 bg-emerald-100 rounded-full">
+                  <Check className="w-4 h-4 text-emerald-700"/>
+                </div>
+                <div>
+                  <strong className="block text-slate-900 text-base">🌳 Merkle Tree Integrity</strong>
+                  <span className="text-slate-600">Cryptographic data integrity verification.</span>
+                </div>
+              </li>
+            </ul>
+          </div>
+
+          <div className="bg-white/80 backdrop-blur-sm p-8 rounded-2xl shadow-lg border border-white/20 hover:shadow-xl transition">
+            <div className="flex items-center mb-6">
+              <div className="p-3 bg-purple-50 rounded-xl mr-4">
+                <Lock className="w-7 h-7 text-purple-600" />
+              </div>
+              <h3 className="font-bold text-2xl text-slate-900">Cookies & Tracking</h3>
+            </div>
+            <ul className="space-y-5">
+              <li className="flex items-start group">
+                <div className="mt-1 mr-4 p-2 bg-emerald-100 rounded-full">
+                  <Check className="w-4 h-4 text-emerald-700"/>
+                </div>
+                <div>
+                  <strong className="block text-slate-900 text-base">🍪 Essential Only</strong>
+                  <span className="text-slate-600">We only store a session token for security functionality.</span>
+                </div>
+              </li>
+              <li className="flex items-start group">
+                <div className="mt-1 mr-4 p-2 bg-emerald-100 rounded-full">
+                  <Check className="w-4 h-4 text-emerald-700"/>
+                </div>
+                <div>
+                  <strong className="block text-slate-900 text-base">🚫 Zero Tracking</strong>
+                  <span className="text-slate-600">No Google Analytics, Facebook Pixels, or ad trackers.</span>
+                </div>
+              </li>
+              <li className="flex items-start group">
+                <div className="mt-1 mr-4 p-2 bg-emerald-100 rounded-full">
+                  <Check className="w-4 h-4 text-emerald-700"/>
+                </div>
+                <div>
+                  <strong className="block text-slate-900 text-base">🛡️ Local Storage</strong>
+                  <span className="text-slate-600">API keys are stored locally on your device only.</span>
+                </div>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        {/* GDPR Rights Section */}
+        <div className={`bg-white/80 backdrop-blur-sm p-8 rounded-2xl shadow-2xl border border-white/20 mt-8 transition-all duration-700 delay-500 ${
+          isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
+        }`}>
+          <h3 className="text-2xl font-bold text-slate-900 mb-8 border-b border-slate-200 pb-6">Your Rights under GDPR</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div>
+              <h4 className="font-bold text-slate-800 mb-3 flex items-center text-lg">
+                <div className="w-3 h-3 bg-blue-500 rounded-full mr-3"></div>
+                Right to Access
+              </h4>
+              <p className="text-slate-600 leading-relaxed">
+                You can export all your raw event data as JSON anytime directly from the dashboard.
+              </p>
+            </div>
+            <div>
+              <h4 className="font-bold text-slate-800 mb-3 flex items-center text-lg">
+                <div className="w-3 h-3 bg-blue-500 rounded-full mr-3"></div>
+                Right to Erasure
+              </h4>
+              <p className="text-slate-600 leading-relaxed">
+                "Right to be forgotten". To permanently delete your data, please contact our Data Protection Officer.
+              </p>
+            </div>
+            <div>
+              <h4 className="font-bold text-slate-800 mb-3 flex items-center text-lg">
+                <div className="w-3 h-3 bg-blue-500 rounded-full mr-3"></div>
+                Data Portability
+              </h4>
+              <p className="text-slate-600 leading-relaxed">
+                Move your audit trail to another provider easily using our standard export format.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Acceptance Section */}
+        {!privacyAccepted && (
+          <div className={`bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-200 rounded-2xl p-8 text-center shadow-lg mt-8 transition-all duration-700 delay-700 ${
+            isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
+          }`}>
+            <div className="flex items-center justify-center mb-4">
+              <ShieldCheck className="w-8 h-8 text-emerald-600 mr-3" />
+              <h3 className="text-xl font-bold text-emerald-800">Privacy Policy Acceptance Required</h3>
+            </div>
+            <p className="text-emerald-700 mb-6 text-lg">
+              To continue using Auditor Veritas, please read and accept our Privacy Policy.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <button 
+                onClick={onAccept}
+                className="bg-gradient-to-r from-emerald-600 to-green-600 text-white px-8 py-4 rounded-2xl font-bold hover:from-emerald-700 hover:to-green-700 transition-all duration-300 shadow-lg hover:shadow-xl flex items-center justify-center space-x-3"
+              >
+                <Check className="w-5 h-5" />
+                <span>I Accept Privacy Policy</span>
+              </button>
+              <button 
+                onClick={() => window.print()} 
+                className="border-2 border-emerald-600 text-emerald-600 px-8 py-4 rounded-2xl font-bold hover:bg-emerald-50 transition-all duration-300"
+              >
+                Print Policy
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -752,62 +1304,28 @@ const Navbar = ({ activeTab, setActiveTab, privacyAccepted }) => {
 
 // --- MAIN APP COMPONENT ---
 function App() {
-  const [activeTab, setActiveTab] = useState('pricing');
+  const [activeTab, setActiveTab] = useState('privacy');
   const [processor, setProcessor] = useState(null);
   const [apiKey, setApiKey] = useState('');
-  const [eventData, setEventData] = useState({ event_type: '', event_data: '{}', user_identifier: '' });
-  const [stats, setStats] = useState({ totalEvents: 0, monthlyEvents: 0, eventsLimit: 100, utilization: '0%' });
-  const [pricingPlans, setPricingPlans] = useState({});
-  const [isLoading, setIsLoading] = useState(false);
-  const [showCookieBanner, setShowCookieBanner] = useState(false);
-  const [cookiesAccepted, setCookiesAccepted] = useState(false);
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
 
   const { isLocked, setIsLocked } = useInactivityTimer(300000, !!processor);
   useSecurityProtections();
 
   useEffect(() => {
-    const savedCookies = localStorage.getItem('cookiesAccepted');
-    const savedApiKey = localStorage.getItem('auditorApiKey');
     const savedPrivacyAccepted = localStorage.getItem('privacyAccepted');
-
-    if (savedCookies === 'true') {
-      setCookiesAccepted(true);
-      setShowCookieBanner(false);
-    }
+    const savedApiKey = localStorage.getItem('auditorApiKey');
 
     if (savedPrivacyAccepted === 'true') {
       setPrivacyAccepted(true);
+      setActiveTab('pricing');
+    } else {
+      setActiveTab('privacy');
     }
 
     if (savedApiKey) {
       setApiKey(savedApiKey);
     }
-
-    setPricingPlans({
-      starter: { 
-        name: 'Starter', 
-        events: 100, 
-        price: 0, 
-        features: ['Basic Audit Trail', 'GDPR Compliance', 'Email Support', '100 Events/Month'],
-        gradient: 'from-slate-500 to-slate-700'
-      },
-      professional: { 
-        name: 'Professional', 
-        events: 50000, 
-        price: 49, 
-        features: ['Advanced Analytics', 'Bulk Import', 'Priority Support', 'Custom Events', '50K Events/Month'], 
-        featured: true,
-        gradient: 'from-blue-500 to-cyan-500'
-      },
-      enterprise: { 
-        name: 'Enterprise', 
-        events: 500000, 
-        price: 199, 
-        features: ['Everything in Professional', 'Dedicated Support', 'SLA Guarantee', 'Custom Integrations', '500K Events/Month'],
-        gradient: 'from-purple-500 to-pink-500'
-      }
-    });
   }, []);
 
   const handlePrivacyAccept = () => {
@@ -815,8 +1333,6 @@ function App() {
     setPrivacyAccepted(true);
     setActiveTab('pricing');
   };
-
-  // Resten av funktionerna...
 
   if (isLocked && processor) {
     return <LockScreen onUnlock={() => setIsLocked(false)} />;
@@ -829,8 +1345,7 @@ function App() {
       <Navbar activeTab={activeTab} setActiveTab={setActiveTab} privacyAccepted={privacyAccepted} />
 
       <main className="flex-1">
-        {/* Hero Section visas alltid först */}
-        {activeTab === 'pricing' && (
+        {activeTab === 'pricing' && privacyAccepted && (
           <>
             <StripeHeroSection setActiveTab={setActiveTab} />
             <StripeFeatureSection />
@@ -838,33 +1353,35 @@ function App() {
           </>
         )}
 
-        {activeTab === 'howitworks' && (
+        {activeTab === 'howitworks' && privacyAccepted && (
           <StripeFeatureSection />
         )}
 
-        {/* Övriga tabs kan behålla sina originalkomponenter */}
-        {activeTab === 'dashboard' && (
-          <div className="animate-in px-4 sm:px-0 py-8">
-            {/* ... dashboard innehåll */}
-          </div>
+        {activeTab === 'dashboard' && privacyAccepted && (
+          <ModernDashboard 
+            processor={processor} 
+            apiKey={apiKey} 
+            setApiKey={setApiKey}
+            setProcessor={setProcessor}
+            setActiveTab={setActiveTab}
+          />
         )}
 
-        {activeTab === 'create' && (
-          <div className="max-w-2xl mx-auto py-8 animate-in px-4">
+        {activeTab === 'create' && privacyAccepted && (
+          <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/30 flex items-center justify-center px-4 py-8">
             <CreateProcessor />
           </div>
         )}
 
-        {activeTab === 'events' && (
-          <div className="max-w-4xl mx-auto py-8 animate-in px-4">
-            {/* ... events innehåll */}
-          </div>
+        {activeTab === 'events' && privacyAccepted && (
+          <ModernEventsPage setActiveTab={setActiveTab} />
         )}
 
         {activeTab === 'privacy' && (
-          <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-500 px-4 sm:px-0 py-12">
-            {/* ... privacy policy innehåll */}
-          </div>
+          <ModernPrivacyPolicy 
+            onAccept={handlePrivacyAccept}
+            privacyAccepted={privacyAccepted}
+          />
         )}
       </main>
     </div>
