@@ -1,18 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Shield, Lock, Database, Wifi, Activity, CheckCircle, Server, Globe, Zap } from 'lucide-react';
+// FIX: Lade till Zap och CheckCircle
+import { Terminal, Lock, Database, Activity, Wifi, Globe, Server, Shield, Zap, CheckCircle } from 'lucide-react';
 
 const PhoneDemo = () => {
   const [step, setStep] = useState(0);
   const [booted, setBooted] = useState(false);
 
-  // Boot sequence - Noder visas i 2.5 sekunder innan "booted" blir true
   useEffect(() => {
-    const timer = setTimeout(() => setBooted(true), 2500);
+    const timer = setTimeout(() => setBooted(true), 2000);
     return () => clearTimeout(timer);
   }, []);
 
-  // Loop steps
   useEffect(() => {
     if (!booted) return;
     const interval = setInterval(() => {
@@ -54,7 +53,6 @@ const PhoneDemo = () => {
   return (
     <div className="relative w-[350px] h-[700px] mx-auto perspective-[1200px] flex items-center justify-center">
       
-      {/* Floating Context Nodes (Svävande noder i början) */}
       <AnimatePresence>
         {!booted && (
           <>
@@ -71,13 +69,10 @@ const PhoneDemo = () => {
         transition={{ duration: 0.8 }}
         className="w-[320px] h-[640px] transform-style-3d drop-shadow-2xl relative z-10"
       >
-        {/* Border Glow */}
         <div className="absolute -inset-1 bg-gradient-to-b from-blue-500 via-purple-500 to-emerald-500 rounded-[45px] opacity-30 blur-md"></div>
 
-        {/* Phone Chassis */}
         <div className="absolute inset-0 bg-[#020617] rounded-[40px] overflow-hidden border-[6px] border-slate-800 flex flex-col shadow-2xl">
           
-          {/* Header */}
           <div className="h-14 bg-slate-900/90 backdrop-blur border-b border-slate-700 flex items-center justify-between px-6 pt-3">
             <div className="flex gap-2 items-center">
               <div className={`w-2 h-2 rounded-full ${booted ? 'bg-emerald-500 animate-pulse shadow-[0_0_10px_#10b981]' : 'bg-slate-600'}`}></div>
@@ -86,7 +81,6 @@ const PhoneDemo = () => {
             <Wifi className="w-4 h-4 text-slate-500" />
           </div>
 
-          {/* Main Screen */}
           <div className="flex-1 relative p-6 flex flex-col bg-slate-950 font-sans">
             
             {!booted ? (
@@ -96,7 +90,6 @@ const PhoneDemo = () => {
               </div>
             ) : (
               <>
-                {/* Active Process Card */}
                 <div className="mb-8">
                   <div className="flex justify-between items-end mb-2">
                     <h3 className="text-slate-400 text-xs uppercase font-bold tracking-wider">Live Process</h3>
@@ -121,7 +114,6 @@ const PhoneDemo = () => {
                       <h2 className="text-white font-bold text-lg mb-1">{steps[step].label}</h2>
                       <p className="text-slate-400 text-xs leading-relaxed">{steps[step].desc}</p>
 
-                      {/* Progress Bar inside card */}
                       <div className="mt-4 h-1 w-full bg-black/20 rounded-full overflow-hidden">
                         <motion.div 
                           initial={{ width: 0 }} 
@@ -134,15 +126,12 @@ const PhoneDemo = () => {
                   </AnimatePresence>
                 </div>
 
-                {/* Visualizer (Middle) */}
                 <div className="flex-1 flex items-center justify-center relative">
-                  {/* Background Rings */}
                   <div className="absolute inset-0 flex items-center justify-center opacity-20">
                     <div className="w-48 h-48 border border-slate-600 rounded-full animate-[spin_10s_linear_infinite]"></div>
                     <div className="w-32 h-32 border border-slate-600 rounded-full absolute animate-[spin_5s_linear_infinite_reverse]"></div>
                   </div>
 
-                  {/* Central Shield Animation */}
                   <motion.div 
                     animate={{ scale: [1, 1.1, 1] }}
                     transition={{ duration: 2, repeat: Infinity }}
@@ -164,7 +153,6 @@ const PhoneDemo = () => {
                   </motion.div>
                 </div>
 
-                {/* Activity Log (Bottom) */}
                 <div className="mt-auto space-y-2">
                   <div className="text-[10px] text-slate-500 font-bold uppercase">Recent Activity</div>
                   <div className="space-y-2">
@@ -191,7 +179,6 @@ const PhoneDemo = () => {
   );
 };
 
-// HÄR ÄR KOMPONENTEN SOM BEHÖVS FÖR ATT NODERNA SKA SYNAS!
 const FloatingNode = ({ icon: Icon, x, y, delay, color }) => (
   <motion.div 
     initial={{ opacity: 0, scale: 0, x: 0, y: 0 }}

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import CryptoJS from 'crypto-js';
-import { Database, ShieldAlert, ShieldCheck, RefreshCw, ArrowRight } from 'lucide-react';
+// FIX: Lade till ArrowDown här
+import { Database, ShieldAlert, ShieldCheck, RefreshCw, ArrowRight, ArrowDown } from 'lucide-react';
 
 const InteractiveMerkle = () => {
   const [data, setData] = useState("User Login: 123");
@@ -9,14 +10,11 @@ const InteractiveMerkle = () => {
   const [isTampered, setIsTampered] = useState(false);
   const [rootHash, setRootHash] = useState("");
 
-  // Beräkna hashar automatiskt
   useEffect(() => {
     const newHash = CryptoJS.SHA256(data).toString().substring(0, 16);
     setHash(newHash);
     
-    // Om vi "tamper", ändra inte root hash (simulera att blockkedjan har den gamla sanningen)
     if (!isTampered) {
-      // Normalt: Root baseras på datan
       setRootHash(CryptoJS.SHA256(newHash + "sibling").toString().substring(0, 16));
     }
   }, [data, isTampered]);
@@ -24,22 +22,18 @@ const InteractiveMerkle = () => {
   const toggleTamper = () => {
     if (isTampered) {
       setIsTampered(false);
-      setData("User Login: 123"); // Återställ
+      setData("User Login: 123");
     } else {
       setIsTampered(true);
-      setData("HACKED_DATA_INJECTION"); // Ändra datan
-      // Root uppdateras inte här (se useEffect), vilket skapar en mismatch
+      setData("HACKED_DATA_INJECTION");
     }
   };
 
   return (
     <div className="py-24 bg-slate-950 relative overflow-hidden border-t border-slate-800">
-      {/* Bakgrundsnät */}
       <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: 'radial-gradient(#334155 1px, transparent 1px)', backgroundSize: '30px 30px' }}></div>
 
       <div className="max-w-7xl mx-auto px-6 relative z-10">
-        
-        {/* Header */}
         <div className="text-center mb-16">
           <div className="inline-flex items-center gap-2 bg-blue-900/30 border border-blue-500/30 px-4 py-1.5 rounded-full text-blue-400 text-sm font-mono mb-4">
             <Database className="w-4 h-4" /> CRYPTOGRAPHIC PROOF ENGINE
@@ -115,10 +109,8 @@ const InteractiveMerkle = () => {
 
           {/* RIGHT: Tree Visualization */}
           <div className="bg-[#0f172a] rounded-3xl border border-slate-800 relative flex flex-col items-center justify-center p-10 overflow-hidden">
-            {/* Dynamic Background */}
             <div className={`absolute inset-0 transition-opacity duration-500 opacity-20 ${isTampered ? 'bg-red-900' : 'bg-blue-900'}`}></div>
             
-            {/* Root Node */}
             <div className="relative z-10 flex flex-col items-center">
               <motion.div 
                 animate={{ scale: isTampered ? [1, 1.1, 1] : 1 }}
@@ -132,15 +124,12 @@ const InteractiveMerkle = () => {
                 </div>
               </motion.div>
 
-              {/* Lines */}
               <svg className="w-64 h-32 overflow-visible mt-2">
                 <path d="M 128 0 L 64 128" stroke={isTampered ? '#ef4444' : '#334155'} strokeWidth="2" fill="none" className="transition-colors duration-500" />
                 <path d="M 128 0 L 192 128" stroke="#334155" strokeWidth="2" fill="none" />
               </svg>
 
-              {/* Leaf Nodes */}
               <div className="flex gap-16 mt-2">
-                {/* The Active Leaf */}
                 <motion.div 
                   layout
                   className={`w-20 h-20 rounded-xl flex flex-col items-center justify-center border-2 transition-colors duration-500 ${
@@ -151,14 +140,12 @@ const InteractiveMerkle = () => {
                   <Hash className={`w-6 h-6 ${isTampered ? 'text-red-400' : 'text-blue-400'}`} />
                 </motion.div>
 
-                {/* Passive Leaf */}
                 <div className="w-20 h-20 rounded-xl bg-slate-900 border border-slate-800 flex flex-col items-center justify-center opacity-50">
                   <span className="text-[10px] text-slate-500 uppercase mb-1">Leaf B</span>
                   <div className="w-6 h-6 rounded bg-slate-800"></div>
                 </div>
               </div>
 
-              {/* Warning Overlay if Tampered */}
               <AnimatePresence>
                 {isTampered && (
                   <motion.div 
