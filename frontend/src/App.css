@@ -402,3 +402,21 @@ textarea:focus-visible {
     @apply bg-slate-700;
   }
 }
+
+
+
+
+
+/* ... (Hela din App.css kod här) ... */
+
+/* --- NYTT: Klasser för MobilePaymentIllustration och ScrollTriggered Content --- */
+
+/* Se till att innehållscontainern (grid-cellen) tar upp tillräckligt med vertikalt utrymme */
+.content-section {
+    min-height: 80vh; /* Ger utrymme för scroll-triggering */
+}
+
+/* Fixar eventuell vertikal centrering och utrymme för den stickiga mobilbilden */
+.h-\[550px\] {
+    height: 550px;
+}
