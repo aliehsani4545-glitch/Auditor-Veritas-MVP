@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Terminal, Lock, Database, Fingerprint, ArrowRight, Activity } from 'lucide-react';
+// HÄR VAR FELET - Check saknades i listan nedan:
+import { Terminal, Lock, Database, Fingerprint, ArrowRight, Activity, Check } from 'lucide-react';
 
 const PhoneDemo = () => {
   const [activeTab, setActiveTab] = useState('api'); // api, crypto, ledger
   const [progress, setProgress] = useState(0);
 
-  // Auto-cycle logic för demonstration
   useEffect(() => {
     const interval = setInterval(() => {
       setProgress(p => (p + 1) % 100);
@@ -25,13 +25,13 @@ const PhoneDemo = () => {
         {/* Phone Body */}
         <div className="absolute inset-0 bg-[#0f172a] rounded-[45px] border-[8px] border-[#1e293b] overflow-hidden shadow-2xl">
           
-          {/* Dynamic Island / Notch */}
+          {/* Notch */}
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-7 bg-black rounded-b-2xl z-20"></div>
 
-          {/* App Content */}
+          {/* Content */}
           <div className="h-full pt-12 pb-6 px-5 flex flex-col bg-slate-900 text-white font-mono">
             
-            {/* App Header */}
+            {/* Header */}
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
@@ -55,11 +55,11 @@ const PhoneDemo = () => {
               ))}
             </div>
 
-            {/* Main Screen Area */}
+            {/* Screen Area */}
             <div className="flex-1 relative overflow-hidden">
               <AnimatePresence mode='wait'>
                 
-                {/* VIEW 1: API INTEGRATION */}
+                {/* VIEW 1: API */}
                 {activeTab === 'api' && (
                   <motion.div 
                     key="api"
@@ -83,7 +83,7 @@ const PhoneDemo = () => {
                   </motion.div>
                 )}
 
-                {/* VIEW 2: CRYPTO PROCESS */}
+                {/* VIEW 2: CRYPTO */}
                 {activeTab === 'crypto' && (
                   <motion.div 
                     key="crypto"
@@ -91,15 +91,12 @@ const PhoneDemo = () => {
                     className="flex flex-col items-center justify-center h-full"
                   >
                     <div className="relative w-40 h-40 mb-6">
-                      {/* Animated Rings */}
                       <svg className="absolute inset-0 w-full h-full animate-spin-slow" viewBox="0 0 100 100">
                         <circle cx="50" cy="50" r="45" stroke="#635bff" strokeWidth="1" fill="none" strokeDasharray="4 4" />
                       </svg>
                       <svg className="absolute inset-0 w-full h-full animate-reverse-spin" viewBox="0 0 100 100">
                         <circle cx="50" cy="50" r="35" stroke="#00d4ff" strokeWidth="1" fill="none" strokeDasharray="8 8" />
                       </svg>
-                      
-                      {/* Central Icon */}
                       <div className="absolute inset-0 flex items-center justify-center">
                         <Fingerprint className="w-12 h-12 text-white" />
                       </div>
@@ -111,7 +108,7 @@ const PhoneDemo = () => {
                   </motion.div>
                 )}
 
-                {/* VIEW 3: LEDGER / MERKLE */}
+                {/* VIEW 3: LEDGER */}
                 {activeTab === 'ledger' && (
                   <motion.div 
                     key="ledger"
@@ -123,7 +120,6 @@ const PhoneDemo = () => {
                       <h4 className="font-bold text-sm">Immutable Ledger</h4>
                     </div>
                     
-                    {/* Blocks */}
                     <div className="space-y-2 relative">
                       <div className="absolute left-3 top-0 bottom-0 w-0.5 bg-slate-700"></div>
                       {[1, 2, 3, 4].map((i) => (
@@ -148,7 +144,6 @@ const PhoneDemo = () => {
               </AnimatePresence>
             </div>
 
-            {/* Footer Actions */}
             <button 
               onClick={() => setActiveTab(curr => curr === 'api' ? 'crypto' : curr === 'crypto' ? 'ledger' : 'api')}
               className="mt-4 w-full py-3 bg-white/10 hover:bg-white/20 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-2"
