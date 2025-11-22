@@ -1,156 +1,183 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Hash, GitMerge, Database, Search, CheckCircle2 } from 'lucide-react';
+import CryptoJS from 'crypto-js';
+import { Database, ShieldAlert, ShieldCheck, RefreshCw, ArrowRight } from 'lucide-react';
 
 const InteractiveMerkle = () => {
-  const [activeNode, setActiveNode] = useState(null);
-  const [verifyPath, setVerifyPath] = useState([]);
+  const [data, setData] = useState("User Login: 123");
+  const [hash, setHash] = useState("");
+  const [isTampered, setIsTampered] = useState(false);
+  const [rootHash, setRootHash] = useState("");
 
-  // Enkel visualisering av ett träd med 4 löv
-  const nodes = {
-    root: { id: 'root', label: 'Root Hash', x: 50, y: 20, color: '#10b981' },
-    h1: { id: 'h1', label: 'Hash 1-2', x: 30, y: 50, color: '#3b82f6' },
-    h2: { id: 'h2', label: 'Hash 3-4', x: 70, y: 50, color: '#3b82f6' },
-    l1: { id: 'l1', label: 'Data A', x: 20, y: 80, color: '#64748b', val: 'User Login' },
-    l2: { id: 'l2', label: 'Data B', x: 40, y: 80, color: '#64748b', val: 'Payment' },
-    l3: { id: 'l3', label: 'Data C', x: 60, y: 80, color: '#64748b', val: 'Settings' },
-    l4: { id: 'l4', label: 'Data D', x: 80, y: 80, color: '#64748b', val: 'Export' },
-  };
+  // Beräkna hashar automatiskt
+  useEffect(() => {
+    const newHash = CryptoJS.SHA256(data).toString().substring(0, 16);
+    setHash(newHash);
+    
+    // Om vi "tamper", ändra inte root hash (simulera att blockkedjan har den gamla sanningen)
+    if (!isTampered) {
+      // Normalt: Root baseras på datan
+      setRootHash(CryptoJS.SHA256(newHash + "sibling").toString().substring(0, 16));
+    }
+  }, [data, isTampered]);
 
-  // Logik för att visa "Proof Path" (vilka noder behövs för att bevisa en löv?)
-  const handleNodeClick = (id) => {
-    setActiveNode(id);
-    // Hårdkodad logik för demo: Om man klickar L1, behöver man L2 och H2 för att nå Root.
-    if (id === 'l1') setVerifyPath(['l1', 'l2', 'h1', 'h2', 'root']);
-    else if (id === 'l2') setVerifyPath(['l2', 'l1', 'h1', 'h2', 'root']);
-    else if (id === 'l3') setVerifyPath(['l3', 'l4', 'h2', 'h1', 'root']);
-    else if (id === 'l4') setVerifyPath(['l4', 'l3', 'h2', 'h1', 'root']);
-    else setVerifyPath([]);
+  const toggleTamper = () => {
+    if (isTampered) {
+      setIsTampered(false);
+      setData("User Login: 123"); // Återställ
+    } else {
+      setIsTampered(true);
+      setData("HACKED_DATA_INJECTION"); // Ändra datan
+      // Root uppdateras inte här (se useEffect), vilket skapar en mismatch
+    }
   };
 
   return (
     <div className="py-24 bg-slate-950 relative overflow-hidden border-t border-slate-800">
-      {/* Background Grid */}
-      <div className="absolute inset-0 opacity-20 pointer-events-none" 
-           style={{ backgroundImage: 'radial-gradient(#334155 1px, transparent 1px)', backgroundSize: '40px 40px' }}>
-      </div>
+      {/* Bakgrundsnät */}
+      <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: 'radial-gradient(#334155 1px, transparent 1px)', backgroundSize: '30px 30px' }}></div>
 
       <div className="max-w-7xl mx-auto px-6 relative z-10">
+        
+        {/* Header */}
         <div className="text-center mb-16">
           <div className="inline-flex items-center gap-2 bg-blue-900/30 border border-blue-500/30 px-4 py-1.5 rounded-full text-blue-400 text-sm font-mono mb-4">
-            <Database className="w-4 h-4" /> INTERACTIVE DEMO
+            <Database className="w-4 h-4" /> CRYPTOGRAPHIC PROOF ENGINE
           </div>
-          <h2 className="text-4xl font-bold text-white">Merkle Integrity Proof</h2>
-          <p className="text-slate-400 mt-4 max-w-2xl mx-auto">
-            Click on any <span className="text-slate-200 font-bold">Data Leaf (bottom row)</span> to verify its integrity. 
-            The system will highlight the cryptographic path required to reconstruct the Root Hash.
+          <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">Verify Immutability</h2>
+          <p className="text-slate-400 max-w-2xl mx-auto">
+            Try to alter the data below. The Merkle Tree will immediately detect the mismatch between the calculated hash and the anchored Root Hash.
           </p>
         </div>
 
-        <div className="grid lg:grid-cols-3 gap-8">
+        <div className="grid lg:grid-cols-2 gap-12 items-stretch">
           
-          {/* Left: Technical Explainer */}
-          <div className="bg-slate-900/50 border border-slate-800 p-8 rounded-3xl backdrop-blur-sm">
-            <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-              <Search className="text-emerald-500" /> Proof Logic
-            </h3>
+          {/* LEFT: Interactive Controls */}
+          <div className={`p-8 rounded-3xl border transition-all duration-500 ${isTampered ? 'bg-red-950/20 border-red-500/50' : 'bg-slate-900/50 border-slate-800'}`}>
             
-            {!activeNode ? (
-              <div className="text-slate-500 text-sm text-center py-10">
-                Select a data node to begin verification.
-              </div>
-            ) : (
-              <div className="space-y-6">
-                <div>
-                  <div className="text-xs text-slate-500 uppercase font-bold mb-1">Selected Data</div>
-                  <div className="text-white font-mono bg-slate-800 p-3 rounded-lg border border-slate-700">
-                    {nodes[activeNode]?.val || activeNode}
-                  </div>
-                </div>
-                
-                <div className="relative pl-4 border-l-2 border-slate-700 space-y-6">
-                  <div className="relative">
-                    <div className="absolute -left-[21px] top-1 w-3 h-3 bg-blue-500 rounded-full"></div>
-                    <h4 className="text-sm font-bold text-blue-400">1. Fetch Sibling</h4>
-                    <p className="text-xs text-slate-400 mt-1">Get hash of neighbor node.</p>
-                  </div>
-                  <div className="relative">
-                    <div className="absolute -left-[21px] top-1 w-3 h-3 bg-purple-500 rounded-full"></div>
-                    <h4 className="text-sm font-bold text-purple-400">2. Hash Together</h4>
-                    <p className="text-xs text-slate-400 mt-1">SHA-256(Left + Right)</p>
-                  </div>
-                  <div className="relative">
-                    <div className="absolute -left-[21px] top-1 w-3 h-3 bg-emerald-500 rounded-full"></div>
-                    <h4 className="text-sm font-bold text-emerald-400">3. Verify Root</h4>
-                    <p className="text-xs text-slate-400 mt-1">Matches public ledger root.</p>
-                  </div>
-                </div>
+            <div className="flex justify-between items-center mb-8">
+              <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                {isTampered ? <ShieldAlert className="text-red-500"/> : <ShieldCheck className="text-emerald-500"/>}
+                Data Source
+              </h3>
+              <button 
+                onClick={toggleTamper}
+                className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
+                  isTampered ? 'bg-slate-800 text-white hover:bg-slate-700' : 'bg-red-500/20 text-red-400 border border-red-500/50 hover:bg-red-500/30'
+                }`}
+              >
+                {isTampered ? 'Reset State' : 'Simulate Attack'}
+              </button>
+            </div>
 
-                <div className="bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-xl flex items-center gap-3">
-                  <CheckCircle2 className="w-6 h-6 text-emerald-500" />
-                  <div>
-                    <div className="font-bold text-emerald-400 text-sm">Mathematically Proven</div>
-                    <div className="text-xs text-emerald-200/70">Data has not been altered.</div>
-                  </div>
+            <div className="space-y-6">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Raw Input Data</label>
+                <input 
+                  type="text" 
+                  value={data}
+                  onChange={(e) => setData(e.target.value)}
+                  className={`w-full bg-slate-950 border p-4 rounded-xl font-mono text-sm outline-none transition-colors ${
+                    isTampered ? 'border-red-500 text-red-400' : 'border-slate-700 text-white focus:border-blue-500'
+                  }`}
+                />
+              </div>
+
+              <div className="flex justify-center">
+                <ArrowDown className={`w-6 h-6 ${isTampered ? 'text-red-500' : 'text-slate-600'}`} />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Calculated Leaf Hash (SHA-256)</label>
+                <div className={`p-4 rounded-xl font-mono text-xs break-all border ${
+                  isTampered ? 'bg-red-900/20 border-red-500/50 text-red-300' : 'bg-slate-950 border-slate-700 text-emerald-400'
+                }`}>
+                  {hash}
                 </div>
               </div>
-            )}
+            </div>
+
+            <div className={`mt-8 p-4 rounded-xl flex items-center gap-4 border ${isTampered ? 'bg-red-500/10 border-red-500/20' : 'bg-emerald-500/10 border-emerald-500/20'}`}>
+              {isTampered ? <ShieldAlert className="w-8 h-8 text-red-500" /> : <ShieldCheck className="w-8 h-8 text-emerald-500" />}
+              <div>
+                <div className={`font-bold ${isTampered ? 'text-red-400' : 'text-emerald-400'}`}>
+                  {isTampered ? 'INTEGRITY CHECK FAILED' : 'DATA VERIFIED'}
+                </div>
+                <div className="text-xs text-slate-400 mt-1">
+                  {isTampered 
+                    ? 'Calculated hash does not match the Immutable Root.' 
+                    : 'Mathematical proof confirms data has not been altered.'}
+                </div>
+              </div>
+            </div>
+
           </div>
 
-          {/* Right: The Visual Tree */}
-          <div className="lg:col-span-2 bg-slate-900/50 border border-slate-800 rounded-3xl relative h-[500px] flex items-center justify-center overflow-hidden">
+          {/* RIGHT: Tree Visualization */}
+          <div className="bg-[#0f172a] rounded-3xl border border-slate-800 relative flex flex-col items-center justify-center p-10 overflow-hidden">
+            {/* Dynamic Background */}
+            <div className={`absolute inset-0 transition-opacity duration-500 opacity-20 ${isTampered ? 'bg-red-900' : 'bg-blue-900'}`}></div>
             
-            {/* Connectors (SVG) */}
-            <svg className="absolute inset-0 w-full h-full pointer-events-none z-0" viewBox="0 0 100 100" preserveAspectRatio="none">
-              <path d="M 50 25 L 30 55" stroke="#334155" strokeWidth="0.5" />
-              <path d="M 50 25 L 70 55" stroke="#334155" strokeWidth="0.5" />
-              
-              <path d="M 30 55 L 20 85" stroke="#334155" strokeWidth="0.5" />
-              <path d="M 30 55 L 40 85" stroke="#334155" strokeWidth="0.5" />
-              
-              <path d="M 70 55 L 60 85" stroke="#334155" strokeWidth="0.5" />
-              <path d="M 70 55 L 80 85" stroke="#334155" strokeWidth="0.5" />
+            {/* Root Node */}
+            <div className="relative z-10 flex flex-col items-center">
+              <motion.div 
+                animate={{ scale: isTampered ? [1, 1.1, 1] : 1 }}
+                className={`w-24 h-24 rounded-full flex items-center justify-center border-4 shadow-2xl transition-colors duration-500 ${
+                  isTampered ? 'bg-red-900 border-red-500 text-red-100' : 'bg-emerald-900 border-emerald-500 text-emerald-100'
+                }`}
+              >
+                <div className="text-center">
+                  <div className="text-[10px] font-bold opacity-70">ROOT</div>
+                  <div className="text-xs font-mono font-bold">SECURE</div>
+                </div>
+              </motion.div>
 
-              {/* Active Path Animation */}
-              {verifyPath.length > 0 && (
-                <>
-                  <motion.path d="M 50 25 L 30 55" stroke="#10b981" strokeWidth="1" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.5 }} />
-                  <motion.path d="M 30 55 L 20 85" stroke="#10b981" strokeWidth="1" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.5, delay: 0.2 }} />
-                </>
-              )}
-            </svg>
+              {/* Lines */}
+              <svg className="w-64 h-32 overflow-visible mt-2">
+                <path d="M 128 0 L 64 128" stroke={isTampered ? '#ef4444' : '#334155'} strokeWidth="2" fill="none" className="transition-colors duration-500" />
+                <path d="M 128 0 L 192 128" stroke="#334155" strokeWidth="2" fill="none" />
+              </svg>
 
-            {/* Nodes */}
-            {Object.values(nodes).map((node) => {
-              const isActive = verifyPath.includes(node.id);
-              const isRoot = node.id === 'root';
-              
-              return (
-                <motion.div
-                  key={node.id}
-                  className={`absolute transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center cursor-pointer transition-all duration-300 ${isActive ? 'z-20 scale-110' : 'z-10'}`}
-                  style={{ left: `${node.x}%`, top: `${node.y}%` }}
-                  onClick={() => !isRoot && handleNodeClick(node.id)}
-                  whileHover={{ scale: 1.1 }}
+              {/* Leaf Nodes */}
+              <div className="flex gap-16 mt-2">
+                {/* The Active Leaf */}
+                <motion.div 
+                  layout
+                  className={`w-20 h-20 rounded-xl flex flex-col items-center justify-center border-2 transition-colors duration-500 ${
+                    isTampered ? 'bg-red-500/20 border-red-500' : 'bg-blue-500/20 border-blue-500'
+                  }`}
                 >
-                  <div 
-                    className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-lg border-2 transition-colors duration-500 ${
-                      isActive 
-                        ? `bg-[${node.color}] border-white shadow-[0_0_20px_${node.color}]` 
-                        : 'bg-slate-800 border-slate-700'
-                    }`}
-                    style={{ backgroundColor: isActive ? node.color : undefined }}
-                  >
-                    {isRoot ? <Database size={20} className="text-white"/> : <Hash size={20} className={isActive ? 'text-white' : 'text-slate-500'} />}
-                  </div>
-                  <div className={`mt-2 text-[10px] font-bold px-2 py-1 rounded ${isActive ? 'bg-white text-slate-900' : 'bg-slate-800 text-slate-500'}`}>
-                    {node.label}
-                  </div>
+                  <span className="text-[10px] text-slate-400 uppercase mb-1">Leaf A</span>
+                  <Hash className={`w-6 h-6 ${isTampered ? 'text-red-400' : 'text-blue-400'}`} />
                 </motion.div>
-              )
-            })}
 
+                {/* Passive Leaf */}
+                <div className="w-20 h-20 rounded-xl bg-slate-900 border border-slate-800 flex flex-col items-center justify-center opacity-50">
+                  <span className="text-[10px] text-slate-500 uppercase mb-1">Leaf B</span>
+                  <div className="w-6 h-6 rounded bg-slate-800"></div>
+                </div>
+              </div>
+
+              {/* Warning Overlay if Tampered */}
+              <AnimatePresence>
+                {isTampered && (
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.5 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="absolute inset-0 flex items-center justify-center z-20 bg-black/60 backdrop-blur-sm rounded-3xl"
+                  >
+                    <div className="bg-red-600 text-white px-6 py-3 rounded-full font-bold shadow-2xl flex items-center gap-2 animate-pulse">
+                      <ShieldAlert size={20} />
+                      ROOT MISMATCH
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+            </div>
           </div>
+
         </div>
       </div>
     </div>
