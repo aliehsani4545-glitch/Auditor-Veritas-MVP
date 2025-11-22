@@ -358,6 +358,26 @@ const StripeFeatureSection = () => {
     }
   ];
 
+  // FIX: Create color mapping to avoid dynamic class names
+  const colorClasses = {
+    emerald: {
+      text: 'text-emerald-600',
+      bg: 'bg-emerald-100'
+    },
+    blue: {
+      text: 'text-blue-600',
+      bg: 'bg-blue-100'
+    },
+    purple: {
+      text: 'text-purple-600',
+      bg: 'bg-purple-100'
+    },
+    orange: {
+      text: 'text-orange-600',
+      bg: 'bg-orange-100'
+    }
+  };
+
   useEffect(() => {
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -376,6 +396,11 @@ const StripeFeatureSection = () => {
       if (sectionRef.current) observer.unobserve(sectionRef.current);
     };
   }, []);
+
+  // FIX: Get the active feature icon component
+  const ActiveFeatureIcon = features[activeFeature].icon;
+  const activeColor = features[activeFeature].color;
+  const activeColorClass = colorClasses[activeColor];
 
   return (
     <div ref={sectionRef} className="py-24 bg-slate-50 relative overflow-hidden">
@@ -396,44 +421,49 @@ const StripeFeatureSection = () => {
 
         {/* Features Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-          {features.map((feature, index) => (
-            <div
-              key={index}
-              className={`group relative bg-white rounded-2xl p-8 shadow-lg border border-slate-200 hover:shadow-xl transition-all duration-500 cursor-pointer ${
-                activeFeature === index ? 'ring-2 ring-blue-500 scale-105' : ''
-              } ${
-                isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
-              }`}
-              style={{ 
-                transitionDelay: `${index * 150}ms`,
-                transform: isVisible ? 'translateY(0)' : 'translateY(20px)'
-              }}
-              onClick={() => setActiveFeature(index)}
-              onMouseEnter={() => setActiveFeature(index)}
-            >
-              {/* Hover effect */}
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-transparent opacity-0 group-hover:opacity-100 rounded-2xl transition-opacity duration-300" />
-              
-              <div className="relative z-10">
-                <div className={`w-12 h-12 rounded-xl bg-${feature.color}-100 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300`}>
-                  <feature.icon className={`w-6 h-6 text-${feature.color}-600`} />
+          {features.map((feature, index) => {
+            const FeatureIcon = feature.icon;
+            const featureColorClass = colorClasses[feature.color];
+            
+            return (
+              <div
+                key={index}
+                className={`group relative bg-white rounded-2xl p-8 shadow-lg border border-slate-200 hover:shadow-xl transition-all duration-500 cursor-pointer ${
+                  activeFeature === index ? 'ring-2 ring-blue-500 scale-105' : ''
+                } ${
+                  isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
+                }`}
+                style={{ 
+                  transitionDelay: `${index * 150}ms`,
+                  transform: isVisible ? 'translateY(0)' : 'translateY(20px)'
+                }}
+                onClick={() => setActiveFeature(index)}
+                onMouseEnter={() => setActiveFeature(index)}
+              >
+                {/* Hover effect */}
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-transparent opacity-0 group-hover:opacity-100 rounded-2xl transition-opacity duration-300" />
+                
+                <div className="relative z-10">
+                  <div className={`w-12 h-12 rounded-xl ${featureColorClass.bg} flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300`}>
+                    <FeatureIcon className={`w-6 h-6 ${featureColorClass.text}`} />
+                  </div>
+                  
+                  <h3 className="text-xl font-bold text-slate-900 mb-3">
+                    {feature.title}
+                  </h3>
+                  
+                  <p className="text-slate-600 leading-relaxed">
+                    {feature.description}
+                  </p>
                 </div>
-                
-                <h3 className="text-xl font-bold text-slate-900 mb-3">
-                  {feature.title}
-                </h3>
-                
-                <p className="text-slate-600 leading-relaxed">
-                  {feature.description}
-                </p>
-              </div>
 
-              {/* Active indicator */}
-              {activeFeature === index && (
-                <div className="absolute top-4 right-4 w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-              )}
-            </div>
-          ))}
+                {/* Active indicator */}
+                {activeFeature === index && (
+                  <div className="absolute top-4 right-4 w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+                )}
+              </div>
+            );
+          })}
         </div>
 
         {/* Feature Details */}
@@ -466,7 +496,8 @@ const StripeFeatureSection = () => {
             <div className="relative">
               <div className="bg-gradient-to-br from-slate-50 to-blue-50 rounded-2xl p-8 border border-slate-200">
                 <div className="text-center">
-                  <features[activeFeature].icon className={`w-16 h-16 text-${features[activeFeature].color}-600 mx-auto mb-4`} />
+                  {/* FIX: Use the component variable instead of bracket notation */}
+                  <ActiveFeatureIcon className={`w-16 h-16 ${activeColorClass.text} mx-auto mb-4`} />
                   <div className="text-sm text-slate-500 uppercase font-semibold tracking-wide">
                     Active Security Layer
                   </div>
@@ -608,33 +639,6 @@ const ModernPricingSection = ({ setActiveTab }) => {
     </div>
   );
 };
-
-// --- MERKLE TREE VISUALIZATION (Behålls oförändrad) ---
-const MerkleTreeDemo = () => {
-  // ... (behåll exakt samma kod som tidigare)
-  return (
-    <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-3xl p-8 border border-slate-700/50 shadow-2xl h-96 overflow-hidden">
-      {/* ... samma innehåll */}
-    </div>
-  );
-};
-
-// --- KEY ROTATION COMPONENT (Behålls oförändrad) ---
-const KeyRotation = ({ processor, apiKey, onKeyRotate }) => {
-  // ... (behåll exakt samma kod som tidigare)
-  return (
-    <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-white/20 shadow-lg hover:shadow-xl transition duration-300">
-      {/* ... samma innehåll */}
-    </div>
-  );
-};
-
-// --- MODERN STATS CARDS (Behålls oförändrad) ---
-const StatsCards = ({ stats, processor }) => (
-  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-    {/* ... samma innehåll */}
-  </div>
-);
 
 // --- MODERN NAVBAR ---
 const Navbar = ({ activeTab, setActiveTab, privacyAccepted }) => {
@@ -812,7 +816,7 @@ function App() {
     setActiveTab('pricing');
   };
 
-  // ... (resten av funktionerna behålls oförändrade)
+  // Resten av funktionerna...
 
   if (isLocked && processor) {
     return <LockScreen onUnlock={() => setIsLocked(false)} />;
@@ -838,7 +842,7 @@ function App() {
           <StripeFeatureSection />
         )}
 
-        {/* Övriga tabs behåller sina originalkomponenter */}
+        {/* Övriga tabs kan behålla sina originalkomponenter */}
         {activeTab === 'dashboard' && (
           <div className="animate-in px-4 sm:px-0 py-8">
             {/* ... dashboard innehåll */}
