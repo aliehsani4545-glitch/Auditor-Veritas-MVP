@@ -41,7 +41,7 @@ const apiCall = async (endpoint, options = {}, apiKey = '') => {
 
 // --- SUB-COMPONENTS ---
 
-// Typewriter Effect Component (Internal)
+// Typewriter Effect for Hero
 const HeroTypewriter = ({ text, delay = 50 }) => {
   const [currentText, setCurrentText] = useState('');
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -265,34 +265,29 @@ function App() {
         {activeTab === 'home' && (
           <>
             {/* HERO (Dark) */}
-            <div id="hero-section" className="relative bg-[#0a2540] text-white min-h-[100vh] flex items-center pt-20">
+            <div id="hero-section" className="relative bg-[#0a2540] text-white min-h-[100vh] flex items-center pt-28 md:pt-20 pb-20">
               <AnimatedBackground />
               <div className="relative z-10 max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
                  <div className="space-y-8 animate-fade-in-up">
                     <div className="inline-flex items-center gap-2 bg-[#ffffff15] px-4 py-1.5 rounded-full text-[#00d4ff] text-sm font-medium border border-white/5 backdrop-blur-md">
                         <Sparkles className="w-4 h-4" /><span>System Version 1.2 Live</span>
                     </div>
-                    
-                    {/* UPPDATERAD RUBRIK MED ANIMERAD GRADIENT */}
                     <h1 className="text-5xl sm:text-7xl font-bold tracking-tight leading-[1.1]">
                         Compliance <br/>
                         <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00d4ff] via-[#635bff] to-[#00d4ff] animate-text-gradient bg-[length:200%_auto]">
                           Engineered.
                         </span>
                     </h1>
-                    
-                    {/* UPPDATERAD UNDERRUBRIK MED TYPEWRITER */}
                     <HeroTypewriter 
                       text="The interactive demo on the right visualizes our real-time SHA-256 hashing and Merkle Tree construction." 
                       delay={30} 
                     />
-
-                    <div className="flex gap-4">
+                    <div className="flex flex-col sm:flex-row gap-4">
                         <button onClick={() => setActiveTab('create')} className="px-8 py-4 rounded-full bg-[#635bff] hover:bg-[#5449e3] font-bold shadow-lg text-white transition-transform hover:scale-105">Start Integration</button>
                         <button onClick={() => setActiveTab('pricing')} className="px-8 py-4 rounded-full bg-white/10 hover:bg-white/20 font-bold backdrop-blur-sm text-white border border-white/10">Enterprise Access</button>
                     </div>
                  </div>
-                 <div id="demo" className="flex justify-center"><PhoneDemo /></div>
+                 <div id="demo" className="flex justify-center w-full"><PhoneDemo /></div>
               </div>
             </div>
             
@@ -318,13 +313,14 @@ function App() {
           </>
         )}
 
-        {/* OTHER TABS */}
+        {/* ENTERPRISE FORM SECTION */}
         {activeTab === 'pricing' && (
            <div id="pricing" className="pt-32 px-6 pb-20 bg-slate-50 min-h-screen text-slate-900">
              <EnterpriseForm />
            </div>
         )}
 
+        {/* DASHBOARD SECTION */}
         {activeTab === 'dashboard' && (
           <div className="p-6 min-h-screen bg-slate-50 pt-32 text-slate-900">
              {!processor ? (
