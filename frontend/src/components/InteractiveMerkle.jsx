@@ -1,125 +1,132 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Database, Hash, FileJson, ShieldCheck, ArrowRight, Cpu } from 'lucide-react';
+import CryptoJS from 'crypto-js';
+import { Database, ArrowRight, Cpu, Lock, FileJson } from 'lucide-react';
 
 const InteractiveMerkle = () => {
-  const [step, setStep] = useState(0); // 0-3
+  const [inputValue, setInputValue] = useState('Login Event #1024');
+  const [processingStep, setProcessingStep] = useState(0); // 0: Input, 1: Salt, 2: Hash, 3: Done
+  const [finalHash, setFinalHash] = useState('');
 
-  const steps = [
-    { 
-      title: "1. Raw Event Data", 
-      desc: "The system captures the raw JSON payload from your API request.",
-      icon: FileJson,
-      viz: (
-        <div className="bg-slate-900 border border-slate-700 p-4 rounded-xl font-mono text-xs text-blue-300 w-48">
-          {"{"}<br/>&nbsp;"user": "id_123",<br/>&nbsp;"amount": 500<br/>{"}"}
-        </div>
-      )
-    },
-    { 
-      title: "2. Cryptographic Hashing", 
-      desc: "Data is salted and passed through SHA-256 to create a fixed-length signature.",
-      icon: Cpu,
-      viz: (
-        <div className="flex flex-col items-center">
-           <div className="w-16 h-16 rounded-full border-4 border-[#635bff] border-t-transparent animate-spin mb-4"></div>
-           <div className="bg-slate-800 px-3 py-1 rounded text-[10px] font-mono text-white">SHA-256 Processing</div>
-        </div>
-      )
-    },
-    { 
-      title: "3. Leaf Node Creation", 
-      desc: "The hash becomes a 'leaf' in the current Merkle Tree block.",
-      icon: Hash,
-      viz: (
-        <div className="flex gap-2">
-          <div className="w-12 h-12 bg-slate-800 rounded flex items-center justify-center text-slate-600 text-xs">H1</div>
-          <div className="w-12 h-12 bg-emerald-600 rounded flex items-center justify-center text-white font-bold text-xs shadow-[0_0_15px_#10b981]">H2</div>
-          <div className="w-12 h-12 bg-slate-800 rounded flex items-center justify-center text-slate-600 text-xs">H3</div>
-        </div>
-      )
-    },
-    { 
-      title: "4. Root Integrity Proof", 
-      desc: "The tree balances to a single Root Hash, which is anchored for immutability.",
-      icon: ShieldCheck,
-      viz: (
-        <div className="flex flex-col items-center">
-          <div className="w-16 h-16 bg-emerald-500 rounded-full flex items-center justify-center text-white font-bold shadow-lg mb-2">ROOT</div>
-          <div className="w-32 h-1 bg-slate-700 relative">
-             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-0.5 h-8 bg-slate-700"></div>
-          </div>
-          <div className="flex gap-8 mt-8">
-             <div className="w-10 h-10 bg-slate-800 rounded"></div>
-             <div className="w-10 h-10 bg-slate-800 rounded"></div>
-          </div>
-        </div>
-      )
-    }
-  ];
+  useEffect(() => {
+    // Reset animation when input changes
+    setProcessingStep(0);
+    const h = CryptoJS.SHA256(inputValue).toString();
+    
+    const t1 = setTimeout(() => setProcessingStep(1), 500);
+    const t2 = setTimeout(() => setProcessingStep(2), 1500);
+    const t3 = setTimeout(() => {
+      setProcessingStep(3);
+      setFinalHash(h);
+    }, 2500);
+
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+  }, [inputValue]);
 
   return (
-    <div className="py-24 bg-slate-950 border-t border-slate-800 relative overflow-hidden">
-      <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: 'radial-gradient(#334155 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
-
-      <div className="max-w-7xl mx-auto px-6 relative z-10">
+    <div className="py-24 bg-slate-50 border-t border-slate-200 relative overflow-hidden">
+      <div className="max-w-7xl mx-auto px-6">
+        
         <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-5xl font-bold text-white mb-4">How it Works</h2>
-          <p className="text-slate-400 max-w-2xl mx-auto text-lg">
-            Understanding the <span className="text-[#635bff]">Proof Engine</span> process.
+          <h2 className="text-4xl font-bold text-slate-900 mb-4">The Integrity Pipeline</h2>
+          <p className="text-slate-500 max-w-2xl mx-auto">
+            See how raw data travels through our cryptographic engine to become immutable.
           </p>
         </div>
 
-        <div className="grid lg:grid-cols-2 gap-12 items-center">
-          
-          {/* Controls (Left) */}
-          <div className="space-y-4">
-            {steps.map((s, i) => (
-              <div 
-                key={i} 
-                onClick={() => setStep(i)}
-                className={`p-6 rounded-2xl border-2 cursor-pointer transition-all duration-300 flex items-center gap-6 ${
-                  step === i 
-                    ? 'border-[#635bff] bg-[#635bff]/10 shadow-lg scale-105' 
-                    : 'border-slate-800 bg-slate-900/50 hover:bg-slate-800'
-                }`}
-              >
-                <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${step === i ? 'bg-[#635bff] text-white' : 'bg-slate-800 text-slate-500'}`}>
-                  <s.icon size={24} />
-                </div>
-                <div>
-                  <h4 className={`font-bold text-lg ${step === i ? 'text-white' : 'text-slate-400'}`}>{s.title}</h4>
-                  <p className={`text-sm mt-1 ${step === i ? 'text-blue-200' : 'text-slate-600'}`}>{s.desc}</p>
+        {/* THE PIPELINE VISUALIZATION */}
+        <div className="bg-[#0f172a] rounded-[2rem] p-8 lg:p-12 shadow-2xl overflow-hidden relative">
+          {/* Background Grid */}
+          <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: 'radial-gradient(#475569 1px, transparent 1px)', backgroundSize: '30px 30px' }}></div>
+
+          <div className="flex flex-col lg:flex-row items-center justify-between gap-8 relative z-10">
+            
+            {/* 1. INPUT */}
+            <div className="w-full lg:w-1/4 relative group">
+              <div className="absolute -top-10 left-0 text-xs font-bold text-slate-500 uppercase tracking-wider">1. Raw Data</div>
+              <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-lg group-hover:border-blue-500 transition-colors">
+                <FileJson className="w-8 h-8 text-blue-500 mb-4" />
+                <label className="text-xs text-slate-400">Enter Event Data:</label>
+                <input 
+                  type="text" 
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 mt-2 text-sm text-white font-mono focus:ring-1 focus:ring-blue-500 outline-none"
+                />
+              </div>
+              {/* Flow Line */}
+              <div className="hidden lg:block absolute top-1/2 -right-12 w-12 h-0.5 bg-slate-700">
+                <motion.div 
+                  animate={{ x: [0, 48], opacity: [0, 1, 0] }} 
+                  transition={{ duration: 1.5, repeat: Infinity }}
+                  className="w-4 h-1 bg-blue-500 absolute top-[-1px]"
+                />
+              </div>
+            </div>
+
+            {/* 2. PROCESSING ENGINE */}
+            <div className="w-full lg:w-1/4 relative">
+              <div className="absolute -top-10 left-0 text-xs font-bold text-slate-500 uppercase tracking-wider">2. Encryption Engine</div>
+              <div className="bg-slate-800/50 p-6 rounded-2xl border border-slate-700 flex flex-col items-center justify-center h-48 relative overflow-hidden">
+                <div className="absolute inset-0 bg-blue-500/5"></div>
+                <Cpu className={`w-12 h-12 mb-4 transition-colors duration-300 ${processingStep >= 1 ? 'text-purple-500 animate-pulse' : 'text-slate-600'}`} />
+                <div className="text-center">
+                  <div className={`text-xs font-bold mb-1 ${processingStep >= 1 ? 'text-white' : 'text-slate-500'}`}>
+                    {processingStep === 0 ? 'Waiting...' : processingStep === 1 ? 'Salting...' : 'Hashing...'}
+                  </div>
+                  <div className="w-32 h-1 bg-slate-700 rounded-full overflow-hidden">
+                    <motion.div 
+                      animate={{ width: processingStep >= 2 ? '100%' : processingStep === 1 ? '50%' : '0%' }}
+                      className="h-full bg-gradient-to-r from-blue-500 to-purple-500"
+                    />
+                  </div>
                 </div>
               </div>
-            ))}
-          </div>
-
-          {/* Visualization (Right) */}
-          <div className="bg-[#020617] rounded-[3rem] p-12 shadow-2xl border border-slate-800 h-[500px] flex flex-col items-center justify-center relative overflow-hidden">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-800 to-slate-950 opacity-50"></div>
-            
-            <div className="relative z-10">
-              <motion.div
-                key={step}
-                initial={{ opacity: 0, scale: 0.8, y: 20 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.8, y: -20 }}
-                transition={{ type: "spring", stiffness: 200, damping: 20 }}
-              >
-                {steps[step].viz}
-              </motion.div>
+              <div className="hidden lg:block absolute top-1/2 -right-12 w-12 h-0.5 bg-slate-700">
+                 <motion.div 
+                  animate={{ x: [0, 48], opacity: [0, 1, 0] }} 
+                  transition={{ duration: 1.5, repeat: Infinity, delay: 0.5 }}
+                  className="w-4 h-1 bg-purple-500 absolute top-[-1px]"
+                />
+              </div>
             </div>
 
-            {/* Progress Dots */}
-            <div className="absolute bottom-8 flex gap-3">
-              {steps.map((_, i) => (
-                <div key={i} className={`w-2 h-2 rounded-full transition-all duration-300 ${step === i ? 'bg-[#635bff] w-8' : 'bg-slate-700'}`} />
-              ))}
+            {/* 3. OUTPUT HASH */}
+            <div className="w-full lg:w-1/4 relative">
+              <div className="absolute -top-10 left-0 text-xs font-bold text-slate-500 uppercase tracking-wider">3. Immutable Hash</div>
+              <div className={`bg-slate-900 p-6 rounded-2xl border transition-all duration-500 ${processingStep === 3 ? 'border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.2)]' : 'border-slate-700'}`}>
+                <Lock className={`w-8 h-8 mb-4 ${processingStep === 3 ? 'text-emerald-500' : 'text-slate-600'}`} />
+                <div className="font-mono text-[10px] text-slate-400 break-all leading-relaxed">
+                  {processingStep === 3 ? finalHash : 'Calculating...'}
+                </div>
+                {processingStep === 3 && (
+                  <div className="mt-4 flex items-center gap-2 text-emerald-400 text-xs font-bold">
+                    <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+                    Ready for Ledger
+                  </div>
+                )}
+              </div>
+              <div className="hidden lg:block absolute top-1/2 -right-12 w-12 h-0.5 bg-slate-700">
+                 <motion.div 
+                  animate={{ x: [0, 48], opacity: [0, 1, 0] }} 
+                  transition={{ duration: 1.5, repeat: Infinity, delay: 1.0 }}
+                  className="w-4 h-1 bg-emerald-500 absolute top-[-1px]"
+                />
+              </div>
             </div>
-          </div>
 
+             {/* 4. STORAGE */}
+             <div className="w-full lg:w-1/4">
+              <div className="absolute -top-10 left-0 text-xs font-bold text-slate-500 uppercase tracking-wider">4. Storage</div>
+              <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 flex flex-col items-center justify-center h-48">
+                <Database className={`w-12 h-12 mb-2 transition-colors ${processingStep === 3 ? 'text-emerald-500' : 'text-slate-600'}`} />
+                <div className="text-xs text-slate-400">Merkle Tree Node</div>
+              </div>
+            </div>
+
+          </div>
         </div>
+
       </div>
     </div>
   );

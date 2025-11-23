@@ -1,16 +1,16 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: [
-    "./index.html", // Viktigt för Vite
+    "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
     extend: {
       colors: {
         stripe: {
-          bg: '#0a2540',     // Den klassiska mörkblå bakgrunden
-          accent: '#635bff', // Stripe lila
-          cyan: '#00d4ff',   // Glödande cyan
+          bg: '#0a2540',
+          accent: '#635bff',
+          cyan: '#00d4ff',
           dark: '#0f172a',
         }
       },
@@ -18,6 +18,9 @@ module.exports = {
         "beam": "beam 8s linear infinite",
         "pulse-glow": "pulse-glow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite",
         "draw": "draw 4s ease-in-out infinite",
+        // NYA ANIMATIONER HÄR
+        "text-gradient": "text-gradient 5s linear infinite",
+        "cursor-blink": "cursor-blink 1s step-start infinite",
       },
       keyframes: {
         beam: {
@@ -31,7 +34,22 @@ module.exports = {
         draw: {
           "0%": { strokeDashoffset: "1000" },
           "100%": { strokeDashoffset: "0" },
-        }
+        },
+        // NYA KEYFRAMES HÄR
+        "text-gradient": {
+          "0%, 100%": {
+            "background-size": "200% 200%",
+            "background-position": "left center"
+          },
+          "50%": {
+            "background-size": "200% 200%",
+            "background-position": "right center"
+          }
+        },
+        "cursor-blink": {
+          "0%, 100%": { opacity: "1" },
+          "50%": { opacity: "0" }
+        },
       },
     },
   },

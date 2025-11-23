@@ -4,503 +4,76 @@
 
 /* Grundinställningar */
 body {
-  background-color: white;
-  color: #0f172a; /* slate-900 */
-  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  background-color: #020617; /* Startar mörkt för Hero */
+  color: #f8fafc;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  -webkit-touch-callout: none;
-  -webkit-user-select: none;
-  -khtml-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
-  user-select: none;
+  overflow-x: hidden; /* Viktigt för animationer som går utanför skärmen */
 }
 
-/* Prevent text selection and copy */
-.prevent-select {
-  -webkit-user-select: none;
-  -ms-user-select: none;
-  user-select: none;
+/* GLOBAL THEME TRANSITIONS - DETTA ÄR NYCKELN TILL EFFEKTEN */
+main, body {
+  transition: background-color 0.8s cubic-bezier(0.16, 1, 0.3, 1), color 0.8s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Prevent image drag */
-img {
-  -webkit-user-drag: none;
-  -khtml-user-drag: none;
-  -moz-user-drag: none;
-  -o-user-drag: none;
-  user-drag: none;
+/* Theme Classes som App.jsx växlar mellan */
+.theme-dark {
+  background-color: #020617;
+  color: #f8fafc;
+  --theme-accent: #635bff;
 }
 
-/* Allow text selection in input fields and textareas */
-input, textarea {
-  -webkit-user-select: text;
-  -moz-user-select: text;
-  -ms-user-select: text;
-  user-select: text;
+.theme-light {
+  background-color: #ffffff;
+  color: #0f172a;
+  --theme-accent: #00d4ff;
 }
 
-/* Custom scrollbar for better UX */
-::-webkit-scrollbar {
-  width: 8px;
+/* Text som ska byta färg automatiskt */
+.adaptive-text {
+  transition: color 0.5s ease;
 }
+.theme-dark .adaptive-text { color: #f1f5f9; }
+.theme-light .adaptive-text { color: #1e293b; }
 
-::-webkit-scrollbar-track {
-  background: #f1f5f9;
-}
+/* Rubriker anpassning */
+.theme-dark h2, .theme-dark h3 { color: white; }
+.theme-light h2, .theme-light h3 { color: #0f172a; }
 
-::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 4px;
-}
+/* Scrollbar Styling */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #64748b; }
 
-::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
-}
-
-/* Mobile-specific protections */
-@media (max-width: 768px) {
-  input, textarea, select {
-    font-size: 16px !important;
-  }
-  
-  body {
-    overscroll-behavior-y: none;
-  }
-}
-
-/* Additional security measures */
-* {
-  -webkit-tap-highlight-color: transparent;
-}
-
-/* Disable text selection for most elements */
-div, p, h1, h2, h3, h4, h5, h6, span, button {
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
-  user-select: none;
-}
-
-/* --- STRIPE DESIGN SYSTEM MED GSAP --- */
-
-/* Background grid pattern */
-.bg-grid-slate-200 {
-  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='32' height='32' fill='none' stroke='%23e2e8f0'%3e%3cpath d='m0 0 32 32M32 0 0 32'/%3e%3c/svg%3e");
-}
-
-/* Floating animation */
+/* Animationer */
 @keyframes float {
-  0%, 100% {
-    transform: translateY(0px);
-  }
-  50% {
-    transform: translateY(-10px);
-  }
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
 }
+.animate-float { animation: float 3s ease-in-out infinite; }
 
-.animate-float {
-  animation: float 3s ease-in-out infinite;
+@keyframes float-slow {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(20px, 40px); }
 }
+.animate-float-slow { animation: float-slow 20s infinite ease-in-out; }
+.animate-float-delayed { animation: float-slow 25s infinite ease-in-out reverse; }
 
-/* Smooth scroll behavior */
-html {
-  scroll-behavior: smooth;
-}
-
-/* GSAP Animation States */
-.gsap-ready {
-  opacity: 0;
-  transform: translateY(30px);
-}
-
-/* Custom animations */
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.animate-fade-in-up {
-  animation: fadeInUp 0.6s ease-out;
-}
-
-/* Glass morphism effect */
-.glass {
-  background-color: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-/* Hover effects - UPDATED: Removed hover transforms for scroll-driven experience */
-.hover-lift {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* Custom button styles */
-.btn-primary {
-  background-color: #0f172a;
-  color: white;
-  padding-left: 1.5rem;
-  padding-right: 1.5rem;
-  padding-top: 0.75rem;
-  padding-bottom: 0.75rem;
-  border-radius: 0.75rem;
-  font-weight: 600;
-  transition: all 0.3s;
-}
-
-.btn-primary:hover {
-  background-color: #1e293b;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-  transform: translateY(-0.25rem);
-}
-
-.btn-secondary {
-  border: 2px solid #cbd5e1;
-  color: #374151;
-  padding-left: 1.5rem;
-  padding-right: 1.5rem;
-  padding-top: 0.75rem;
-  padding-bottom: 0.75rem;
-  border-radius: 0.75rem;
-  font-weight: 600;
-  transition: all 0.3s;
-}
-
-.btn-secondary:hover {
-  border-color: #94a3b8;
-  background-color: #f8fafc;
-}
-
-/* Feature card animations - UPDATED: Removed hover for scroll-driven */
-.feature-card {
-  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-/* Loading animation */
-@keyframes pulse-gentle {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
-}
-
-.animate-pulse-gentle {
-  animation: pulse-gentle 2s ease-in-out infinite;
-}
-
-/* Step-by-step animation */
-@keyframes slideInSteps {
-  0% { 
-    opacity: 0;
-    transform: translateX(-20px);
-  }
-  100% { 
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-.animate-step {
-  animation: slideInSteps 0.6s ease-out forwards;
-}
-
-/* SVG stroke animation for GSAP */
-.path-animated {
-  stroke-dasharray: 8 4;
-  stroke-dashoffset: 100;
-}
-
-/* Network connection animations */
-.network-connection {
-  stroke-dasharray: 8 4;
-  animation: dash-flow 2s linear infinite;
-}
-
-@keyframes dash-flow {
-  to {
-    stroke-dashoffset: -16;
-  }
-}
-
-/* Mobile optimizations */
-@media (max-width: 640px) {
-  .product-network {
-    height: 400px !important;
-  }
-}
-
-/* Print styles */
-@media print {
-  .no-print {
-    display: none !important;
-  }
-}
-
-/* Smooth transitions for all interactive elements */
-* {
-  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter;
-  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-  transition-duration: 150ms;
-}
-
-/* Enhanced focus states for accessibility */
-button:focus-visible,
-input:focus-visible,
-textarea:focus-visible {
-  outline: 2px solid #3b82f6;
-  outline-offset: 2px;
-}
-
-/* Custom scroll animations */
-.scroll-animate {
-  opacity: 0;
-  transform: translateY(30px);
-  transition: all 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-}
-
-.scroll-animate.visible {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-/* Product network specific styles - UPDATED for scroll-driven */
-.product-node {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.product-node.active {
-  transform: scale(1.1);
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-}
-
-/* Connection line styles */
-.connection-line {
-  stroke-dasharray: 8 4;
-  transition: all 0.5s ease-in-out;
-}
-
-.connection-line.active {
-  stroke-dasharray: 8 4;
-  animation: dash-flow 2s linear infinite;
-}
-
-/* GSAP ScrollTrigger debug markers (set markers: true for debugging) */
-.gsap-marker {
-  z-index: 1000;
-}
-
-/* Performance optimizations for animations */
-.will-change-transform {
-  will-change: transform;
-}
-
-.will-change-opacity {
-  will-change: opacity;
-}
-
-/* --- NEW: Scroll-driven active state animations --- */
-
-/* Active product glow animation */
-@keyframes active-glow {
-  0%, 100% {
-    opacity: 0.5;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.8;
-    transform: scale(1.02);
-  }
-}
-
-.product-node.active .active-glow {
-  animation: active-glow 2s ease-in-out infinite;
-}
-
-/* Smooth content transition for product changes */
-.product-content {
-  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.product-content.entering {
-  opacity: 0;
-  transform: translateY(20px);
-}
-
-.product-content.entered {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-/* Scroll progress indicator */
-.scroll-progress {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 3px;
-  background: linear-gradient(90deg, #10b981, #3b82f6, #8b5cf6, #f59e0b);
-  transform-origin: left;
-  z-index: 1000;
-}
-
-/* Enhanced grid background for better visual hierarchy */
-.enhanced-grid {
-  background-image: 
-    radial-gradient(circle at 1px 1px, rgba(0, 0, 0, 0.1) 1px, transparent 0),
-    radial-gradient(circle at 1px 1px, rgba(0, 0, 0, 0.05) 1px, transparent 0);
-  background-size: 20px 20px, 40px 40px;
-  background-position: 0 0, 10px 10px;
-}
-
-/* Smooth scroll snapping for better UX */
-.scroll-container {
-  scroll-behavior: smooth;
-}
-
-/* Product transition overlay */
-.product-transition-overlay {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    135deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.8) 50%,
-    transparent 100%
-  );
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.3s ease;
-}
-
-.product-transition-overlay.active {
-  opacity: 1;
-}
-
-/* Enhanced focus indicators for accessibility */
-.product-node:focus {
-  outline: 2px solid #3b82f6;
-  outline-offset: 2px;
-}
-
-/* Reduced motion support */
-@media (prefers-reduced-motion: reduce) {
-  * {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
-  
-  .animate-float,
-  .network-connection,
-  .active-glow {
-    animation: none !important;
-  }
-}
-
-/* High contrast mode support */
-@media (prefers-contrast: high) {
-  .product-node.active {
-    outline: 3px solid #000;
-    outline-offset: 2px;
-  }
-  
-  .connection-line.active {
-    stroke-width: 4px;
-  }
-}
-
-/* Dark mode support (if needed in future) */
-@media (prefers-color-scheme: dark) {
-  .dark .product-network {
-    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
-  }
-  
-  .dark .product-node.active {
-    background-color: #374151;
-  }
-}
-
-/* Gradient text effects - FIXED */
-.gradient-text {
-  background: linear-gradient(to right, #0f172a, #2563eb, #7c3aed);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-/* Additional mobile optimizations */
-@media (max-width: 768px) {
-  .mobile-optimized {
-    padding-left: 1rem;
-    padding-right: 1rem;
-  }
-  
-  .mobile-full-height {
-    min-height: 100vh;
-    height: auto;
-  }
-}
-
-/* Security overlay improvements */
-.security-overlay {
-  pointer-events: none;
-  z-index: 9999;
-}
-
-/* Animation performance improvements */
-@media (prefers-reduced-motion: no-preference) {
-  .performance-optimized {
-    transform: translateZ(0);
-    backface-visibility: hidden;
-    perspective: 1000px;
-  }
-}
-
-/* Custom selection colors */
-::selection {
-  background-color: rgba(59, 130, 246, 0.3);
-  color: inherit;
-}
-
-::-moz-selection {
-  background-color: rgba(59, 130, 246, 0.3);
-  color: inherit;
-}
-
-
-
-
-
-
-
-/* App.css tillägg */
-
-/* Flow animation for SVG lines */
-@keyframes flowAnimation {
-  from {
-    stroke-dashoffset: 100;
-  }
-  to {
-    stroke-dashoffset: 0;
-  }
-}
-
-.animate-flow {
-  animation: flowAnimation 1s linear infinite;
-}
-
-/* Spin slow for icons */
 @keyframes spinSlow {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
-.spin-slow {
-  animation: spinSlow 10s linear infinite;
-  transform-origin: center;
+.animate-spin-slow { animation: spinSlow 10s linear infinite; }
+
+/* Utilities */
+.prevent-select { user-select: none; }
+.glass {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
+
+/* Selection color */
+::selection { background-color: rgba(99, 102, 241, 0.3); color: white; }
