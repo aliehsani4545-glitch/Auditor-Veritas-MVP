@@ -2,6 +2,14 @@ import React from 'react';
 import { ShieldCheck, Mail, Github, Twitter } from 'lucide-react';
 
 const Footer = ({ onOpenPrivacy }) => {
+  
+  const scrollToSection = (id) => {
+    const element = document.getElementById(id);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   return (
     <footer className="bg-[#020617] border-t border-slate-800 text-slate-400 py-16">
       <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-4 gap-12">
@@ -23,10 +31,10 @@ const Footer = ({ onOpenPrivacy }) => {
         <div>
           <h4 className="text-white font-bold mb-4">Product</h4>
           <ul className="space-y-3 text-sm">
-            <li><a href="#" className="hover:text-[#635bff] transition">Features</a></li>
-            <li><a href="#" className="hover:text-[#635bff] transition">Integrations</a></li>
-            <li><a href="#" className="hover:text-[#635bff] transition">Enterprise</a></li>
-            <li><a href="#" className="hover:text-[#635bff] transition">Security</a></li>
+            <li><button onClick={() => scrollToSection('demo')} className="hover:text-[#635bff] transition text-left">Features & Demo</button></li>
+            <li><button onClick={() => scrollToSection('merkle')} className="hover:text-[#635bff] transition text-left">Cryptography</button></li>
+            <li><button onClick={() => scrollToSection('architecture')} className="hover:text-[#635bff] transition text-left">Infrastructure</button></li>
+            <li><button onClick={() => scrollToSection('pricing')} className="hover:text-[#635bff] transition text-left">Enterprise</button></li>
           </ul>
         </div>
 
