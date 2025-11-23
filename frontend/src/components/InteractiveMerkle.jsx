@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import CryptoJS from 'crypto-js';
-// FIX: Lade till ArrowDown här
-import { Database, ShieldAlert, ShieldCheck, RefreshCw, ArrowRight, ArrowDown } from 'lucide-react';
+// FIX: Lade till 'Hash' i listan här nere 👇
+import { Database, ShieldAlert, ShieldCheck, RefreshCw, ArrowRight, ArrowDown, Hash } from 'lucide-react';
 
 const InteractiveMerkle = () => {
   const [data, setData] = useState("User Login: 123");
@@ -137,6 +137,7 @@ const InteractiveMerkle = () => {
                   }`}
                 >
                   <span className="text-[10px] text-slate-400 uppercase mb-1">Leaf A</span>
+                  {/* HÄR ANVÄNDS HASH-IKONEN */}
                   <Hash className={`w-6 h-6 ${isTampered ? 'text-red-400' : 'text-blue-400'}`} />
                 </motion.div>
 
