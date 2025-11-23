@@ -17,19 +17,14 @@ import EnterpriseForm from './components/EnterpriseForm';
 import CodeIntegration from './components/CodeIntegration'; 
 import UseCases from './components/UseCases'; 
 
-import { 
-  ShieldCheck, Lock, Zap, LogOut, Menu, X, Sparkles, RotateCw, RefreshCw, Copy, Eye, EyeOff
-} from 'lucide-react';
+import { ShieldCheck, Lock, Zap, LogOut, Menu, X, Sparkles, RotateCw, RefreshCw, Copy, Eye, EyeOff } from 'lucide-react';
 
 if (typeof window !== 'undefined') gsap.registerPlugin(ScrollTrigger);
 
 const API_BASE_URL = 'https://auditor-veritas-mvp.onrender.com';
 
 const apiCall = async (endpoint, options = {}, apiKey = '') => {
-  const config = {
-    headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, ...options.headers },
-    ...options,
-  };
+  const config = { headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, ...options.headers }, ...options };
   if (options.body) config.body = JSON.stringify(options.body);
   const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
   if (response.status === 204) return null;
@@ -38,7 +33,6 @@ const apiCall = async (endpoint, options = {}, apiKey = '') => {
   return data;
 };
 
-// Typewriter Effect
 const HeroTypewriter = ({ text, delay = 50 }) => {
   const [currentText, setCurrentText] = useState('');
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -51,10 +45,9 @@ const HeroTypewriter = ({ text, delay = 50 }) => {
       return () => clearTimeout(timeout);
     }
   }, [currentIndex, delay, text]);
-  return <p className="text-sm md:text-lg text-slate-300 max-w-xl min-h-[3rem] md:min-h-[3.5rem] leading-relaxed">{currentText}<span className="inline-block w-0.5 h-4 md:h-5 ml-1 bg-[#00d4ff] align-middle animate-cursor-blink"></span></p>;
+  return <p className="text-base md:text-lg text-slate-300 max-w-xl min-h-[3rem] md:min-h-[3.5rem] leading-relaxed">{currentText}<span className="inline-block w-0.5 h-4 md:h-5 ml-1 bg-[#00d4ff] align-middle animate-cursor-blink"></span></p>;
 };
 
-// Key Rotation Component
 const KeyRotationComponent = ({ processor, currentKey, onKeyUpdate }) => {
   const [isRotating, setIsRotating] = useState(false);
   const [showKey, setShowKey] = useState(false);
@@ -128,7 +121,7 @@ function App() {
 
   const handleLogEvent = async (e) => {
     e.preventDefault();
-    if (stats.totalEvents >= 100) return alert("⚠️ Usage Limit Reached. Contact Sales.");
+    if (stats.totalEvents >= 100) return alert("⚠️ Usage Limit Reached (100 Events).\nPlease upgrade to Enterprise.");
     setIsLoading(true);
     try {
       let hashedUser = eventData.user_identifier;
@@ -145,7 +138,7 @@ function App() {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     return (
       <header className="fixed w-full top-0 z-50 bg-white/5 backdrop-blur-md border-b border-white/10 transition-all">
-        <div className="max-w-7xl mx-auto px-6 h-16 md:h-20 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 md:px-6 h-16 md:h-20 flex items-center justify-between">
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => setActiveTab('home')}>
             <div className="w-8 h-8 bg-[#635bff] rounded-lg flex items-center justify-center text-white"><ShieldCheck size={20}/></div>
             <span className="font-bold adaptive-text text-lg md:text-xl">Auditor Veritas</span>
@@ -181,7 +174,7 @@ function App() {
               <AnimatedBackground />
               <div className="relative z-10 max-w-7xl mx-auto px-4 md:px-6 grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
                  <div className="space-y-6 md:space-y-8 animate-fade-in-up pt-8 md:pt-0 text-center lg:text-left">
-                    <div className="inline-flex items-center gap-2 bg-[#ffffff15] px-3 py-1 rounded-full text-[#00d4ff] text-xs md:text-sm font-medium border border-white/5 backdrop-blur-md">
+                    <div className="inline-flex items-center gap-2 bg-[#ffffff15] px-3 py-1 rounded-full text-[#00d4ff] text-xs md:text-sm font-medium border border-white/5 backdrop-blur-md justify-center lg:justify-start">
                         <Sparkles className="w-3 h-3 md:w-4 md:h-4" /><span>System Version 1.2 Live</span>
                     </div>
                     <h1 className="text-4xl sm:text-5xl lg:text-7xl font-bold tracking-tight leading-[1.1]">Compliance <br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00d4ff] via-[#635bff] to-[#00d4ff] animate-text-gradient bg-[length:200%_auto]">Engineered.</span></h1>
@@ -196,15 +189,15 @@ function App() {
             </div>
             <div id="code-integration" className="bg-white"><CodeIntegration /></div>
             <div id="use-cases" className="bg-[#0a2540]"><UseCases /></div>
-            <div id="merkle" className="bg-slate-50 py-10 md:py-16"><IntegrityEngine /></div>
+            <div id="merkle" className="bg-slate-50 py-12 md:py-20"><IntegrityEngine /></div>
             <div id="architecture" className="bg-[#0f172a]"><CoreArchitecture /></div>
           </>
         )}
         
-        {activeTab === 'pricing' && <div id="pricing" className="pt-28 md:pt-32 px-4 md:px-6 pb-20 bg-slate-50 min-h-screen text-slate-900"><EnterpriseForm /></div>}
+        {activeTab === 'pricing' && <div id="pricing" className="pt-24 md:pt-32 px-4 md:px-6 pb-20 bg-slate-50 min-h-screen text-slate-900"><EnterpriseForm /></div>}
         
         {activeTab === 'dashboard' && (
-          <div className="p-4 md:p-6 min-h-screen bg-slate-50 pt-28 md:pt-32 text-slate-900">
+          <div className="p-4 md:p-6 min-h-screen bg-slate-50 pt-24 md:pt-32 text-slate-900">
              {!processor ? (
                <div className="max-w-md mx-auto bg-white p-8 md:p-10 rounded-3xl shadow-xl border border-slate-100 text-center animate-fade-in-up">
                  <div className="w-14 h-14 md:w-16 md:h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6"><Lock className="w-6 h-6 md:w-8 md:h-8 text-slate-400" /></div>
@@ -214,10 +207,12 @@ function App() {
                </div>
              ) : (
                <div className="max-w-6xl mx-auto animate-fade-in-up">
+                 {/* Dashboard Content (Same as before, but adjusted padding) */}
                  <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
                     <h1 className="text-2xl md:text-3xl font-bold text-slate-900">{processor.companyName}</h1>
                     <button onClick={() => setProcessor(null)} className="text-red-500 flex items-center gap-2 hover:bg-red-50 px-4 py-2 rounded-lg transition w-full md:w-auto justify-center"><LogOut size={18}/> Sign Out</button>
                  </div>
+                 {/* ... Stats & Forms ... */}
                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-8">
                     <div className="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-slate-100"><h3 className="font-bold text-slate-700 text-sm uppercase tracking-wide">Total Events</h3><p className="text-3xl font-bold text-slate-900 mt-2">{stats.totalEvents}</p></div>
                     <div className="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-slate-100"><h3 className="font-bold text-slate-700 text-sm uppercase tracking-wide">Usage</h3><p className="text-3xl font-bold text-slate-900 mt-2">{stats.monthlyEvents} / 100</p></div>
@@ -240,7 +235,7 @@ function App() {
           </div>
         )}
 
-        {activeTab === 'create' && <div className="pt-28 md:pt-32 p-4 md:p-6 flex justify-center bg-slate-50 min-h-screen text-slate-900"><CreateProcessor /></div>}
+        {activeTab === 'create' && <div className="pt-24 md:pt-32 p-4 md:p-6 flex justify-center bg-slate-50 min-h-screen text-slate-900"><CreateProcessor /></div>}
       </main>
 
       <Footer onOpenPrivacy={openPrivacy} />
