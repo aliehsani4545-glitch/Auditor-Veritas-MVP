@@ -1,113 +1,127 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Database, FileJson, Lock, GitMerge, Server, ShieldCheck, Cpu, Globe, ArrowRight, Zap } from 'lucide-react';
+import { Database, ShieldCheck, Link as LinkIcon, Hash, Check, Activity, Server } from 'lucide-react';
+
+const Block = ({ index, hash, prevHash, active }) => (
+  <motion.div 
+    layout
+    initial={{ opacity: 0, scale: 0.8 }}
+    animate={{ opacity: 1, scale: 1 }}
+    className={`relative flex-shrink-0 w-full md:w-64 p-4 rounded-xl border-2 transition-all duration-500 ${active ? 'bg-[#0a2540] border-[#00d4ff] shadow-[0_0_30px_rgba(0,212,255,0.15)]' : 'bg-white border-slate-200 opacity-60'}`}
+  >
+    <div className="flex justify-between items-center mb-3">
+      <div className="flex items-center gap-2">
+        <div className={`p-1.5 rounded-lg ${active ? 'bg-[#00d4ff]/20 text-[#00d4ff]' : 'bg-slate-100 text-slate-400'}`}>
+          <Database size={14} />
+        </div>
+        <span className={`text-xs font-bold ${active ? 'text-white' : 'text-slate-600'}`}>Block #{index}</span>
+      </div>
+      {active && <div className="w-2 h-2 bg-[#00d4ff] rounded-full animate-pulse"></div>}
+    </div>
+    
+    <div className="space-y-2 font-mono text-[10px]">
+      <div>
+        <span className="text-slate-500 block mb-0.5">Hash</span>
+        <div className={`truncate p-1.5 rounded ${active ? 'bg-slate-900 text-[#00d4ff]' : 'bg-slate-50 text-slate-400'}`}>{hash}</div>
+      </div>
+      <div>
+        <span className="text-slate-500 block mb-0.5 flex items-center gap-1"><LinkIcon size={8}/> Prev</span>
+        <div className={`truncate p-1.5 rounded ${active ? 'bg-slate-900 text-slate-400' : 'bg-slate-50 text-slate-300'}`}>{prevHash}</div>
+      </div>
+    </div>
+
+    {/* Connecting Line (Mobile: Bottom, Desktop: Right) */}
+    <div className="absolute left-1/2 -bottom-6 w-0.5 h-6 bg-slate-300 md:hidden transform -translate-x-1/2"></div>
+    <div className="absolute top-1/2 -right-6 w-6 h-0.5 bg-slate-300 hidden md:block transform -translate-y-1/2"></div>
+  </motion.div>
+);
 
 const IntegrityEngine = () => {
-  const [step, setStep] = useState(0); // 0: Idle, 1: Ingest, 2: Hash, 3: Merkle, 4: Ledger, 5: Complete
-  const [isAutoPlaying, setIsAutoPlaying] = useState(false);
-
-  // Automatisk sekvens-loop
-  useEffect(() => {
-    let timer;
-    if (isAutoPlaying) {
-      timer = setTimeout(() => {
-        setStep(1); 
-        setTimeout(() => setStep(2), 2000); 
-        setTimeout(() => setStep(3), 4000); 
-        setTimeout(() => setStep(4), 6000); 
-        setTimeout(() => { setStep(5); setIsAutoPlaying(false); }, 8000); 
-      }, 100);
-    }
-    return () => clearTimeout(timer);
-  }, [isAutoPlaying]);
+  const [blocks, setBlocks] = useState([
+    { hash: "0x8f92...a1", prevHash: "0x0000...00" },
+    { hash: "0x7b21...c4", prevHash: "0x8f92...a1" }
+  ]);
 
   useEffect(() => {
-    setIsAutoPlaying(true);
+    const interval = setInterval(() => {
+      setBlocks(prev => {
+        const lastBlock = prev[prev.length - 1];
+        const newHash = "0x" + Math.random().toString(16).substr(2, 8) + "...";
+        const newBlock = { hash: newHash, prevHash: lastBlock.hash };
+        // Håll max 3 block synliga för snygghet
+        const newChain = [...prev, newBlock];
+        if (newChain.length > 3) newChain.shift();
+        return newChain;
+      });
+    }, 3000);
+    return () => clearInterval(interval);
   }, []);
 
-  const restart = () => {
-    setStep(0);
-    setTimeout(() => setIsAutoPlaying(true), 100);
-  };
-
-  // Nodernas positioner (0-100 koordinater)
-  const nodes = [
-    { id: 1, label: "Event Source", icon: Globe, x: 10, y: 50, color: "#3b82f6" }, 
-    { id: 2, label: "Ingestion API", icon: Server, x: 30, y: 20, color: "#8b5cf6" }, 
-    { id: 3, label: "SHA-256 Engine", icon: Cpu, x: 50, y: 50, color: "#ec4899" },   
-    { id: 4, label: "Merkle Tree", icon: GitMerge, x: 70, y: 20, color: "#10b981" }, 
-    { id: 5, label: "Immutable Ledger", icon: Database, x: 90, y: 50, color: "#00d4ff" }, 
-  ];
-
   return (
-    <div className="py-24 bg-[#020617] relative overflow-hidden border-t border-slate-800">
-      <div className="absolute inset-0 opacity-20 pointer-events-none" 
-           style={{ 
-             backgroundImage: 'linear-gradient(rgba(59, 130, 246, 0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(59, 130, 246, 0.1) 1px, transparent 1px)', 
-             backgroundSize: '40px 40px' 
-           }}>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-6 relative z-10">
-        <div className="text-center mb-12">
-          <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
-            The Integrity Engine
+    <div className="py-16 md:py-24 bg-slate-50 overflow-hidden relative">
+      <div className="max-w-7xl mx-auto px-6">
+        
+        <div className="text-center max-w-2xl mx-auto mb-12">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white border border-slate-200 text-xs font-bold text-slate-600 uppercase tracking-wide mb-4">
+             <ShieldCheck size={14} className="text-[#00d4ff]" /> Integrity Engine
+          </div>
+          <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
+            Mathematically Proven History.
           </h2>
-          <p className="text-slate-400 max-w-2xl mx-auto text-lg">
-            Visualizing the lifecycle of a single audit event. From raw JSON to immutable proof.
+          <p className="text-slate-500 text-sm md:text-base">
+            We use a Merkle Tree structure to link every event. 
+            Validating the chain takes milliseconds; forging it is impossible.
           </p>
         </div>
 
-        <div className="relative h-[600px] bg-slate-900/50 rounded-[3rem] border border-slate-800 shadow-2xl overflow-hidden backdrop-blur-sm">
+        <div className="grid lg:grid-cols-2 gap-12 items-center">
           
-          {/* FIXAT: viewBox="0 0 100 100" gör att vi kan använda 0-100 koordinater utan % */}
-          <svg className="absolute inset-0 w-full h-full pointer-events-none z-0" viewBox="0 0 100 100" preserveAspectRatio="none">
-            <defs>
-              <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="#3b82f6"/><stop offset="100%" stopColor="#8b5cf6"/></linearGradient>
-              <linearGradient id="grad2" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="#8b5cf6"/><stop offset="100%" stopColor="#ec4899"/></linearGradient>
-              <linearGradient id="grad3" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="#ec4899"/><stop offset="100%" stopColor="#10b981"/></linearGradient>
-              <linearGradient id="grad4" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="#10b981"/><stop offset="100%" stopColor="#00d4ff"/></linearGradient>
-            </defs>
+          {/* LEFT: Visualizer */}
+          <div className="flex flex-col md:flex-row gap-6 justify-center items-center md:items-stretch relative z-10">
+             <AnimatePresence mode='popLayout'>
+               {blocks.map((block, i) => (
+                 <Block 
+                   key={block.hash} 
+                   index={9420 + i} 
+                   {...block} 
+                   active={i === blocks.length - 1} 
+                 />
+               ))}
+             </AnimatePresence>
+          </div>
 
-            <ConnectionPath start={{x: 10, y: 50}} end={{x: 30, y: 20}} active={step >= 1} color="url(#grad1)" />
-            <ConnectionPath start={{x: 30, y: 20}} end={{x: 50, y: 50}} active={step >= 2} color="url(#grad2)" />
-            <ConnectionPath start={{x: 50, y: 50}} end={{x: 70, y: 20}} active={step >= 3} color="url(#grad3)" />
-            <ConnectionPath start={{x: 70, y: 20}} end={{x: 90, y: 50}} active={step >= 4} color="url(#grad4)" />
-          </svg>
-
-          {nodes.map((node, i) => (
-            <FloatingNode 
-              key={node.id} 
-              data={node} 
-              isActive={step >= i + 1} 
-              isCurrent={step === i + 1}
-            />
-          ))}
-
-          <div className="absolute bottom-0 left-0 right-0 bg-slate-950/90 border-t border-slate-800 p-6 md:p-8 backdrop-blur-md transition-all duration-500 z-20">
-            <AnimatePresence mode='wait'>
-              {step === 0 && <InfoCard key="0" title="System Ready" text="Waiting for event trigger..." sub="Idle" icon={Zap} color="text-slate-500" />}
-              {step === 1 && <InfoCard key="1" title="Data Ingestion" text="Receiving raw JSON payload via secure API gateway." sub="Latency: 12ms" icon={FileJson} color="text-blue-400" />}
-              {step === 2 && <InfoCard key="2" title="Cryptographic Hashing" text="Applying SHA-256 algorithm with unique salt." sub="Entropy: High" icon={Lock} color="text-pink-400" />}
-              {step === 3 && <InfoCard key="3" title="Merkle Tree Construction" text="Hash added as leaf node. Root hash recalculated." sub="Tree Depth: 4" icon={GitMerge} color="text-emerald-400" />}
-              {step === 4 && <InfoCard key="4" title="Ledger Anchor" text="Root hash permanently written to distributed ledger." sub="Finality: Instant" icon={Database} color="text-cyan-400" />}
-              {step === 5 && <InfoCard key="5" title="Audit Complete" text="Event is now immutable and verifiable forever." sub="Status: Secured" icon={ShieldCheck} color="text-green-400" />}
-            </AnimatePresence>
-
-            <div className="absolute right-8 top-1/2 -translate-y-1/2 hidden md:block">
-               <button 
-                 onClick={restart}
-                 disabled={isAutoPlaying}
-                 className={`px-6 py-3 rounded-xl font-bold text-sm transition-all flex items-center gap-2 ${
-                   isAutoPlaying 
-                     ? 'bg-slate-800 text-slate-500 cursor-wait' 
-                     : 'bg-white text-slate-900 hover:bg-blue-50 hover:shadow-lg hover:shadow-blue-500/20'
-                 }`}
-               >
-                 {isAutoPlaying ? 'Processing...' : 'Replay Simulation'}
-                 {!isAutoPlaying && <ArrowRight size={16} />}
-               </button>
-            </div>
+          {/* RIGHT: Status Panel */}
+          <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-lg">
+             <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100">
+                <h3 className="font-bold text-slate-900 flex items-center gap-2">
+                  <Activity size={18} className="text-emerald-500" /> Live Verification
+                </h3>
+                <span className="bg-emerald-50 text-emerald-700 text-xs font-bold px-2 py-1 rounded flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span> Active
+                </span>
+             </div>
+             
+             <div className="space-y-4">
+                <div className="flex justify-between items-center text-sm">
+                   <span className="text-slate-500">Consistency Check</span>
+                   <span className="text-slate-900 font-mono font-bold flex items-center gap-2">
+                     12ms <Check size={14} className="text-emerald-500"/>
+                   </span>
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                   <span className="text-slate-500">Root Hash Anchor</span>
+                   <span className="text-slate-900 font-mono font-bold flex items-center gap-2">
+                     Eth Mainnet <Server size={14} className="text-slate-400"/>
+                   </span>
+                </div>
+                
+                {/* Terminal Look */}
+                <div className="mt-4 bg-slate-900 rounded-lg p-3 font-mono text-[10px] text-slate-300 leading-relaxed">
+                   <p>> verifying_chain(0x8f...)</p>
+                   <p className="text-emerald-400">> integrity_ok: true</p>
+                   <p>> next_block_candidate: ready</p>
+                </div>
+             </div>
           </div>
 
         </div>
@@ -115,91 +129,5 @@ const IntegrityEngine = () => {
     </div>
   );
 };
-
-// --- SUB COMPONENTS ---
-
-const ConnectionPath = ({ start, end, active, color }) => {
-  // FIXAT: Inga %-tecken här, vi använder rena koordinater mot viewBox
-  return (
-    <motion.path
-      d={`M ${start.x} ${start.y} Q ${(start.x+end.x)/2} ${(start.y+end.y)/2 + (start.y > end.y ? 20 : -20)} ${end.x} ${end.y}`}
-      fill="none"
-      stroke={active ? color : "#1e293b"}
-      strokeWidth={active ? "0.5" : "0.2"} // Tunna snygga linjer (relativt till viewBox)
-      vectorEffect="non-scaling-stroke" // Håller linjen skarp oavsett skalning
-      strokeDasharray={active ? "none" : "2 2"}
-      strokeLinecap="round"
-      initial={{ pathLength: 0, opacity: 0.2 }}
-      animate={{ 
-        pathLength: 1, 
-        opacity: 1,
-      }}
-      transition={{ 
-        duration: active ? 1.5 : 0, 
-        ease: "easeInOut" 
-      }}
-    />
-  );
-};
-
-const FloatingNode = ({ data, isActive, isCurrent }) => {
-  return (
-    <motion.div
-      className="absolute transform -translate-x-1/2 -translate-y-1/2 z-20"
-      style={{ left: `${data.x}%`, top: `${data.y}%` }}
-      animate={{ 
-        y: [0, -10, 0],
-      }}
-      transition={{ 
-        duration: 4, 
-        repeat: Infinity, 
-        ease: "easeInOut",
-        delay: data.id * 0.5 
-      }}
-    >
-      {isCurrent && (
-        <motion.div 
-          className="absolute inset-0 rounded-2xl opacity-50 blur-xl"
-          style={{ backgroundColor: data.color }}
-          animate={{ scale: [1, 1.5, 1], opacity: [0.8, 0, 0.8] }}
-          transition={{ duration: 1.5, repeat: Infinity }}
-        />
-      )}
-
-      <motion.div 
-        className={`relative w-16 h-16 md:w-24 md:h-24 bg-[#0f172a] rounded-2xl border-2 flex flex-col items-center justify-center shadow-2xl transition-all duration-500`}
-        animate={{
-            scale: isActive ? 1 : 0.9,
-            borderColor: isActive ? data.color : '#1e293b',
-            opacity: isActive ? 1 : 0.5,
-            filter: isActive ? 'grayscale(0%)' : 'grayscale(100%)'
-        }}
-      >
-        <data.icon className={`w-6 h-6 md:w-10 md:h-10 mb-2 transition-colors duration-300`} style={{ color: isActive ? data.color : '#64748b' }} />
-        <span className={`text-[8px] md:text-[10px] font-bold uppercase tracking-wider ${isActive ? 'text-white' : 'text-slate-600'}`}>
-          {data.label}
-        </span>
-      </motion.div>
-    </motion.div>
-  );
-};
-
-const InfoCard = ({ title, text, sub, icon: Icon, color }) => (
-  <motion.div 
-    initial={{ opacity: 0, y: 10 }}
-    animate={{ opacity: 1, y: 0 }}
-    exit={{ opacity: 0, y: -10 }}
-    className="flex items-center gap-6 max-w-2xl"
-  >
-    <div className={`p-4 rounded-2xl bg-slate-900 border border-slate-800 ${color}`}>
-      <Icon size={32} />
-    </div>
-    <div>
-      <div className={`text-xs font-bold mb-1 uppercase tracking-widest ${color}`}>{sub}</div>
-      <h3 className="text-2xl font-bold text-white mb-2">{title}</h3>
-      <p className="text-slate-400 text-sm md:text-base leading-relaxed">{text}</p>
-    </div>
-  </motion.div>
-);
 
 export default IntegrityEngine;
