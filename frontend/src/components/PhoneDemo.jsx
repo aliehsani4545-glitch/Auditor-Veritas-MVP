@@ -37,7 +37,7 @@ const PhoneDemo = () => {
             <ConnectionLine x1={50} y1={250} x2={190} y2={375} color="#3b82f6" delay={0.5} />
 
             {/* Right Node: Server */}
-            <FloatingConstructor icon={Server} x={140} y={-50} color="#8b5cf6" label="Frankfurt" delay={0.2} />
+            <FloatingConstructor icon={Server} x={140} y={-50} color="#8b5cf6" label="Ireland EU" delay={0.2} />
             <ConnectionLine x1={330} y1={300} x2={190} y2={375} color="#8b5cf6" delay={0.7} />
 
             {/* Bottom Node: Security */}
