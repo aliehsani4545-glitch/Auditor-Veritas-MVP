@@ -17,14 +17,19 @@ import EnterpriseForm from './components/EnterpriseForm';
 import CodeIntegration from './components/CodeIntegration'; 
 import UseCases from './components/UseCases'; 
 
-import { ShieldCheck, Lock, Zap, LogOut, Menu, X, Sparkles, RotateCw, RefreshCw, Copy, Eye, EyeOff } from 'lucide-react';
+import { 
+  ShieldCheck, Lock, Zap, LogOut, Menu, X, Sparkles, RotateCw, RefreshCw, Copy, Eye, EyeOff
+} from 'lucide-react';
 
 if (typeof window !== 'undefined') gsap.registerPlugin(ScrollTrigger);
 
 const API_BASE_URL = 'https://auditor-veritas-mvp.onrender.com';
 
 const apiCall = async (endpoint, options = {}, apiKey = '') => {
-  const config = { headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, ...options.headers }, ...options };
+  const config = {
+    headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, ...options.headers },
+    ...options,
+  };
   if (options.body) config.body = JSON.stringify(options.body);
   const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
   if (response.status === 204) return null;
@@ -46,9 +51,10 @@ const HeroTypewriter = ({ text, delay = 50 }) => {
       return () => clearTimeout(timeout);
     }
   }, [currentIndex, delay, text]);
-  return <p className="text-base md:text-lg text-slate-300 max-w-xl min-h-[3.5rem] leading-relaxed">{currentText}<span className="inline-block w-0.5 h-5 ml-1 bg-[#00d4ff] align-middle animate-cursor-blink"></span></p>;
+  return <p className="text-sm md:text-lg text-slate-300 max-w-xl min-h-[3rem] md:min-h-[3.5rem] leading-relaxed">{currentText}<span className="inline-block w-0.5 h-4 md:h-5 ml-1 bg-[#00d4ff] align-middle animate-cursor-blink"></span></p>;
 };
 
+// Key Rotation Component
 const KeyRotationComponent = ({ processor, currentKey, onKeyUpdate }) => {
   const [isRotating, setIsRotating] = useState(false);
   const [showKey, setShowKey] = useState(false);
@@ -63,7 +69,7 @@ const KeyRotationComponent = ({ processor, currentKey, onKeyUpdate }) => {
     finally { setIsRotating(false); }
   };
   return (
-    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+    <div className="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-slate-200">
       <div className="flex justify-between mb-4"><h3 className="font-bold flex items-center gap-2 text-slate-800 text-sm"><RotateCw className="w-4 h-4 text-purple-600"/> Key Rotation</h3><span className="bg-emerald-50 text-emerald-700 text-[10px] px-2 py-1 rounded font-bold uppercase">Active</span></div>
       <div className="relative mb-4">
         <div className="bg-slate-50 p-3 rounded-lg text-xs font-mono text-slate-600 break-all border border-slate-100 pr-16 min-h-[40px] flex items-center">{showKey ? currentKey : '••••••••••••••••••'}</div>
@@ -94,15 +100,46 @@ function App() {
 
   useEffect(() => {
     if (activeTab !== 'home') { setTheme('theme-light'); return; }
-    const sections = [{ id: 'hero-section', theme: 'theme-dark' }, { id: 'code-integration', theme: 'theme-light' }, { id: 'use-cases', theme: 'theme-dark' }, { id: 'merkle', theme: 'theme-light' }, { id: 'architecture', theme: 'theme-dark' }];
+    const sections = [
+      { id: 'hero-section', theme: 'theme-dark' },
+      { id: 'code-integration', theme: 'theme-light' },
+      { id: 'use-cases', theme: 'theme-dark' }, 
+      { id: 'merkle', theme: 'theme-light' }, 
+      { id: 'architecture', theme: 'theme-dark' } 
+    ];
     const triggers = sections.map(section => ScrollTrigger.create({ trigger: `#${section.id}`, start: "top center", end: "bottom center", onEnter: () => setTheme(section.theme), onEnterBack: () => setTheme(section.theme) }));
     return () => triggers.forEach(t => t.kill());
   }, [activeTab]);
 
   const handlePrivacyAccept = () => { localStorage.setItem('privacyAccepted_v11', 'true'); setPrivacyAccepted(true); };
   const openPrivacy = () => setShowFooterPrivacy(true);
-  const fetchDashboard = async () => { /* Implementation same as before */ };
-  const handleLogEvent = async (e) => { /* Implementation same as before */ };
+  
+  const fetchDashboard = async () => {
+    if (!apiKey) return alert("Please enter API Key");
+    setIsLoading(true);
+    try {
+      const data = await apiCall('/api/dashboard', { method: 'GET' }, apiKey);
+      setProcessor(data.processor || { companyName: 'Connected Node' });
+      setStats(data.stats || { totalEvents: 0, monthlyEvents: 0 });
+      localStorage.setItem('auditorApiKey', apiKey);
+    } catch (error) { alert(`Connection Failed: ${error.message}`); } 
+    finally { setIsLoading(false); }
+  };
+
+  const handleLogEvent = async (e) => {
+    e.preventDefault();
+    if (stats.totalEvents >= 100) return alert("⚠️ Usage Limit Reached. Contact Sales.");
+    setIsLoading(true);
+    try {
+      let hashedUser = eventData.user_identifier;
+      if (eventData.user_identifier) hashedUser = CryptoJS.SHA256(eventData.user_identifier).toString();
+      await apiCall('/api/events', { method: 'POST', body: { ...eventData, user_identifier: hashedUser, event_data: JSON.parse(eventData.event_data) } }, apiKey);
+      alert('Event Logged!');
+      setStats(prev => ({...prev, totalEvents: prev.totalEvents + 1}));
+      setEventData({ event_type: '', event_data: '{}', user_identifier: '' });
+    } catch (error) { alert(`Error: ${error.message}`); } 
+    finally { setIsLoading(false); }
+  };
 
   const Navbar = ({ activeTab, setActiveTab }) => {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -121,9 +158,9 @@ function App() {
           <button className="md:hidden adaptive-text" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>{mobileMenuOpen ? <X /> : <Menu />}</button>
         </div>
         {mobileMenuOpen && (
-          <div className="absolute top-16 left-0 w-full bg-slate-900 border-b border-slate-800 p-6 flex flex-col gap-4 md:hidden shadow-xl">
+          <div className="absolute top-16 left-0 w-full bg-slate-900 border-b border-slate-800 p-6 flex flex-col gap-4 md:hidden shadow-xl h-screen">
              {['home', 'create', 'pricing', 'dashboard'].map((tab) => (
-               <button key={tab} onClick={() => {setActiveTab(tab); setMobileMenuOpen(false)}} className="text-left font-bold text-white capitalize py-2">{tab === 'pricing' ? 'Enterprise' : tab}</button>
+               <button key={tab} onClick={() => {setActiveTab(tab); setMobileMenuOpen(false)}} className="text-left font-bold text-white capitalize py-3 text-lg border-b border-slate-800">{tab === 'pricing' ? 'Enterprise' : tab}</button>
              ))}
           </div>
         )}
@@ -140,34 +177,34 @@ function App() {
       <main className="flex-1 pt-0">
         {activeTab === 'home' && (
           <>
-            <div id="hero-section" className="relative bg-[#0a2540] text-white min-h-[100vh] flex items-center pt-24 pb-12 md:pt-20 md:pb-20">
+            <div id="hero-section" className="relative bg-[#0a2540] text-white min-h-[100vh] flex items-center pt-24 pb-12 md:pt-20 md:pb-20 overflow-hidden">
               <AnimatedBackground />
-              <div className="relative z-10 max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-                 <div className="space-y-6 md:space-y-8 animate-fade-in-up">
+              <div className="relative z-10 max-w-7xl mx-auto px-4 md:px-6 grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
+                 <div className="space-y-6 md:space-y-8 animate-fade-in-up pt-8 md:pt-0 text-center lg:text-left">
                     <div className="inline-flex items-center gap-2 bg-[#ffffff15] px-3 py-1 rounded-full text-[#00d4ff] text-xs md:text-sm font-medium border border-white/5 backdrop-blur-md">
                         <Sparkles className="w-3 h-3 md:w-4 md:h-4" /><span>System Version 1.2 Live</span>
                     </div>
-                    <h1 className="text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.1]">Compliance <br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00d4ff] via-[#635bff] to-[#00d4ff] animate-text-gradient bg-[length:200%_auto]">Engineered.</span></h1>
-                    <HeroTypewriter text="The interactive demo on the right visualizes our real-time SHA-256 hashing and Merkle Tree construction." delay={30} />
-                    <div className="flex flex-col sm:flex-row gap-3 md:gap-4">
+                    <h1 className="text-4xl sm:text-5xl lg:text-7xl font-bold tracking-tight leading-[1.1]">Compliance <br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00d4ff] via-[#635bff] to-[#00d4ff] animate-text-gradient bg-[length:200%_auto]">Engineered.</span></h1>
+                    <div className="flex justify-center lg:justify-start"><HeroTypewriter text="The interactive demo on the right visualizes our real-time SHA-256 hashing and Merkle Tree construction." delay={30} /></div>
+                    <div className="flex flex-col sm:flex-row gap-3 md:gap-4 justify-center lg:justify-start">
                         <button onClick={() => setActiveTab('create')} className="px-6 py-3 md:px-8 md:py-4 rounded-full bg-[#635bff] hover:bg-[#5449e3] font-bold shadow-lg text-white transition-transform hover:scale-105 text-sm md:text-base">Start Integration</button>
                         <button onClick={() => setActiveTab('pricing')} className="px-6 py-3 md:px-8 md:py-4 rounded-full bg-white/10 hover:bg-white/20 font-bold backdrop-blur-sm text-white border border-white/10 text-sm md:text-base">Enterprise Access</button>
                     </div>
                  </div>
-                 <div id="demo" className="flex justify-center w-full mt-8 lg:mt-0"><PhoneDemo /></div>
+                 <div id="demo" className="flex justify-center w-full mt-4 lg:mt-0"><PhoneDemo /></div>
               </div>
             </div>
             <div id="code-integration" className="bg-white"><CodeIntegration /></div>
             <div id="use-cases" className="bg-[#0a2540]"><UseCases /></div>
-            <div id="merkle" className="bg-slate-50 py-10"><IntegrityEngine /></div>
+            <div id="merkle" className="bg-slate-50 py-10 md:py-16"><IntegrityEngine /></div>
             <div id="architecture" className="bg-[#0f172a]"><CoreArchitecture /></div>
           </>
         )}
         
-        {activeTab === 'pricing' && <div id="pricing" className="pt-24 md:pt-32 px-4 md:px-6 pb-20 bg-slate-50 min-h-screen text-slate-900"><EnterpriseForm /></div>}
+        {activeTab === 'pricing' && <div id="pricing" className="pt-28 md:pt-32 px-4 md:px-6 pb-20 bg-slate-50 min-h-screen text-slate-900"><EnterpriseForm /></div>}
         
         {activeTab === 'dashboard' && (
-          <div className="p-4 md:p-6 min-h-screen bg-slate-50 pt-24 md:pt-32 text-slate-900">
+          <div className="p-4 md:p-6 min-h-screen bg-slate-50 pt-28 md:pt-32 text-slate-900">
              {!processor ? (
                <div className="max-w-md mx-auto bg-white p-8 md:p-10 rounded-3xl shadow-xl border border-slate-100 text-center animate-fade-in-up">
                  <div className="w-14 h-14 md:w-16 md:h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6"><Lock className="w-6 h-6 md:w-8 md:h-8 text-slate-400" /></div>
@@ -203,7 +240,7 @@ function App() {
           </div>
         )}
 
-        {activeTab === 'create' && <div className="pt-24 md:pt-32 p-4 md:p-6 flex justify-center bg-slate-50 min-h-screen text-slate-900"><CreateProcessor /></div>}
+        {activeTab === 'create' && <div className="pt-28 md:pt-32 p-4 md:p-6 flex justify-center bg-slate-50 min-h-screen text-slate-900"><CreateProcessor /></div>}
       </main>
 
       <Footer onOpenPrivacy={openPrivacy} />
