@@ -1,7 +1,8 @@
 import React from 'react';
-import { Activity, Search, MoreHorizontal, CheckCircle2, AlertCircle, RefreshCw, Zap, Lock, Clock } from 'lucide-react';
+// FIX: Lade till 'Key' i import-listan här
+import { Activity, Search, MoreHorizontal, CheckCircle2, AlertCircle, RefreshCw, Zap, Lock, Clock, Key } from 'lucide-react';
 
-// --- REAL-TIME CHART COMPONENT ---
+// --- SUB-COMPONENT: ACTIVITY CHART (Custom SVG) ---
 const LiveActivityChart = ({ dataPoints = [] }) => {
   // Om ingen data finns, visa en baslinje
   const points = dataPoints.length > 0 ? dataPoints : [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
@@ -38,7 +39,7 @@ const LiveActivityChart = ({ dataPoints = [] }) => {
   );
 };
 
-// --- REAL LOGS TABLE ---
+// --- SUB-COMPONENT: RECENT LOGS TABLE ---
 const RecentLogsTable = ({ logs = [] }) => {
   if (logs.length === 0) {
     return (
