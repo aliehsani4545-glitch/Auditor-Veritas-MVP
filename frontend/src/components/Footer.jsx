@@ -53,7 +53,7 @@ const Footer = ({ onOpenPrivacy }) => {
         </div>
 
         <div className="pt-8 border-t border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4">
-          <p>© {new Date().getFullYear()} Auditor Veritas AB. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} Auditor Veritas - HazarNode. All rights reserved.</p>
           <div className="flex items-center gap-2 text-xs"><div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>System Operational</div>
         </div>
       </div>

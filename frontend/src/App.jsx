@@ -5,14 +5,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
-// --- NYA KOMPONENTER ---
 import InteractiveFeatureSection from './components/InteractiveFeatureSection'; 
 import CoreArchitecture from './components/CoreArchitecture'; 
 import IntegrityEngine from './components/IntegrityEngine';
 import UseCases from './components/UseCases';
 import { InteractiveNeuralNetwork } from './components/SharedBackgrounds'; 
 
-// --- EXISTERANDE KOMPONENTER ---
 import AnimatedBackground from './components/AnimatedBackground'; 
 import PrivacyPage from './components/PrivacyPage'; 
 import CreateProcessor from './components/CreateProcessor'; 
@@ -20,14 +18,12 @@ import Footer from './components/Footer';
 import EnterpriseForm from './components/EnterpriseForm';
 import CodeIntegration from './components/CodeIntegration'; 
 
-// ICONS
 import { ShieldCheck, Lock, Zap, LogOut, Menu, X, Sparkles, RotateCw, RefreshCw, Copy, Eye, Cookie, Server } from 'lucide-react';
 
 if (typeof window !== 'undefined') gsap.registerPlugin(ScrollTrigger);
 
 const API_BASE_URL = 'https://auditor-veritas-mvp.onrender.com';
 
-// --- API HELPER ---
 const apiCall = async (endpoint, options = {}, apiKey = '') => {
   const config = { headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, ...options.headers }, ...options };
   if (options.body) config.body = JSON.stringify(options.body);
@@ -38,7 +34,6 @@ const apiCall = async (endpoint, options = {}, apiKey = '') => {
   return data;
 };
 
-// --- MICRO COMPONENTS ---
 const HeroTypewriter = ({ text, delay = 30 }) => {
   const [currentText, setCurrentText] = useState('');
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -79,7 +74,6 @@ const KeyRotationComponent = ({ processor, currentKey, onKeyUpdate }) => {
   );
 };
 
-// --- NAVBAR COMPONENT ---
 const Navbar = ({ activeTab, setActiveTab }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
@@ -90,7 +84,6 @@ const Navbar = ({ activeTab, setActiveTab }) => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Logic: Home = Transparent top (unless scrolled). Other tabs = Dark.
   const isHomePage = activeTab === 'home';
   const navBackgroundClass = isHomePage && !isScrolled 
     ? 'bg-transparent border-transparent' 
@@ -98,7 +91,6 @@ const Navbar = ({ activeTab, setActiveTab }) => {
 
   return (
     <header className={`fixed w-full top-0 z-50 transition-all duration-300 border-b ${navBackgroundClass}`}>
-      {/* NEURAL BACKGROUND */}
       <div className="absolute inset-0 opacity-50 pointer-events-none overflow-hidden">
         <InteractiveNeuralNetwork />
       </div>
@@ -149,7 +141,6 @@ const Navbar = ({ activeTab, setActiveTab }) => {
   );
 };
 
-// --- MAIN APP ---
 function App() {
   const [activeTab, setActiveTab] = useState('home');
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
@@ -168,15 +159,18 @@ function App() {
     if (savedKey) setApiKey(savedKey);
   }, []);
 
-  // --- SCROLL THEME LOGIC ---
+  // --- SCROLL THEME LOGIC & SCROLL RESET ---
   useEffect(() => {
+    // FIX: Scrolla alltid till toppen när man byter flik
+    window.scrollTo(0, 0);
+
     if (activeTab !== 'home') { setTheme('theme-light'); return; }
     
     const sections = [
       { id: 'hero-section', theme: 'theme-dark' },       
       { id: 'demo-section', theme: 'theme-light' },      
       { id: 'code-integration', theme: 'theme-light' },  
-      { id: 'use-cases', theme: 'theme-dark' }, // Use Cases är nu DARK MODE
+      { id: 'use-cases', theme: 'theme-dark' },
       { id: 'merkle', theme: 'theme-light' },            
       { id: 'architecture', theme: 'theme-dark' }        
     ];
@@ -240,11 +234,8 @@ function App() {
       <main className="flex-1 pt-0">
         {activeTab === 'home' && (
           <>
-            {/* HERO SECTION - MIDNIGHT THEME */}
-            <div id="hero-section" className="relative bg-[#020617] text-white pt-24 pb-16 md:pt-48 md:pb-32 overflow-hidden text-center z-10">
+            <div id="hero-section" className="relative bg-[#020617] text-white pt-32 pb-20 md:pt-48 md:pb-32 overflow-hidden text-center z-10">
               <AnimatedBackground />
-              
-              {/* ENERGY ORBS */}
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-blue-600/20 rounded-full blur-[120px] animate-blob mix-blend-screen pointer-events-none"></div>
               <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-indigo-500/20 rounded-full blur-[80px] animate-blob animation-delay-2000 mix-blend-screen pointer-events-none"></div>
 
@@ -279,34 +270,31 @@ function App() {
               </div>
             </div>
 
-            {/* DEMO SECTION */}
             <div id="demo-section" className="relative z-20">
                <InteractiveFeatureSection />
             </div>
             
-            <div id="code-integration" className="bg-white"><CodeIntegration /></div>
+            {/* UPPDATERAD: Passar setActiveTab för knappen "Get API Keys" */}
+            <div id="code-integration" className="bg-white">
+              <CodeIntegration setActiveTab={setActiveTab} />
+            </div>
             
-            {/* USE CASES (Dark) */}
             <div id="use-cases">
                <UseCases />
             </div>
             
-            {/* MERKLE (Light) */}
             <div id="merkle">
                <IntegrityEngine />
             </div>
             
-            {/* ARCHITECTURE (Dark) */}
             <div id="architecture">
                <CoreArchitecture />
             </div>
           </>
         )}
         
-        {/* PRICING PAGE */}
         {activeTab === 'pricing' && <div id="pricing" className="pt-24 md:pt-32 px-4 md:px-6 pb-20 bg-slate-50 min-h-screen text-slate-900"><EnterpriseForm /></div>}
         
-        {/* DASHBOARD PAGE */}
         {activeTab === 'dashboard' && (
           <div className="p-4 md:p-6 min-h-screen bg-slate-50 pt-24 md:pt-32 text-slate-900">
              {!processor ? (

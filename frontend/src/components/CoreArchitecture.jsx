@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Layers, Shield, Zap, Database, Cpu, Activity } from 'lucide-react';
+import { Shield, Zap, Database, Cpu, Activity, Lock, Hash, Server } from 'lucide-react';
 import { NeuralBackground, GlowingMesh } from './SharedBackgrounds';
 
 const CoreArchitecture = () => {
@@ -8,156 +8,175 @@ const CoreArchitecture = () => {
 
   const cards = [
     {
-      id: "edge",
-      theme: "dark", 
-      bg: "bg-[#0f172a]", 
+      id: "node-1",
+      theme: "blue",
+      bg: "bg-slate-900",
       accent: "text-blue-400",
       border: "border-blue-500/30",
-      title: "EDGE_ENCRYPT_V1",
-      subtitle: "CLIENT SIDE",
-      hash: "SHA-256: 8f92...a1b2",
-      status: "SECURE",
+      shadow: "shadow-blue-500/10",
+      title: "CLIENT_HASH_MODULE",
+      subtitle: "LOCAL PROCESSING",
+      dataLabel: "Algorithm",
+      dataValue: "SHA-256",
+      status: "HASHING",
       icon: Shield
     },
     {
-      id: "ingest",
-      theme: "green", 
-      bg: "bg-[#064e3b]", 
-      accent: "text-emerald-300",
+      id: "node-2",
+      theme: "green",
+      bg: "bg-slate-900",
+      accent: "text-emerald-400",
       border: "border-emerald-500/30",
-      title: "STREAM_NODE_01",
-      subtitle: "INGESTION",
-      hash: "TLS-1.3: HANDSHAKE",
-      status: "ACTIVE",
+      shadow: "shadow-emerald-500/10",
+      title: "INGEST_LOAD_BALANCER",
+      subtitle: "THROUGHPUT",
+      dataLabel: "Req/Sec",
+      dataValue: "12,450",
+      status: "ONLINE",
       icon: Zap
     },
     {
-      id: "ledger",
-      theme: "light",
-      bg: "bg-[#1e293b]", 
-      accent: "text-purple-300",
+      id: "node-3",
+      theme: "purple",
+      bg: "bg-slate-900",
+      accent: "text-purple-400",
       border: "border-purple-500/30",
-      title: "LEDGER_ANCHOR",
-      subtitle: "IMMUTABLE",
-      hash: "ROOT: 0x9f8a...b2c1",
-      status: "LOCKED",
+      shadow: "shadow-purple-500/10",
+      title: "MERKLE_STORE_V1",
+      subtitle: "IMMUTABLE DB",
+      dataLabel: "Root Hash",
+      dataValue: "0x9f...a2",
+      status: "APPENDING",
       icon: Database
     }
   ];
 
+  // HÄR ÄR DE NYA, ÄRLIGA TEXTERNA
   const content = [
     {
-      title: "Zero-Trust Encryption",
-      text: "Data is hashed on the client device. We never see raw PII, only the cryptographic proof of its existence."
+      icon: Hash, // Bytt ikon till Hash för att vara tydlig
+      title: "Client-Side Pseudonymization",
+      text: "PII is hashed (SHA-256) locally on the client device before transmission. The raw identity never touches our servers."
     },
     {
-      title: "High-Velocity Ingestion",
-      text: "Distributed node network handles millions of events per second with automatic load balancing and failover."
+      icon: Server,
+      title: "Scalable Event Ingestion",
+      text: "Stateless API nodes handle high-velocity log traffic behind standard load balancers, ensuring reliable data capture."
     },
     {
-      title: "Immutable Anchoring",
-      text: "Logs are sealed in sequential Merkle blocks. Rewriting history is mathematically impossible."
+      icon: Lock,
+      title: "Cryptographic Sealing",
+      text: "Received logs are grouped into blocks and hashed. This creates a mathematical proof that historical data hasn't been altered."
     }
   ];
 
   return (
-    <div className="relative py-20 md:py-32 overflow-hidden bg-[#020617] text-white">
+    <div className="relative py-32 overflow-hidden bg-slate-950 text-white">
+      
+      <GlowingMesh variant="default" />
       <NeuralBackground variant="blue" />
-      <GlowingMesh />
 
-      <div className="max-w-7xl mx-auto px-4 md:px-6 relative z-10">
-        <div className="grid lg:grid-cols-2 gap-16 lg:gap-24 items-center">
+      <div className="max-w-7xl mx-auto px-6 relative z-10">
+        <div className="grid lg:grid-cols-2 gap-24 items-center">
           
           {/* LEFT: CONTENT CONTROLS */}
-          <div className="space-y-8 order-2 lg:order-1">
-             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-xs font-bold uppercase tracking-wider backdrop-blur-md text-blue-400">
+          <div className="space-y-8">
+             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-xs font-bold uppercase tracking-wider text-blue-400 backdrop-blur-md">
                <Cpu size={14} /> System Architecture
              </div>
              
-             <h2 className="text-3xl md:text-5xl font-bold leading-tight">
-               Engineered for <br/>
-               <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400 animate-text-gradient">absolute truth.</span>
+             <h2 className="text-4xl md:text-5xl font-bold leading-tight">
+               The bedrock of <br/>
+               <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400 animate-text-gradient">verifiable truth.</span>
              </h2>
+             <p className="text-lg text-slate-300 max-w-lg leading-relaxed">
+                We prioritize cryptographic proof over trust. Here is how the data flows through our system.
+             </p>
 
-             <div className="flex flex-col gap-4">
-               {content.map((item, idx) => (
-                 <div 
-                   key={idx}
-                   onClick={() => setActiveFeature(idx)}
-                   className={`p-5 md:p-6 rounded-2xl cursor-pointer transition-all duration-300 border relative overflow-hidden group ${
-                     activeFeature === idx 
-                       ? 'bg-white/5 border-blue-500/50 shadow-[0_0_30px_rgba(59,130,246,0.1)]' 
-                       : 'bg-transparent border-transparent hover:bg-white/5'
-                   }`}
-                 >
-                    <div className="relative z-10">
-                      <h3 className={`text-base md:text-lg font-bold mb-1 flex items-center gap-3 ${activeFeature === idx ? 'text-white' : 'text-slate-400'}`}>
-                        {idx === 0 && <Shield size={18} className={activeFeature === idx ? 'text-blue-400' : ''}/>}
-                        {idx === 1 && <Zap size={18} className={activeFeature === idx ? 'text-emerald-400' : ''}/>}
-                        {idx === 2 && <Database size={18} className={activeFeature === idx ? 'text-purple-400' : ''}/>}
+             <div className="flex flex-col gap-4 pt-4">
+               {content.map((item, idx) => {
+                 const Icon = item.icon;
+                 return (
+                  <div 
+                    key={idx}
+                    onClick={() => setActiveFeature(idx)}
+                    className={`p-6 rounded-2xl cursor-pointer transition-all duration-300 border backdrop-blur-md ${
+                      activeFeature === idx 
+                        ? 'bg-white/5 border-blue-500/50 shadow-[0_0_30px_rgba(59,130,246,0.1)]' 
+                        : 'bg-white/[0.02] border-white/5 hover:bg-white/5 hover:border-white/10'
+                    }`}
+                  >
+                      <h3 className={`text-lg font-bold mb-2 flex items-center gap-3 ${activeFeature === idx ? 'text-white' : 'text-slate-200'}`}>
+                        <Icon size={20} className={activeFeature === idx ? 'text-blue-400' : 'text-slate-400'} />
                         {item.title}
                       </h3>
-                      <p className={`text-sm leading-relaxed ${activeFeature === idx ? 'text-slate-300' : 'text-slate-500'}`}>
+                      <p className={`text-sm leading-relaxed ${activeFeature === idx ? 'text-slate-300' : 'text-slate-400'}`}>
                         {item.text}
                       </p>
-                    </div>
-                 </div>
-               ))}
+                  </div>
+                 )
+               })}
              </div>
           </div>
 
-          {/* RIGHT: 3D CARD STACK (RESPONSIVE) */}
-          <div className="relative h-[450px] md:h-[600px] flex items-center justify-center perspective-[1200px] order-1 lg:order-2 mt-8 lg:mt-0">
+          {/* RIGHT: THE 3D CARD STACK */}
+          <div className="relative h-[600px] flex items-center justify-center perspective-[1200px] pointer-events-none lg:pointer-events-auto">
              {cards.map((card, index) => {
                const offset = (index - activeFeature + cards.length) % cards.length;
                const isFront = offset === 0;
                const isMiddle = offset === 1;
-
-               // Justera vertikal stapling för mobil (mindre avstånd) vs desktop
-               const yOffset = window.innerWidth < 768 ? 30 : 45; 
+               const CardIcon = card.icon;
 
                return (
                  <motion.div
                    key={card.id}
-                   className={`absolute w-[280px] h-[180px] sm:w-[360px] sm:h-[240px] rounded-[20px] sm:rounded-[24px] p-5 sm:p-6 flex flex-col justify-between shadow-2xl backdrop-blur-xl border overflow-hidden ${card.bg} ${card.border}`}
+                   className={`absolute w-[380px] h-[250px] rounded-[28px] p-6 flex flex-col justify-between backdrop-blur-xl border overflow-hidden ${card.bg} ${card.border} ${card.shadow}`}
                    animate={{
-                     y: isFront ? 0 : isMiddle ? -yOffset : -(yOffset * 2),
-                     z: isFront ? 0 : isMiddle ? -50 : -100,
+                     y: isFront ? 0 : isMiddle ? -55 : -110,
+                     z: isFront ? 0 : isMiddle ? -60 : -120,
                      scale: isFront ? 1 : isMiddle ? 0.95 : 0.9,
-                     opacity: isFront ? 1 : isMiddle ? 0.6 : 0.3,
-                     rotateX: isFront ? 0 : 10,
+                     opacity: isFront ? 1 : isMiddle ? 0.5 : 0.2,
+                     rotateX: isFront ? 0 : isMiddle ? 5 : 10,
                    }}
-                   transition={{ type: "spring", stiffness: 120, damping: 20 }}
+                   transition={{ type: "spring", stiffness: 100, damping: 20, mass: 1 }}
                    style={{
                      zIndex: cards.length - offset,
                      transformStyle: "preserve-3d",
-                     boxShadow: isFront ? "0 25px 50px -12px rgba(0,0,0,0.5)" : "none"
+                     boxShadow: isFront ? `0 25px 50px -12px rgba(0,0,0,0.5), inset 0 0 20px rgba(255,255,255,0.05)` : 'none'
                    }}
                  >
-                    <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white/10 to-transparent" />
+                    {/* Tech texture background */}
+                    <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-white to-transparent pointer-events-none" />
                     
+                    {/* Top section */}
                     <div className="relative z-10 flex justify-between items-start">
-                       <div className={`font-bold tracking-widest text-[9px] sm:text-[10px] uppercase border border-white/10 px-2 py-1 rounded bg-black/20 ${card.accent}`}>
-                          {card.subtitle}
+                       <div>
+                         <div className={`text-[10px] font-extrabold tracking-widest uppercase mb-1 ${card.accent} opacity-80`}>
+                            {card.subtitle}
+                         </div>
+                         <div className="text-lg font-bold text-white tracking-tight">{card.title}</div>
                        </div>
-                       <Activity size={18} className={`${card.accent} animate-pulse`} />
-                    </div>
-
-                    <div className="relative z-10 mt-2">
-                       <label className="text-[8px] sm:text-[9px] text-slate-400 uppercase tracking-wider block mb-1">Session Protocol ID</label>
-                       <div className={`font-mono text-xs sm:text-base tracking-wide ${card.accent} opacity-90 break-all`}>
-                          {card.hash}
+                       <div className={`p-2 rounded-full bg-white/5 border border-white/10 ${card.accent}`}>
+                         <CardIcon size={20} />
                        </div>
                     </div>
 
-                    <div className="relative z-10 flex justify-between items-end border-t border-white/10 pt-3 sm:pt-4">
-                       <div className="flex flex-col">
-                          <span className={`text-[8px] sm:text-[9px] uppercase font-bold opacity-60 ${card.accent}`}>Node ID</span>
-                          <span className={`text-xs sm:text-sm font-bold text-white`}>{card.title}</span>
+                    {/* Middle section (Technical Data) */}
+                    <div className="relative z-10 font-mono">
+                       <div className="text-[9px] text-slate-400 uppercase tracking-wider mb-1">{card.dataLabel}</div>
+                       <div className="flex items-center gap-2">
+                          <Activity size={14} className={card.accent + (isFront ? " animate-pulse" : "")} />
+                          <div className="text-base text-white font-bold tracking-wider">{card.dataValue}</div>
                        </div>
-                       <div className={`text-[9px] sm:text-[10px] font-bold px-2 py-1 rounded bg-white/5 border border-white/10 ${card.accent}`}>
-                          {card.status}
+                    </div>
+
+                    {/* Bottom section */}
+                    <div className="relative z-10 flex justify-between items-center pt-4 border-t border-white/5">
+                       <div className="flex items-center gap-2">
+                          <div className={`w-2 h-2 rounded-full ${card.accent.replace('text', 'bg') + (isFront ? " animate-pulse" : "")}`}></div>
+                          <span className={`text-xs font-bold tracking-wider ${card.accent}`}>{card.status}</span>
                        </div>
+                       <div className="text-[10px] text-slate-500 font-mono">ID: {card.id.toUpperCase()}</div>
                     </div>
                  </motion.div>
                );
