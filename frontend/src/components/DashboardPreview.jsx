@@ -121,7 +121,8 @@ const DashboardPreview = () => {
              
              <div className="flex justify-between items-end mb-8">
                 <div>
-                   <h1 className="text-2xl font-bold text-slate-900">Kavholm Corp</h1>
+                   {/* ÄNDRAT FRÅN KAVHOLM TILL NEXUS CORP */}
+                   <h1 className="text-2xl font-bold text-slate-900">HazarNode</h1>
                    <div className="flex items-center gap-2 mt-1">
                       <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
                       <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider">System Operational</span>
