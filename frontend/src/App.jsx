@@ -5,7 +5,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
+// --- KOMPONENTER ---
 import InteractiveFeatureSection from './components/InteractiveFeatureSection'; 
+import GlobalVerificationStream from './components/GlobalVerificationStream'; // NY!
 import CoreArchitecture from './components/CoreArchitecture'; 
 import IntegrityEngine from './components/IntegrityEngine';
 import UseCases from './components/UseCases';
@@ -17,13 +19,16 @@ import CreateProcessor from './components/CreateProcessor';
 import Footer from './components/Footer';
 import EnterpriseForm from './components/EnterpriseForm';
 import CodeIntegration from './components/CodeIntegration'; 
+import Dashboard from './components/Dashboard'; // Din nya Dashboard-fil
 
-import { ShieldCheck, Lock, Zap, LogOut, Menu, X, Sparkles, RotateCw, RefreshCw, Copy, Eye, Cookie, Server } from 'lucide-react';
+// ICONS
+import { ShieldCheck, Lock, LogOut, Menu, X, Sparkles, RotateCw, RefreshCw, Copy, Eye, Cookie, Server } from 'lucide-react';
 
 if (typeof window !== 'undefined') gsap.registerPlugin(ScrollTrigger);
 
 const API_BASE_URL = 'https://auditor-veritas-mvp.onrender.com';
 
+// --- API HELPER ---
 const apiCall = async (endpoint, options = {}, apiKey = '') => {
   const config = { headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, ...options.headers }, ...options };
   if (options.body) config.body = JSON.stringify(options.body);
@@ -34,6 +39,7 @@ const apiCall = async (endpoint, options = {}, apiKey = '') => {
   return data;
 };
 
+// --- MICRO COMPONENTS ---
 const HeroTypewriter = ({ text, delay = 30 }) => {
   const [currentText, setCurrentText] = useState('');
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -74,6 +80,7 @@ const KeyRotationComponent = ({ processor, currentKey, onKeyUpdate }) => {
   );
 };
 
+// --- NAVBAR ---
 const Navbar = ({ activeTab, setActiveTab }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
@@ -141,6 +148,7 @@ const Navbar = ({ activeTab, setActiveTab }) => {
   );
 };
 
+// --- MAIN APP ---
 function App() {
   const [activeTab, setActiveTab] = useState('home');
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
@@ -151,6 +159,10 @@ function App() {
   const [eventData, setEventData] = useState({ event_type: '', event_data: '{}', user_identifier: '' });
   const [stats, setStats] = useState({ totalEvents: 0, monthlyEvents: 0 });
   const [isLoading, setIsLoading] = useState(false);
+  
+  // STATE FÖR DASHBOARD
+  const [recentLogs, setRecentLogs] = useState([]);
+  const [chartData, setChartData] = useState([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
 
   useEffect(() => {
     const savedPrivacy = localStorage.getItem('privacyAccepted_v11');
@@ -159,16 +171,16 @@ function App() {
     if (savedKey) setApiKey(savedKey);
   }, []);
 
-  // --- SCROLL THEME LOGIC & SCROLL RESET ---
+  // --- SCROLL THEME LOGIC ---
   useEffect(() => {
-    // FIX: Scrolla alltid till toppen när man byter flik
-    window.scrollTo(0, 0);
+    window.scrollTo(0, 0); // Återställ scroll vid tab-byte
 
     if (activeTab !== 'home') { setTheme('theme-light'); return; }
     
     const sections = [
       { id: 'hero-section', theme: 'theme-dark' },       
-      { id: 'demo-section', theme: 'theme-light' },      
+      { id: 'demo-section', theme: 'theme-light' },
+      { id: 'live-simulation', theme: 'theme-dark' }, // NY: Mörk sektion för simulationen
       { id: 'code-integration', theme: 'theme-light' },  
       { id: 'use-cases', theme: 'theme-dark' },
       { id: 'merkle', theme: 'theme-light' },            
@@ -212,9 +224,26 @@ function App() {
     try { 
       let hashedUser = eventData.user_identifier; 
       if (eventData.user_identifier) hashedUser = CryptoJS.SHA256(eventData.user_identifier).toString(); 
+      
+      // 1. API Anrop
       await apiCall('/api/events', { method: 'POST', body: { ...eventData, user_identifier: hashedUser, event_data: JSON.parse(eventData.event_data) } }, apiKey); 
+      
       alert('Event Logged!'); 
-      setStats(prev => ({...prev, totalEvents: prev.totalEvents + 1})); 
+      
+      // 2. Uppdatera Dashboard State (Visuellt)
+      setStats(prev => ({...prev, totalEvents: prev.totalEvents + 1, monthlyEvents: prev.monthlyEvents + 1}));
+      
+      const newLog = {
+        ...eventData,
+        user_identifier: hashedUser || 'Anonymous',
+        timestamp: new Date().toISOString(),
+        status: 'success'
+      };
+      setRecentLogs(prev => [newLog, ...prev].slice(0, 10));
+      
+      // Lägg till data i grafen (simulera aktivitet)
+      setChartData(prev => [...prev.slice(1), (prev[prev.length-1] || 10) + Math.floor(Math.random() * 20)]);
+
       setEventData({ event_type: '', event_data: '{}', user_identifier: '' }); 
     } catch (error) { 
       alert(`Error: ${error.message}`); 
@@ -234,6 +263,7 @@ function App() {
       <main className="flex-1 pt-0">
         {activeTab === 'home' && (
           <>
+            {/* HERO */}
             <div id="hero-section" className="relative bg-[#020617] text-white pt-32 pb-20 md:pt-48 md:pb-32 overflow-hidden text-center z-10">
               <AnimatedBackground />
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-blue-600/20 rounded-full blur-[120px] animate-blob mix-blend-screen pointer-events-none"></div>
@@ -270,23 +300,32 @@ function App() {
               </div>
             </div>
 
+            {/* PHONE DEMO */}
             <div id="demo-section" className="relative z-20">
                <InteractiveFeatureSection />
             </div>
+
+            {/* NY LIVE SIMULATION SEKTION */}
+            <div id="live-simulation">
+               <GlobalVerificationStream />
+            </div>
             
-            {/* UPPDATERAD: Passar setActiveTab för knappen "Get API Keys" */}
+            {/* CODE */}
             <div id="code-integration" className="bg-white">
               <CodeIntegration setActiveTab={setActiveTab} />
             </div>
             
+            {/* USE CASES */}
             <div id="use-cases">
                <UseCases />
             </div>
             
+            {/* MERKLE */}
             <div id="merkle">
                <IntegrityEngine />
             </div>
             
+            {/* ARCHITECTURE */}
             <div id="architecture">
                <CoreArchitecture />
             </div>
@@ -296,39 +335,30 @@ function App() {
         {activeTab === 'pricing' && <div id="pricing" className="pt-24 md:pt-32 px-4 md:px-6 pb-20 bg-slate-50 min-h-screen text-slate-900"><EnterpriseForm /></div>}
         
         {activeTab === 'dashboard' && (
-          <div className="p-4 md:p-6 min-h-screen bg-slate-50 pt-24 md:pt-32 text-slate-900">
+          <div className="min-h-screen bg-slate-50 text-slate-900">
              {!processor ? (
-               <div className="max-w-md mx-auto bg-white p-8 md:p-10 rounded-3xl shadow-xl border border-slate-100 text-center animate-fade-in-up">
-                 <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-6"><Lock className="w-8 h-8 text-blue-500" /></div>
-                 <h2 className="text-xl md:text-2xl font-bold mb-2 text-slate-900">Secure Console</h2>
-                 <p className="text-slate-500 mb-6 text-sm">Enter your live API key to access real-time logs.</p>
-                 <input type="text" placeholder="av_live_..." className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl mb-4 font-mono outline-none focus:ring-2 focus:ring-blue-500 transition-all" value={apiKey} onChange={(e) => setApiKey(e.target.value)} />
-                 <button onClick={fetchDashboard} disabled={isLoading} className="w-full bg-[#0a2540] text-white p-4 rounded-xl font-bold hover:bg-slate-800 transition-colors shadow-lg">{isLoading ? <RefreshCw className="animate-spin mx-auto"/> : 'Connect'}</button>
+               <div className="pt-32 pb-20 px-4 flex justify-center">
+                 <div className="max-w-md w-full bg-white p-8 md:p-10 rounded-3xl shadow-xl border border-slate-100 text-center animate-fade-in-up">
+                   <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-6"><Lock className="w-8 h-8 text-blue-500" /></div>
+                   <h2 className="text-xl md:text-2xl font-bold mb-2 text-slate-900">Secure Console</h2>
+                   <p className="text-slate-500 mb-6 text-sm">Enter your live API key to access real-time logs.</p>
+                   <input type="text" placeholder="av_live_..." className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl mb-4 font-mono outline-none focus:ring-2 focus:ring-blue-500 transition-all" value={apiKey} onChange={(e) => setApiKey(e.target.value)} />
+                   <button onClick={fetchDashboard} disabled={isLoading} className="w-full bg-[#0a2540] text-white p-4 rounded-xl font-bold hover:bg-slate-800 transition-colors shadow-lg">{isLoading ? <RefreshCw className="animate-spin mx-auto"/> : 'Connect'}</button>
+                 </div>
                </div>
              ) : (
-               <div className="max-w-6xl mx-auto animate-fade-in-up">
-                 <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
-                    <h1 className="text-2xl md:text-3xl font-bold text-slate-900">{processor.companyName}</h1>
-                    <button onClick={() => setProcessor(null)} className="text-red-500 flex items-center gap-2 hover:bg-red-50 px-4 py-2 rounded-lg transition w-full md:w-auto justify-center"><LogOut size={18}/> Sign Out</button>
-                 </div>
-                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-8">
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100"><h3 className="font-bold text-slate-500 text-xs uppercase tracking-wide">Total Events</h3><p className="text-3xl font-bold text-slate-900 mt-2">{stats.totalEvents}</p></div>
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100"><h3 className="font-bold text-slate-500 text-xs uppercase tracking-wide">Monthly Quota</h3><p className="text-3xl font-bold text-slate-900 mt-2">{stats.monthlyEvents} / 100</p></div>
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100"><h3 className="font-bold text-slate-500 text-xs uppercase tracking-wide">System Status</h3><span className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-xs font-bold mt-2 inline-block flex w-fit items-center gap-2"><span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>Operational</span></div>
-                 </div>
-                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
-                    <div className="bg-white p-8 rounded-3xl shadow-lg border border-slate-100">
-                      <h3 className="text-lg md:text-xl font-bold mb-6 flex items-center gap-2"><Zap className="text-amber-500"/> Log New Event</h3>
-                      <form onSubmit={handleLogEvent} className="space-y-4">
-                        <div><label className="block text-xs font-bold text-slate-500 uppercase mb-1">Event Type</label><input type="text" placeholder="e.g. user.login" className="w-full p-3 border border-slate-200 rounded-xl text-sm transition-all focus:border-blue-500 outline-none" value={eventData.event_type} onChange={e => setEventData({...eventData, event_type: e.target.value})} required /></div>
-                        <div><label className="block text-xs font-bold text-slate-500 uppercase mb-1">JSON Payload</label><textarea placeholder='{"ip": "1.1.1.1"}' className="w-full p-3 border border-slate-200 rounded-xl font-mono text-sm h-24 transition-all focus:border-blue-500 outline-none" value={eventData.event_data} onChange={e => setEventData({...eventData, event_data: e.target.value})} required /></div>
-                        <div><label className="block text-xs font-bold text-slate-500 uppercase mb-1">User ID (Auto-Hashed)</label><input type="text" placeholder="user@example.com" className="w-full p-3 border border-slate-200 rounded-xl text-sm transition-all focus:border-blue-500 outline-none" value={eventData.user_identifier} onChange={e => setEventData({...eventData, user_identifier: e.target.value})} /></div>
-                        <button type="submit" disabled={isLoading} className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-500 transition-all shadow-lg shadow-blue-200">{isLoading ? 'Processing...' : 'Log Secure Event'}</button>
-                      </form>
-                    </div>
-                    <KeyRotationComponent processor={processor} currentKey={apiKey} onKeyUpdate={k => {setApiKey(k); localStorage.setItem('auditorApiKey', k);}} />
-                 </div>
-               </div>
+               <Dashboard 
+                 processor={processor}
+                 stats={stats}
+                 apiKey={apiKey}
+                 eventData={eventData}
+                 setEventData={setEventData}
+                 onLogEvent={handleLogEvent}
+                 isLoading={isLoading}
+                 recentLogs={recentLogs} 
+                 chartData={chartData}
+                 KeyRotation={<KeyRotationComponent processor={processor} currentKey={apiKey} onKeyUpdate={k => {setApiKey(k); localStorage.setItem('auditorApiKey', k);}} />}
+               />
              )}
           </div>
         )}
