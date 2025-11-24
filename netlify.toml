@@ -1,51 +1,30 @@
- [build]
-
+[build]
   base = "frontend"
-
-command = "npm install framer-motion clsx tailwind-merge lucide-react && npm run build"
-
+  command = "npm run build"
   publish = "dist"
 
-
-
 [build.environment]
-
-  NODE_VERSION = "18"
-
-
-
-# Redirect API calls to Render backend
+  NODE_VERSION = "20"
 
 [[redirects]]
-
   from = "/api/*"
-
   to = "https://auditor-veritas-mvp.onrender.com/api/:splat"
-
   status = 200
-
   force = true
 
-
-
-# 🔥 EXTRA REDIRECT FÖR DIRECT ANROP
-
 [[redirects]]
-
-  from = "/create-processor"
-
-  to = "https://auditor-veritas-mvp.onrender.com/api/create-processor"
-
-  status = 200
-
-  force = true
-
-
-
-[[redirects]]
-
   from = "/*"
-
   to = "/index.html"
-
   status = 200
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=()"
+    
+    # Strict CSP: No Google Analytics allowed anymore. Only self + backend + inline styles/scripts (needed for React/Tailwind)
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://auditor-veritas-mvp.onrender.com;"
