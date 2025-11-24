@@ -7,7 +7,7 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
 // --- KOMPONENTER ---
 import InteractiveFeatureSection from './components/InteractiveFeatureSection'; 
-import GlobalVerificationStream from './components/GlobalVerificationStream'; // NY!
+import DashboardPreview from './components/DashboardPreview'; 
 import CoreArchitecture from './components/CoreArchitecture'; 
 import IntegrityEngine from './components/IntegrityEngine';
 import UseCases from './components/UseCases';
@@ -19,7 +19,7 @@ import CreateProcessor from './components/CreateProcessor';
 import Footer from './components/Footer';
 import EnterpriseForm from './components/EnterpriseForm';
 import CodeIntegration from './components/CodeIntegration'; 
-import Dashboard from './components/Dashboard'; // Din nya Dashboard-fil
+import Dashboard from './components/Dashboard'; 
 
 // ICONS
 import { ShieldCheck, Lock, LogOut, Menu, X, Sparkles, RotateCw, RefreshCw, Copy, Eye, Cookie, Server } from 'lucide-react';
@@ -160,7 +160,7 @@ function App() {
   const [stats, setStats] = useState({ totalEvents: 0, monthlyEvents: 0 });
   const [isLoading, setIsLoading] = useState(false);
   
-  // STATE FÖR DASHBOARD
+  // DASHBOARD STATES
   const [recentLogs, setRecentLogs] = useState([]);
   const [chartData, setChartData] = useState([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
 
@@ -173,14 +173,14 @@ function App() {
 
   // --- SCROLL THEME LOGIC ---
   useEffect(() => {
-    window.scrollTo(0, 0); // Återställ scroll vid tab-byte
+    window.scrollTo(0, 0);
 
     if (activeTab !== 'home') { setTheme('theme-light'); return; }
     
     const sections = [
       { id: 'hero-section', theme: 'theme-dark' },       
       { id: 'demo-section', theme: 'theme-light' },
-      { id: 'live-simulation', theme: 'theme-dark' }, // NY: Mörk sektion för simulationen
+      { id: 'dashboard-preview', theme: 'theme-dark' },
       { id: 'code-integration', theme: 'theme-light' },  
       { id: 'use-cases', theme: 'theme-dark' },
       { id: 'merkle', theme: 'theme-light' },            
@@ -225,12 +225,10 @@ function App() {
       let hashedUser = eventData.user_identifier; 
       if (eventData.user_identifier) hashedUser = CryptoJS.SHA256(eventData.user_identifier).toString(); 
       
-      // 1. API Anrop
       await apiCall('/api/events', { method: 'POST', body: { ...eventData, user_identifier: hashedUser, event_data: JSON.parse(eventData.event_data) } }, apiKey); 
       
       alert('Event Logged!'); 
       
-      // 2. Uppdatera Dashboard State (Visuellt)
       setStats(prev => ({...prev, totalEvents: prev.totalEvents + 1, monthlyEvents: prev.monthlyEvents + 1}));
       
       const newLog = {
@@ -241,7 +239,7 @@ function App() {
       };
       setRecentLogs(prev => [newLog, ...prev].slice(0, 10));
       
-      // Lägg till data i grafen (simulera aktivitet)
+      // Uppdatera grafen
       setChartData(prev => [...prev.slice(1), (prev[prev.length-1] || 10) + Math.floor(Math.random() * 20)]);
 
       setEventData({ event_type: '', event_data: '{}', user_identifier: '' }); 
@@ -263,7 +261,6 @@ function App() {
       <main className="flex-1 pt-0">
         {activeTab === 'home' && (
           <>
-            {/* HERO */}
             <div id="hero-section" className="relative bg-[#020617] text-white pt-32 pb-20 md:pt-48 md:pb-32 overflow-hidden text-center z-10">
               <AnimatedBackground />
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-blue-600/20 rounded-full blur-[120px] animate-blob mix-blend-screen pointer-events-none"></div>
@@ -300,32 +297,26 @@ function App() {
               </div>
             </div>
 
-            {/* PHONE DEMO */}
             <div id="demo-section" className="relative z-20">
                <InteractiveFeatureSection />
             </div>
 
-            {/* NY LIVE SIMULATION SEKTION */}
-            <div id="live-simulation">
-               <GlobalVerificationStream />
+            <div id="dashboard-preview">
+               <DashboardPreview />
             </div>
             
-            {/* CODE */}
             <div id="code-integration" className="bg-white">
               <CodeIntegration setActiveTab={setActiveTab} />
             </div>
             
-            {/* USE CASES */}
             <div id="use-cases">
                <UseCases />
             </div>
             
-            {/* MERKLE */}
             <div id="merkle">
                <IntegrityEngine />
             </div>
             
-            {/* ARCHITECTURE */}
             <div id="architecture">
                <CoreArchitecture />
             </div>
@@ -335,7 +326,7 @@ function App() {
         {activeTab === 'pricing' && <div id="pricing" className="pt-24 md:pt-32 px-4 md:px-6 pb-20 bg-slate-50 min-h-screen text-slate-900"><EnterpriseForm /></div>}
         
         {activeTab === 'dashboard' && (
-          <div className="min-h-screen bg-slate-50 text-slate-900">
+          <div className="min-h-screen bg-[#f7fafc] text-slate-900">
              {!processor ? (
                <div className="pt-32 pb-20 px-4 flex justify-center">
                  <div className="max-w-md w-full bg-white p-8 md:p-10 rounded-3xl shadow-xl border border-slate-100 text-center animate-fade-in-up">
@@ -357,6 +348,7 @@ function App() {
                  isLoading={isLoading}
                  recentLogs={recentLogs} 
                  chartData={chartData}
+                 onLogout={() => setProcessor(null)}
                  KeyRotation={<KeyRotationComponent processor={processor} currentKey={apiKey} onKeyUpdate={k => {setApiKey(k); localStorage.setItem('auditorApiKey', k);}} />}
                />
              )}
