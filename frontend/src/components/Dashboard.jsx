@@ -1,5 +1,5 @@
-import React from 'react';
-import { Activity, Search, MoreHorizontal, CheckCircle2, AlertCircle, RefreshCw, Zap, Lock, Clock, Key, LogOut, ChevronRight, LayoutGrid } from 'lucide-react';
+import React, { useState } from 'react'; // Importerade useState för att hantera detaljer
+import { Activity, Search, MoreHorizontal, CheckCircle2, AlertCircle, RefreshCw, Zap, Lock, Clock, Key, LogOut, ChevronRight, LayoutGrid, ChevronDown, ChevronUp } from 'lucide-react';
 
 // --- SUB-COMPONENT: PREMIER ACTIVITY CHART ---
 const LiveActivityChart = ({ dataPoints = [] }) => {
@@ -62,6 +62,9 @@ const LiveActivityChart = ({ dataPoints = [] }) => {
 
 // --- SUB-COMPONENT: RECENT LOGS TABLE ---
 const RecentLogsTable = ({ logs = [] }) => {
+  // Använder index för att spåra vilken rad som är expanderad
+  const [expandedIndex, setExpandedIndex] = useState(null); 
+
   if (logs.length === 0) {
     return (
       <div className="bg-white rounded-xl border border-slate-200 p-12 text-center flex flex-col items-center justify-center h-64">
@@ -73,6 +76,10 @@ const RecentLogsTable = ({ logs = [] }) => {
       </div>
     );
   }
+  
+  const toggleDetails = (index) => {
+    setExpandedIndex(expandedIndex === index ? null : index);
+  };
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
@@ -89,46 +96,55 @@ const RecentLogsTable = ({ logs = [] }) => {
               <th className="py-3 pl-5 w-10"></th>
               <th className="py-3 px-3">Event</th>
               <th className="py-3 px-3">User ID</th>
-              <th className="py-3 px-3 w-1/3">Data Payload (NY)</th>
+              <th className="py-3 px-3 text-right pr-5 w-20">Details</th> {/* Liten kolumn för expander-knapp */}
               <th className="py-3 px-3 text-right pr-5">Timestamp</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
             {logs.map((log, index) => (
-              <tr key={index} className="hover:bg-slate-50/80 transition-colors group">
-                <td className="py-3 pl-5">
-                  <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center">
-                    <CheckCircle2 size={12} className="text-emerald-600" />
-                  </div>
-                </td>
-                <td className="py-3 px-3">
-                    <span className="font-mono text-slate-700 font-medium group-hover:text-blue-600 bg-slate-100 px-1.5 py-0.5 rounded text-[10px] border border-slate-200">
-                        {log.event_type}
-                    </span>
-                </td>
-                <td className="py-3 px-3 text-slate-500 font-mono text-[10px]">{log.user_identifier ? log.user_identifier.substring(0, 16) + '...' : 'N/A'}</td>
-                
-                {/* <-- IMPLEMENTERING AV DETALJERAD DATA --> */}
-                <td className="py-3 px-3 max-w-xs overflow-hidden">
-                  {log.event_data && typeof log.event_data === 'object' ? (
-                    <pre className="text-[10px] font-mono text-slate-700 bg-slate-50 p-1 rounded-md overflow-x-auto whitespace-pre-wrap max-h-16">
-                      {JSON.stringify(log.event_data, null, 2)}
-                    </pre>
-                  ) : (
-                    <span className="text-[10px] text-slate-400">N/A</span>
-                  )}
-                </td>
-                {/* <-- SLUT IMPLEMENTERING AV DETALJERAD DATA --> */}
+              <React.Fragment key={index}>
+                <tr 
+                  className="hover:bg-slate-50/80 transition-colors group cursor-pointer"
+                  onClick={() => toggleDetails(index)}
+                >
+                  <td className="py-3 pl-5">
+                    <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center">
+                      <CheckCircle2 size={12} className="text-emerald-600" />
+                    </div>
+                  </td>
+                  <td className="py-3 px-3">
+                      <span className="font-mono text-slate-700 font-medium group-hover:text-blue-600 bg-slate-100 px-1.5 py-0.5 rounded text-[10px] border border-slate-200">
+                          {log.event_type}
+                      </span>
+                  </td>
+                  <td className="py-3 px-3 text-slate-500 font-mono text-[10px]">{log.user_identifier ? log.user_identifier.substring(0, 16) + '...' : 'N/A'}</td>
+                  
+                  {/* KNAPP FÖR EXPANDERING */}
+                  <td className="py-3 px-3 text-right pr-5 text-slate-500">
+                    {expandedIndex === index ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                  </td>
 
-                <td className="py-3 px-3 text-right pr-5 text-slate-400 font-mono text-[10px]">
-                  {new Date(log.timestamp).toLocaleTimeString()}
-                </td>
-              </tr>
+                  <td className="py-3 px-3 text-right pr-5 text-slate-400 font-mono text-[10px]">
+                    {new Date(log.timestamp).toLocaleTimeString()}
+                  </td>
+                </tr>
+                
+                {/* EXPANDERAD DETALJ-RAD */}
+                {expandedIndex === index && (
+                  <tr>
+                    <td colSpan="5" className="p-4 pl-12 bg-slate-50/50">
+                      <div className="text-xs font-bold text-slate-600 mb-2">Data Payload (JSON)</div>
+                      <pre className="text-[10px] font-mono text-slate-800 bg-white p-3 rounded-lg border border-slate-200 overflow-x-auto whitespace-pre-wrap">
+                        {JSON.stringify(log.event_data, null, 2)}
+                      </pre>
+                    </td>
+                  </tr>
+                )}
+              </React.Fragment>
             ))}
           </tbody>
         </table>
       </div>
-      
     </div>
   );
 };
@@ -279,7 +295,7 @@ const Dashboard = ({ processor, stats, apiKey, onLogEvent, eventData, setEventDa
 
           </div>
       </div>
-    </div> // <--- KORREKT AVSLUTANDE DIV HÄR
+    </div>
   );
 };
 
