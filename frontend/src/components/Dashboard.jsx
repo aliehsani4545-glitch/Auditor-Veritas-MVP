@@ -39,6 +39,13 @@ const LiveActivityChart = ({ dataPoints = [] }) => {
             <div className="w-full border-t border-dashed border-slate-100 h-1/4"></div>
             <div className="w-full border-t border-dashed border-slate-100 h-1/4"></div>
         </div>
+        <div className="absolute inset-0 pt-14 px-4">
+            <div className="w-full h-full border-t border-dashed border-slate-100 flex flex-col justify-between">
+                <div className="w-full border-t border-dashed border-slate-100 h-1/4"></div>
+                <div className="w-full border-t border-dashed border-slate-100 h-1/4"></div>
+                <div className="w-full border-t border-dashed border-slate-100 h-1/4"></div>
+            </div>
+        </div>
       </div>
       
       {/* The Chart */}
@@ -81,8 +88,8 @@ const RecentLogsTable = ({ logs = [] }) => {
         <button className="text-xs font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1">
             View all <ChevronRight size={12} />
         </button>
-      </div>
-      <div className="w-full overflow-x-auto">
+        </div>
+        <div className="w-full overflow-x-auto">
         <table className="w-full text-left text-xs">
           <thead className="bg-slate-50/50 text-slate-500 font-semibold border-b border-slate-100">
             <tr>
@@ -134,6 +141,9 @@ const RecentLogsTable = ({ logs = [] }) => {
 
 // --- MAIN DASHBOARD COMPONENT ---
 const Dashboard = ({ processor, stats, apiKey, onLogEvent, eventData, setEventData, isLoading, KeyRotation, recentLogs, chartData, onLogout }) => {
+  // KORRIGERING: Använder stats.eventsLimit från App.jsx
+  const eventsLimit = stats.eventsLimit || 100;
+
   return (
     <div className="max-w-7xl mx-auto px-4 md:px-6 pt-32 pb-24 animate-fade-in-up">
       
@@ -194,12 +204,12 @@ const Dashboard = ({ processor, stats, apiKey, onLogEvent, eventData, setEventDa
             <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                 <div className="flex justify-between items-start mb-4">
                     <h3 className="text-slate-800 text-xs font-bold uppercase tracking-wider">Usage Quota</h3>
-                    <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-full">{stats.monthlyEvents} / 100</span>
+                    <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-full">{stats.monthlyEvents} / {eventsLimit}</span>
                 </div>
                 <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden mb-2">
                     <div 
-                        className={`h-full transition-all duration-1000 ${stats.monthlyEvents > 90 ? 'bg-red-500' : 'bg-blue-500'}`}
-                        style={{ width: `${Math.min((stats.monthlyEvents / 100 * 100), 100)}%` }}
+                        className={`h-full transition-all duration-1000 ${stats.monthlyEvents / eventsLimit * 100 > 90 ? 'bg-red-500' : 'bg-blue-500'}`}
+                        style={{ width: `${Math.min((stats.monthlyEvents / eventsLimit * 100), 100)}%` }}
                     ></div>
                 </div>
                 <p className="text-xs text-slate-400">Resets in 28 days</p>

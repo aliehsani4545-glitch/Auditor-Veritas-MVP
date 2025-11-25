@@ -65,8 +65,9 @@ const KeyRotationComponent = ({ processor, currentKey, onKeyUpdate }) => {
   const rotate = async () => {
     setIsRotating(true);
     try {
-      const data = await apiCall('/api/rotate-key', { method: 'POST', body: { processorId: processor.id } }, currentKey);
-      onKeyUpdate(data.newKey);
+      // KORRIGERAD ENDPOINT: Ändrad från /api/rotate-key till den korrekta /api/keys/rotate
+      const data = await apiCall('/api/keys/rotate', { method: 'POST', body: { processorId: processor.id } }, currentKey);
+      onKeyUpdate(data.newApiKey); // ANVÄND newApiKey som returneras från servern
       alert('Key rotated successfully.');
     } catch (err) { alert(`Failed: ${err.message}`); } 
     finally { setIsRotating(false); }
@@ -230,16 +231,43 @@ function App() {
   const handlePrivacyAccept = () => { localStorage.setItem('privacyAccepted_v11', 'true'); setPrivacyAccepted(true); };
   const openPrivacy = () => setShowFooterPrivacy(true);
   
+  // NY FUNKTION: Hämta de senaste loggarna
+  const fetchRecentLogs = async (currentApiKey) => {
+    try {
+      const logData = await apiCall('/api/events/search?limit=10', { method: 'GET' }, currentApiKey);
+      setRecentLogs(logData.events);
+      
+      // Simulerad aktivitet för LiveChart (tillfällig lösning tills backend returnerar riktig aktivitetsdata)
+      const activityData = logData.events.slice(0, 10).map((_, i) => Math.floor(Math.random() * 50) + 10);
+      setChartData(activityData.length > 0 ? activityData : [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+    } catch (error) {
+       console.error("Failed to fetch recent logs:", error);
+       setRecentLogs([]);
+    }
+  }
+
+  // KORRIGERAD FUNKTION: Anropar fetchRecentLogs efter framgångsrik anslutning
   const fetchDashboard = async () => { 
     if (!apiKey) return alert("Please enter API Key"); 
     setIsLoading(true); 
     try { 
+      // Steg 1: Hämta processor- och statistikdata
       const data = await apiCall('/api/dashboard', { method: 'GET' }, apiKey); 
       setProcessor(data.processor || { companyName: 'Connected Node' }); 
-      setStats(data.stats || { totalEvents: 0, monthlyEvents: 0 }); 
+      setStats({
+          totalEvents: data.stats.totalEvents,
+          monthlyEvents: data.stats.monthlyEvents,
+          eventsLimit: data.processor.eventsLimit // Lägger till limit för KeyRotationComponent
+      }); 
       localStorage.setItem('auditorApiKey', apiKey); 
+      
+      // Steg 2: Hämta de senaste loggarna
+      await fetchRecentLogs(apiKey); // <--- NYTT ANROP FÖR ATT ÅTGÄRDA FELET
+      
     } catch (error) { 
       alert(`Connection Failed: ${error.message}`); 
+      setProcessor(null); // Återställ vid misslyckande
+      localStorage.removeItem('auditorApiKey');
     } finally { 
       setIsLoading(false); 
     } 
@@ -247,7 +275,7 @@ function App() {
 
   const handleLogEvent = async (e) => { 
     e.preventDefault(); 
-    if (stats.totalEvents >= 100) return alert("⚠️ Usage Limit Reached (100 Events).\nPlease upgrade to Enterprise."); 
+    if (stats.monthlyEvents >= stats.eventsLimit) return alert("⚠️ Monthly Usage Limit Reached (Please upgrade plan)."); 
     setIsLoading(true); 
     try { 
       let hashedUser = eventData.user_identifier; 
@@ -266,18 +294,8 @@ function App() {
       
       alert('Event Logged!'); 
       
-      setStats(prev => ({...prev, totalEvents: prev.totalEvents + 1, monthlyEvents: prev.monthlyEvents + 1}));
-      
-      const newLog = {
-        event_type: eventData.event_type,
-        user_identifier: hashedUser || 'Anonymous',
-        event_data: eventDataParsed, 
-        timestamp: new Date().toISOString(),
-        status: 'success'
-      };
-      setRecentLogs(prev => [newLog, ...prev].slice(0, 10));
-      
-      setChartData(prev => [...prev.slice(1), (prev[prev.length-1] || 10) + Math.floor(Math.random() * 20)]);
+      // Uppdatera dashboard-data efter ett lyckat logganrop
+      await fetchDashboard(); 
 
       setEventData({ event_type: '', event_data: '{}', user_identifier: '' }); 
     } catch (error) { 
@@ -403,7 +421,7 @@ function App() {
                  isLoading={isLoading}
                  recentLogs={recentLogs} 
                  chartData={chartData}
-                 onLogout={() => setProcessor(null)}
+                 onLogout={() => { setProcessor(null); localStorage.removeItem('auditorApiKey'); setApiKey(''); setRecentLogs([]);}} // Rensa state vid utloggning
                  KeyRotation={<KeyRotationComponent processor={processor} currentKey={apiKey} onKeyUpdate={k => {setApiKey(k); localStorage.setItem('auditorApiKey', k);}} />}
                />
              )}
