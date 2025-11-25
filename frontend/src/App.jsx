@@ -22,7 +22,9 @@ import Footer from './components/Footer';
 import PricingPage from './components/PricingPage'; 
 import CodeIntegration from './components/CodeIntegration'; 
 import Dashboard from './components/Dashboard'; 
-import IntegrityFocusPage from './components/IntegrityFocusPage'; // <-- NEW IMPORT
+import IntegrityFocusPage from './components/IntegrityFocusPage'; 
+import MerkleProofViewer from './components/MerkleProofViewer'; 
+import IntegrationDocs from './components/IntegrationDocs'; // NY IMPORT FÖR DEN PROFESSIONELLA DOKUMENTATIONEN
 
 // ICONS
 import { ShieldCheck, Lock, LogOut, Menu, X, Sparkles, RotateCw, RefreshCw, Copy, Eye, Cookie, Server } from 'lucide-react';
@@ -31,8 +33,8 @@ if (typeof window !== 'undefined') gsap.registerPlugin(ScrollTrigger);
 
 const API_BASE_URL = 'https://auditor-veritas-mvp.onrender.com';
 
-// --- API HELPER ---
-const apiCall = async (endpoint, options = {}, apiKey = '') => {
+// --- API HELPER (Exporteras för MerkleProofViewer) ---
+export const apiCall = async (endpoint, options = {}, apiKey = '') => {
   const config = { headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, ...options.headers }, ...options };
   if (options.body) config.body = JSON.stringify(options.body);
   const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
@@ -58,33 +60,48 @@ const HeroTypewriter = ({ text, delay = 30 }) => {
   return <p className="text-base md:text-lg text-slate-400 max-w-2xl mx-auto min-h-[3rem] leading-relaxed">{currentText}<span className="inline-block w-0.5 h-4 ml-1 bg-[#00d4ff] align-middle animate-cursor-blink"></span></p>;
 };
 
-const KeyRotationComponent = ({ processor, currentKey, onKeyUpdate }) => {
+// Uppdaterad KeyRotationComponent med Revoke-funktion
+const KeyRotationComponent = ({ processor, currentKey, onKeyUpdate, onRevoke }) => {
   const [isRotating, setIsRotating] = useState(false);
   const [showKey, setShowKey] = useState(false);
   const copyToClipboard = () => { navigator.clipboard.writeText(currentKey); alert("Key copied!"); };
+  
   const rotate = async () => {
     setIsRotating(true);
     try {
-      // KORRIGERAD ENDPOINT: Ändrad från /api/rotate-key till den korrekta /api/keys/rotate
-      const data = await apiCall('/api/keys/rotate', { method: 'POST', body: { processorId: processor.id } }, currentKey);
-      onKeyUpdate(data.newApiKey); // ANVÄND newApiKey som returneras från servern
-      alert('Key rotated successfully.');
-    } catch (err) { alert(`Failed: ${err.message}`); } 
+      const data = await apiCall('/api/keys/rotate', { method: 'POST' }, currentKey);
+      onKeyUpdate(data.newApiKey); 
+      alert('Key rotated successfully. The old key is now invalid.');
+    } catch (err) { alert(`Rotation Failed: ${err.message}`); } 
     finally { setIsRotating(false); }
   };
+  
   return (
     <div className="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-slate-200">
       <div className="flex justify-between mb-4"><h3 className="font-bold flex items-center gap-2 text-slate-800 text-sm"><RotateCw className="w-4 h-4 text-purple-600"/> Key Rotation</h3><span className="bg-emerald-50 text-emerald-700 text-[10px] px-2 py-1 rounded font-bold uppercase">Active</span></div>
+      
       <div className="relative mb-4">
         <div className="bg-slate-50 p-3 rounded-lg text-xs font-mono text-slate-600 break-all border border-slate-100 pr-16 min-h-[40px] flex items-center">{showKey ? currentKey : '••••••••••••••••••'}</div>
-        <div className="absolute right-2 top-1/2 -translate-x-1/2 flex gap-1"><button onClick={() => setShowKey(!showKey)} className="p-1.5 hover:bg-slate-200 rounded text-slate-500"><Eye size={14}/></button><button onClick={copyToClipboard} className="p-1.5 hover:bg-slate-200 rounded text-slate-500"><Copy size={14}/></button></div>
+        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1">
+          <button onClick={() => setShowKey(!showKey)} className="p-1.5 hover:bg-slate-200 rounded text-slate-500"><Eye size={14}/></button>
+          <button onClick={copyToClipboard} className="p-1.5 hover:bg-slate-200 rounded text-slate-500"><Copy size={14}/></button>
+        </div>
       </div>
-      <button onClick={rotate} disabled={isRotating} className="w-full bg-slate-900 text-white py-2.5 rounded-xl text-xs font-bold hover:bg-slate-800 flex justify-center items-center gap-2">{isRotating ? <RefreshCw className="animate-spin w-3 h-3"/> : 'Rotate Key Now'}</button>
+      
+      <div className='flex gap-2'>
+        <button onClick={rotate} disabled={isRotating} className="flex-1 bg-slate-900 text-white py-2.5 rounded-xl text-xs font-bold hover:bg-slate-800 flex justify-center items-center gap-2 disabled:bg-slate-300 disabled:text-slate-500">
+          {isRotating ? <RefreshCw className="animate-spin w-3 h-3"/> : 'Rotate Key Now'}
+        </button>
+        <button onClick={onRevoke} className="px-4 py-2.5 rounded-xl text-xs font-bold bg-red-100 text-red-600 hover:bg-red-200 transition-colors">
+          <Lock size={14} /> Revoke
+        </button>
+      </div>
     </div>
   );
 };
 
-// --- NAVBAR ---
+
+// --- NAVBAR (Oförändrad) ---
 const Navbar = ({ activeTab, setActiveTab }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
@@ -164,6 +181,7 @@ const Navbar = ({ activeTab, setActiveTab }) => {
   );
 };
 
+
 // --- MAIN APP ---
 function App() {
   const [activeTab, setActiveTab] = useState('home');
@@ -174,12 +192,16 @@ function App() {
   const [processor, setProcessor] = useState(null);
   const [apiKey, setApiKey] = useState('');
   const [eventData, setEventData] = useState({ event_type: '', event_data: '{}', user_identifier: '' });
-  const [stats, setStats] = useState({ totalEvents: 0, monthlyEvents: 0 });
+  const [stats, setStats] = useState({ totalEvents: 0, monthlyEvents: 0, eventsLimit: 100 });
   const [isLoading, setIsLoading] = useState(false);
   
   // DASHBOARD STATES
   const [recentLogs, setRecentLogs] = useState([]);
   const [chartData, setChartData] = useState([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+
+  // GDPR State
+  const [gdprIdToErase, setGdprIdToErase] = useState('');
+  const [isGdprLoading, setIsGdprLoading] = useState(false);
 
   useEffect(() => {
     const savedPrivacy = localStorage.getItem('privacyAccepted_v11');
@@ -188,7 +210,7 @@ function App() {
     if (savedKey) setApiKey(savedKey);
   }, []);
 
-  // --- HELPER FUNCTIONS FOR MODALS ---
+  // --- HELPER FUNCTIONS FOR MODALS AND THEME SWITCHING (Oförändrad) ---
   const openPrivacyModal = () => {
     setLegalInitialTab('privacy');
     setShowFooterPrivacy(true);
@@ -199,11 +221,9 @@ function App() {
     setShowFooterPrivacy(true);
   };
 
-  // --- SCROLL THEME LOGIC ---
   useEffect(() => {
     window.scrollTo(0, 0);
 
-    // ONLY HOME TAB HAS THEME SWITCHING
     if (activeTab !== 'home') { setTheme('theme-light'); return; }
     
     const sections = [
@@ -231,42 +251,41 @@ function App() {
   const handlePrivacyAccept = () => { localStorage.setItem('privacyAccepted_v11', 'true'); setPrivacyAccepted(true); };
   const openPrivacy = () => setShowFooterPrivacy(true);
   
-  // NY FUNKTION: Hämta de senaste loggarna
   const fetchRecentLogs = async (currentApiKey) => {
     try {
       const logData = await apiCall('/api/events/search?limit=10', { method: 'GET' }, currentApiKey);
       setRecentLogs(logData.events);
       
-      // Simulerad aktivitet för LiveChart (tillfällig lösning tills backend returnerar riktig aktivitetsdata)
-      const activityData = logData.events.slice(0, 10).map((_, i) => Math.floor(Math.random() * 50) + 10);
-      setChartData(activityData.length > 0 ? activityData : [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+      const activityData = Array(10).fill(0).map((_, i) => {
+        const logIndex = 9 - i;
+        return logData.events[logIndex] ? Math.floor(Math.random() * 50) + 10 : 0;
+      });
+      setChartData(activityData);
+      
     } catch (error) {
        console.error("Failed to fetch recent logs:", error);
        setRecentLogs([]);
     }
   }
 
-  // KORRIGERAD FUNKTION: Anropar fetchRecentLogs efter framgångsrik anslutning
   const fetchDashboard = async () => { 
     if (!apiKey) return alert("Please enter API Key"); 
     setIsLoading(true); 
     try { 
-      // Steg 1: Hämta processor- och statistikdata
       const data = await apiCall('/api/dashboard', { method: 'GET' }, apiKey); 
       setProcessor(data.processor || { companyName: 'Connected Node' }); 
       setStats({
           totalEvents: data.stats.totalEvents,
           monthlyEvents: data.stats.monthlyEvents,
-          eventsLimit: data.processor.eventsLimit // Lägger till limit för KeyRotationComponent
+          eventsLimit: data.processor.eventsLimit
       }); 
       localStorage.setItem('auditorApiKey', apiKey); 
       
-      // Steg 2: Hämta de senaste loggarna
-      await fetchRecentLogs(apiKey); // <--- NYTT ANROP FÖR ATT ÅTGÄRDA FELET
+      await fetchRecentLogs(apiKey); 
       
     } catch (error) { 
       alert(`Connection Failed: ${error.message}`); 
-      setProcessor(null); // Återställ vid misslyckande
+      setProcessor(null); 
       localStorage.removeItem('auditorApiKey');
     } finally { 
       setIsLoading(false); 
@@ -275,7 +294,7 @@ function App() {
 
   const handleLogEvent = async (e) => { 
     e.preventDefault(); 
-    if (stats.monthlyEvents >= stats.eventsLimit) return alert("⚠️ Monthly Usage Limit Reached (Please upgrade plan)."); 
+    if (stats.monthlyEvents >= stats.eventsLimit) return alert(`⚠️ Monthly Event Limit Reached (${stats.monthlyEvents}/${stats.eventsLimit}). Please upgrade plan.`); 
     setIsLoading(true); 
     try { 
       let hashedUser = eventData.user_identifier; 
@@ -292,9 +311,8 @@ function App() {
         } 
       }, apiKey); 
       
-      alert('Event Logged!'); 
+      alert('Event Logged! Audit trail established.'); 
       
-      // Uppdatera dashboard-data efter ett lyckat logganrop
       await fetchDashboard(); 
 
       setEventData({ event_type: '', event_data: '{}', user_identifier: '' }); 
@@ -304,6 +322,47 @@ function App() {
       setIsLoading(false); 
     } 
   };
+  
+  const handleRevokeKey = async () => {
+    if (!confirm('VARNING: Är du säker på att du vill ÅTERKALLA denna API-nyckel? Den kommer omedelbart att sluta fungera och du måste generera en ny nyckel för att återfå åtkomst.')) return;
+    try {
+      await apiCall('/api/keys/revoke', { method: 'POST' }, apiKey);
+      alert('Nyckeln har återkallats. Logga in igen med en ny nyckel.');
+      setProcessor(null);
+      localStorage.removeItem('auditorApiKey');
+      setApiKey('');
+      setRecentLogs([]);
+    } catch (error) {
+      alert(`Återkallning misslyckades: ${error.message}`);
+    }
+  };
+  
+  const handleGdprErasure = async (e) => {
+    e.preventDefault();
+    if (!gdprIdToErase.trim()) return alert("Ange en användaridentifierare (som skickats till API:et) att radera.");
+    
+    // Hasha ID:t precis som det görs i handleLogEvent för att matcha backendens lagrade hash
+    let hashedIdToErase = CryptoJS.SHA256(gdprIdToErase.trim()).toString();
+
+    if (!confirm(`VARNING: Detta kommer att pseudonymisera alla händelser för användar-hash: ${hashedIdToErase.substring(0, 16)}... Fortsätt?`)) return;
+
+    setIsGdprLoading(true);
+    try {
+      const data = await apiCall('/api/gdpr/erase', { 
+        method: 'POST', 
+        body: { user_identifier: hashedIdToErase } // Skickar den hashade versionen
+      }, apiKey);
+
+      alert(`GDPR Radering utförd: ${data.records_updated} poster uppdaterades. Merkle Tree måste byggas om.`);
+      setGdprIdToErase('');
+      await fetchDashboard(); // Ladda om loggar/statistik
+    } catch (error) {
+      alert(`GDPR Radering misslyckades: ${error.message}`);
+    } finally {
+      setIsGdprLoading(false);
+    }
+  };
+
 
   if (!privacyAccepted) return <PrivacyPage onAccept={handlePrivacyAccept} />;
 
@@ -368,8 +427,9 @@ function App() {
                <DashboardPreview />
             </div>
             
-            <div id="code-integration" className="bg-white">
-              <CodeIntegration setActiveTab={setActiveTab} />
+            <div id="code-integration">
+              {/* Använder den nya IntegrationDocs komponenten som är mer professionell */}
+              <IntegrationDocs setActiveTab={setActiveTab} />
             </div>
             
             <div id="use-cases">
@@ -386,7 +446,7 @@ function App() {
           </>
         )}
         
-        {activeTab === 'integrity' && ( // <-- INTEGRITY TAB ROUTING
+        {activeTab === 'integrity' && (
           <div id="integrity-focus">
              <IntegrityFocusPage setActiveTab={setActiveTab} />
           </div>
@@ -421,8 +481,37 @@ function App() {
                  isLoading={isLoading}
                  recentLogs={recentLogs} 
                  chartData={chartData}
-                 onLogout={() => { setProcessor(null); localStorage.removeItem('auditorApiKey'); setApiKey(''); setRecentLogs([]);}} // Rensa state vid utloggning
-                 KeyRotation={<KeyRotationComponent processor={processor} currentKey={apiKey} onKeyUpdate={k => {setApiKey(k); localStorage.setItem('auditorApiKey', k);}} />}
+                 onLogout={() => { setProcessor(null); localStorage.removeItem('auditorApiKey'); setApiKey(''); setRecentLogs([]);}}
+                 KeyRotation={<KeyRotationComponent 
+                     processor={processor} 
+                     currentKey={apiKey} 
+                     onKeyUpdate={k => {setApiKey(k); localStorage.setItem('auditorApiKey', k);}} 
+                     onRevoke={handleRevokeKey}
+                 />}
+                 MerkleViewerComponent={<MerkleProofViewer apiKey={apiKey} />}
+                 GdprErasureComponent={
+                     <form onSubmit={handleGdprErasure} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-3">
+                         <div className='flex items-center gap-2 mb-2'>
+                             <Lock size={16} className='text-red-500'/>
+                             <h3 className='font-bold text-slate-800 text-sm'>GDPR Radering (Pseudonymisering)</h3>
+                         </div>
+                         <input 
+                             type="text" 
+                             placeholder="Ange användar ID (klartext)" 
+                             value={gdprIdToErase}
+                             onChange={(e) => setGdprIdToErase(e.target.value)}
+                             className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all placeholder:text-slate-400 text-slate-700"
+                         />
+                         <button 
+                             type="submit" 
+                             disabled={isGdprLoading || !gdprIdToErase.trim()}
+                             className="w-full bg-red-600 hover:bg-red-700 text-white py-2.5 rounded-lg font-bold text-xs uppercase tracking-wide transition-all flex justify-center items-center gap-2 disabled:bg-red-300"
+                         >
+                             {isGdprLoading ? <RefreshCw className="animate-spin w-3.5 h-3.5"/> : 'Starta Radering (Art. 17)'}
+                         </button>
+                         <p className='text-[10px] text-slate-500 mt-2'>Observera: ID:t du anger hashades innan lagring. Detta pseudonymiserar `user_identifier` och `event_data` fälten, men behåller den oföränderliga audit-kedjan.</p>
+                     </form>
+                 }
                />
              )}
           </div>

@@ -39,13 +39,6 @@ const LiveActivityChart = ({ dataPoints = [] }) => {
             <div className="w-full border-t border-dashed border-slate-100 h-1/4"></div>
             <div className="w-full border-t border-dashed border-slate-100 h-1/4"></div>
         </div>
-        <div className="absolute inset-0 pt-14 px-4">
-            <div className="w-full h-full border-t border-dashed border-slate-100 flex flex-col justify-between">
-                <div className="w-full border-t border-dashed border-slate-100 h-1/4"></div>
-                <div className="w-full border-t border-dashed border-slate-100 h-1/4"></div>
-                <div className="w-full border-t border-dashed border-slate-100 h-1/4"></div>
-            </div>
-        </div>
       </div>
       
       {/* The Chart */}
@@ -88,8 +81,8 @@ const RecentLogsTable = ({ logs = [] }) => {
         <button className="text-xs font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1">
             View all <ChevronRight size={12} />
         </button>
-        </div>
-        <div className="w-full overflow-x-auto">
+      </div>
+      <div className="w-full overflow-x-auto">
         <table className="w-full text-left text-xs">
           <thead className="bg-slate-50/50 text-slate-500 font-semibold border-b border-slate-100">
             <tr>
@@ -99,7 +92,7 @@ const RecentLogsTable = ({ logs = [] }) => {
               <th className="py-3 px-3 w-1/3">Data Payload (NY)</th> {/* <-- NY KOLUMN */}
               <th className="py-3 px-3 text-right pr-5">Timestamp</th>
             </tr>
-          </thead>
+            </thead>
           <tbody className="divide-y divide-slate-50">
             {logs.map((log, index) => (
               <tr key={index} className="hover:bg-slate-50/80 transition-colors group">
@@ -128,7 +121,7 @@ const RecentLogsTable = ({ logs = [] }) => {
                 {/* <-- SLUT IMPLEMENTERING AV DETALJERAD DATA --> */}
 
                 <td className="py-3 px-3 text-right pr-5 text-slate-400 font-mono text-[10px]">
-                  {new Date(log.timestamp).toLocaleTimeString()}
+                  {new Date(log.event_timestamp).toLocaleTimeString()}
                 </td>
               </tr>
             ))}
@@ -140,10 +133,22 @@ const RecentLogsTable = ({ logs = [] }) => {
 };
 
 // --- MAIN DASHBOARD COMPONENT ---
-const Dashboard = ({ processor, stats, apiKey, onLogEvent, eventData, setEventData, isLoading, KeyRotation, recentLogs, chartData, onLogout }) => {
-  // KORRIGERING: Använder stats.eventsLimit från App.jsx
+const Dashboard = ({ 
+    processor, 
+    stats, 
+    apiKey, 
+    onLogEvent, 
+    eventData, 
+    setEventData, 
+    isLoading, 
+    KeyRotation, 
+    recentLogs, 
+    chartData, 
+    onLogout, 
+    MerkleViewerComponent,
+    GdprErasureComponent 
+}) => {
   const eventsLimit = stats.eventsLimit || 100;
-
   return (
     <div className="max-w-7xl mx-auto px-4 md:px-6 pt-32 pb-24 animate-fade-in-up">
       
@@ -213,7 +218,7 @@ const Dashboard = ({ processor, stats, apiKey, onLogEvent, eventData, setEventDa
                     ></div>
                 </div>
                 <p className="text-xs text-slate-400">Resets in 28 days</p>
-            </div>
+              </div>
 
             {KeyRotation}
         </div>
@@ -227,8 +232,9 @@ const Dashboard = ({ processor, stats, apiKey, onLogEvent, eventData, setEventDa
            <RecentLogsTable logs={recentLogs} />
         </div>
 
-        {/* Right: Event Tester (1/3) */}
+        {/* Right: Event Tester & Utilities (1/3) */}
         <div className="space-y-6">
+           {/* Event Tester */}
            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
               <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex items-center gap-2">
                  <Zap className="text-amber-500" size={16} />
@@ -271,20 +277,13 @@ const Dashboard = ({ processor, stats, apiKey, onLogEvent, eventData, setEventDa
                 </form>
               </div>
            </div>
-           
-           {/* Help Card */}
-           <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 flex items-start gap-3">
-                <div className="p-1.5 bg-blue-100 rounded-full shrink-0 text-blue-600">
-                    <Lock size={14} />
-                </div>
-                <div>
-                    <h4 className="text-xs font-bold text-blue-800 mb-1">Security Note</h4>
-                    <p className="text-[10px] text-blue-600/80 leading-relaxed">
-                        Events logged here are signed with your active API key and stored immutably.
-                    </p>
-                </div>
-           </div>
+            
+            {/* Merkle Proof Viewer Component */}
+            {MerkleViewerComponent}
 
+            {/* GDPR Erasure Control */}
+            {GdprErasureComponent}
+            
         </div>
 
       </div>
