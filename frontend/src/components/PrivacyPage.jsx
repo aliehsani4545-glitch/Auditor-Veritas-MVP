@@ -5,12 +5,11 @@ import { 
   Server, Ban, X, Fingerprint, Globe, Download, CreditCard, 
   ChevronDown, Activity 
 } from 'lucide-react';
-// Importera DarkAuroraBackground men den kommer att ignoreras för det ljusa temat.
 import { DarkAuroraBackground } from './SharedBackgrounds'; 
 
 // --- SUB-KOMPONENTER (UPPDATERADE FÖR LJUS TEMA) ---
 const Section = ({ title, icon: Icon, color, children }) => (
-  // Byt från mörk bakgrund/kantlinje till ljus bakgrund/kantlinje
+  // Ljus bakgrund/kantlinje
   <div className="bg-white p-6 rounded-2xl border border-slate-200 hover:border-slate-300 transition-colors shadow-md">
     <div className="flex items-center mb-4 pb-3 border-b border-slate-100">
       {/* Ikoner behåller sin färg, men bakgrunden ändras */}
@@ -54,16 +53,16 @@ const PrivacyPage = ({ onAccept, isFooterView = false, onClose, initialTab = 'pr
   return (
     {/* Hela bakgrunden är nu ljusare grå (slate-50/70) */}
     <div className="fixed inset-0 z-[9999] bg-slate-50/70 backdrop-blur-sm flex items-center justify-center sm:p-4">
+      
+      {/* Inre behållaren är nu vit */}
       <motion.div 
         initial={{ scale: 0.95, opacity: 0 }} 
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.95, opacity: 0 }}
         transition={{ type: "spring", damping: 25, stiffness: 300 }}
-        {/* Inre behållaren är nu vit */}
         className="w-full sm:max-w-4xl bg-white sm:rounded-3xl rounded-none shadow-2xl border border-slate-200 overflow-hidden flex flex-col h-full sm:h-[85vh] relative"
       >
         {/* Tar bort DarkAuroraBackground som skapar den mörka stämningen */}
-        {/* <div className="absolute inset-0 pointer-events-none"> <DarkAuroraBackground /> </div> */}
 
         {isFooterView && (
           {/* Ändrar stängningsknappens stil till ljus bakgrund */}
