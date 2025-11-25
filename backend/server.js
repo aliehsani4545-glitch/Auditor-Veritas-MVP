@@ -256,9 +256,16 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false
 }));
 
-// KORRIGERAD CORS-KONFIGURATION FÖR ATT TILLÅTA ALLA ORIGINER I PRODUKTION
+// ************************************************
+// KORRIGERING: TILLÅT NETLIFY DOMÄN I PRODUKTION
+// ************************************************
+const NETLIFY_DOMAIN = 'https://dreamy-banoffee-1603b3.netlify.app';
+const RENDER_DOMAIN = 'https://auditor-veritas-mvp.onrender.com';
+
 app.use(cors({
-  origin: isProduction ? '*' : ['http://localhost:3000', 'http://localhost:5173'],
+  origin: isProduction 
+    ? [RENDER_DOMAIN, NETLIFY_DOMAIN] // Tillåt både Render och Netlify i PROD
+    : ['http://localhost:3000', 'http://localhost:5173', NETLIFY_DOMAIN], // Tillåt lokal och Netlify i DEV
   credentials: true
 }));
 app.options('*', cors()); // Hanterar preflight-förfrågningar för alla rutter
@@ -278,7 +285,7 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-// KORRIGERAD PLATS: API Key Authentication (MÅSTE VARA INNAN ROUTES)
+// KORRIGERAD PLATS: API Key Authentication (MÅSTE VARA INNAN RUTTER)
 const authenticateApiKey = async (req, res, next) => {
   try {
     const apiKey = req.headers['x-api-key'] || req.headers['authorization']?.replace('Bearer ', '');
@@ -307,7 +314,7 @@ const authenticateApiKey = async (req, res, next) => {
 
     if (processor.status !== 'active') {
       return res.status(403).json({
-        error: 'Processor account suspended',
+        error: 'Processor account suspended or key revoked',
         code: 'ACCOUNT_SUSPENDED'
       });
     }
@@ -1312,7 +1319,7 @@ app.get('/api/events/:id/verify', async (req, res) => {
       event_data: event.event_data,
       user_identifier: event.user_identifier,
       ip_address: event.ip_address,
-      user_agent: event.user_agent,
+      user_agent: req.get('User-Agent'),
       event_timestamp: event.event_timestamp,
       previous_hash: event.previous_hash
     };

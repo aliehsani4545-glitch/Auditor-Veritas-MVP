@@ -1,4 +1,4 @@
- import React from 'react';
+import React from 'react';
 
 import { Activity, Search, MoreHorizontal, CheckCircle2, AlertCircle, RefreshCw, Zap, Lock, Clock, Key, LogOut, ChevronRight, LayoutGrid } from 'lucide-react';
 
