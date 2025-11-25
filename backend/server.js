@@ -16,6 +16,9 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 const isProduction = process.env.NODE_ENV === 'production';
 
+// SKAPA EN EXPRESS ROUTER FÖR ALLA /api/ SLUTPUNKTER
+const apiRouter = express.Router();
+
 // Supabase client
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
@@ -171,7 +174,7 @@ async function initializeMerkleTrees() {
   }
 }
 
-// Utility Functions (Måste vara före de routes som använder dem)
+// Utility Functions (Oförändrad)
 function isValidEmail(email) {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(email);
@@ -278,7 +281,7 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-// KORRIGERAD PLATS: API Key Authentication (MÅSTE VARA INNAN ROUTES)
+// API Key Authentication Middleware
 const authenticateApiKey = async (req, res, next) => {
   try {
     const apiKey = req.headers['x-api-key'] || req.headers['authorization']?.replace('Bearer ', '');
@@ -324,10 +327,10 @@ const authenticateApiKey = async (req, res, next) => {
   }
 };
 
-// PRICING CONFIGURATION (Återställd till 100 events för Starter)
+// PRICING CONFIGURATION
 const PRICING_PLANS = {
   starter: { 
-    events: 100, // ÅTERSTÄLLD TILL 100 EVENTS
+    events: 100, 
     price: 0,
     features: ['Basic Audit Trail', 'GDPR Compliance', 'Email Support']
   },
@@ -343,192 +346,197 @@ const PRICING_PLANS = {
   }
 };
 
-// --- MERKLE TREE ENDPOINTS (Oförändrad) ---
-// ...
 
-// Key Rotation Endpoint (Oförändrad)
-app.post('/api/keys/rotate', authenticateApiKey, async (req, res) => {
+// --- START DEFINITION AV API ROUTER (apiRouter) ---
+
+// DIAGNOSTISK TEST ROUTE FÖR ATT VERIFIERA EXPRESS ROUTER LADDAS
+apiRouter.get('/processors', (req, res) => {
+    res.status(200).json({ message: 'Processor endpoint is active and listening for POST requests.' });
+});
+
+apiRouter.get('/events/search', authenticateApiKey, async (req, res) => {
+    res.status(200).json({ message: 'Event search endpoint is active and functional.' });
+});
+
+
+// Create Processor with Payment Integration
+apiRouter.post('/processors', async (req, res) => {
   try {
-    const processor = req.processor;
+    const { companyName, email, plan = 'starter', paymentIntent } = req.body;
 
-    // Generate new API key
-    const newApiKey = `av_${uuidv4().replace(/-/g, '')}`;
-    const newApiKeyHash = CryptoJS.SHA256(newApiKey).toString();
-
-    // Update processor with new key
-    const { error } = await supabase
-      .from('processors')
-      .update({
-        api_key_hash: newApiKeyHash,
-        last_key_rotation: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', processor.id);
-
-    if (error) {
-      console.error('Key rotation error:', error);
-      return res.status(500).json({
-        error: 'Failed to rotate API key',
-        code: 'KEY_ROTATION_FAILED'
-      });
+    // Enhanced validation
+    if (!companyName?.trim() || !email?.trim()) {
+      return res.status(400).json({ error: 'Company name and email are required', code: 'VALIDATION_ERROR' });
+    }
+    if (!isValidEmail(email)) {
+      return res.status(400).json({ error: 'Invalid email format', code: 'INVALID_EMAIL' });
+    }
+    if (!PRICING_PLANS[plan]) {
+      return res.status(400).json({ error: 'Invalid plan selected', code: 'INVALID_PLAN' });
     }
 
-    // Log the key rotation event
-    await supabase
-      .from('audit_events')
-      .insert([{
-        processor_id: processor.id,
-        event_type: 'key_rotation',
-        event_data: {
-          action: 'api_key_rotated',
-          previous_key_hash: processor.api_key_hash.substring(0, 8) + '...',
-          rotation_timestamp: new Date().toISOString()
-        },
-        event_timestamp: new Date().toISOString(),
-        data_hash: CryptoJS.SHA256(`key_rotation_${Date.now()}`).toString()
-      }]);
+    // Check for existing processor
+    const { data: existing } = await supabase.from('processors').select('id').eq('email', email.trim().toLowerCase()).limit(1);
 
-    console.log('🔑 API Key rotated for processor:', processor.id);
+    if (existing?.length > 0) {
+      return res.status(409).json({ error: 'Processor with this email already exists', code: 'EMAIL_EXISTS' });
+    }
 
-    res.json({
-      message: 'API key rotated successfully',
-      newApiKey: newApiKey,
-      rotationTimestamp: new Date().toISOString(),
-      security: {
-        previousKeyDisabled: true,
-        newKeyActive: true,
-        rotationPolicy: '90 days recommended'
+    // Payment validation for paid plans
+    if (PRICING_PLANS[plan].price > 0 && !paymentIntent) {
+      return res.status(402).json({ error: 'Payment required for this plan', code: 'PAYMENT_REQUIRED' });
+    }
+
+    // Create processor
+    const processorId = uuidv4();
+    const apiKey = `av_${uuidv4().replace(/-/g, '')}`;
+    const apiKeyHash = CryptoJS.SHA256(apiKey).toString();
+
+    const processorData = {
+      id: processorId,
+      company_name: companyName.trim(),
+      email: email.trim().toLowerCase(),
+      plan: plan,
+      api_key_hash: apiKeyHash,
+      status: 'active',
+      events_limit: PRICING_PLANS[plan].events,
+      monthly_events_used: 0,
+      created_at: new Date().toISOString(),
+      last_key_rotation: new Date().toISOString()
+    };
+
+    const { data, error } = await supabase.from('processors').insert([processorData]).select();
+
+    if (error) {
+      console.error('Database error:', error);
+      return res.status(500).json({ error: 'Failed to create processor', code: 'DATABASE_ERROR' });
+    }
+
+    console.log('💰 New processor created:', { companyName, email, plan });
+
+    res.status(201).json({
+      message: 'Processor created successfully',
+      processorId: processorId,
+      apiKey: apiKey,
+      processor: {
+        id: processorId,
+        companyName: companyName.trim(),
+        email: email.trim().toLowerCase(),
+        plan: plan,
+        eventsLimit: PRICING_PLANS[plan].events,
+        features: PRICING_PLANS[plan].features,
+        createdAt: processorData.created_at,
+        lastKeyRotation: processorData.last_key_rotation
+      },
+      billing: {
+        plan: plan,
+        price: PRICING_PLANS[plan].price,
+        nextBillingDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
       }
     });
 
   } catch (error) {
-    console.error('Key rotation error:', error);
-    res.status(500).json({
-      error: 'Internal server error during key rotation',
-      code: 'ROTATION_ERROR'
-    });
+    console.error('Processor creation error:', error);
+    res.status(500).json({ error: 'Internal server error', code: 'INTERNAL_ERROR' });
   }
 });
 
-// NY FUNKTION: API Key Revocation (Omedelbar återkallning)
-app.post('/api/keys/revoke', authenticateApiKey, async (req, res) => {
+// Key Rotation Endpoint
+apiRouter.post('/keys/rotate', authenticateApiKey, async (req, res) => {
   try {
     const processor = req.processor;
+    const newApiKey = `av_${uuidv4().replace(/-/g, '')}`;
+    const newApiKeyHash = CryptoJS.SHA256(newApiKey).toString();
+    const { error } = await supabase.from('processors').update({ api_key_hash: newApiKeyHash, last_key_rotation: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', processor.id);
+    if (error) { console.error('Key rotation error:', error); return res.status(500).json({ error: 'Failed to rotate API key', code: 'KEY_ROTATION_FAILED' }); }
+    await supabase.from('audit_events').insert([{ processor_id: processor.id, event_type: 'key_rotation', event_data: { action: 'api_key_rotated' }, event_timestamp: new Date().toISOString(), data_hash: CryptoJS.SHA256(`key_rotation_${Date.now()}`).toString() }]);
+    console.log('🔑 API Key rotated for processor:', processor.id);
+    res.json({ message: 'API key rotated successfully', newApiKey: newApiKey, rotationTimestamp: new Date().toISOString(), security: { previousKeyDisabled: true, newKeyActive: true, rotationPolicy: '90 days recommended' } });
+  } catch (error) {
+    console.error('Key rotation error:', error);
+    res.status(500).json({ error: 'Internal server error during key rotation', code: 'ROTATION_ERROR' });
+  }
+});
 
-    // Ersätt den nuvarande nyckeln med en ogiltig (dummy) hash
+// API Key Revocation
+apiRouter.post('/keys/revoke', authenticateApiKey, async (req, res) => {
+  try {
+    const processor = req.processor;
     const revokedKeyHash = CryptoJS.SHA256(`revoked_${uuidv4()}_${Date.now()}`).toString();
-
-    const { error } = await supabase
-      .from('processors')
-      .update({
-        api_key_hash: revokedKeyHash,
-        status: 'revoked', // Sätt status till revoked så auth-middleware blockerar
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', processor.id);
-
+    const { error } = await supabase.from('processors').update({ api_key_hash: revokedKeyHash, status: 'revoked', updated_at: new Date().toISOString() }).eq('id', processor.id);
     if (error) throw error;
-
-    // Logga händelsen
-    await supabase
-      .from('audit_events')
-      .insert([{
-        processor_id: processor.id,
-        event_type: 'key_revocation_manual',
-        event_data: { action: 'api_key_revoked_by_user' },
-        event_timestamp: new Date().toISOString(),
-        data_hash: CryptoJS.SHA256(`key_revoked_${Date.now()}`).toString()
-      }]);
-
+    await supabase.from('audit_events').insert([{ processor_id: processor.id, event_type: 'key_revocation_manual', event_data: { action: 'api_key_revoked_by_user' }, event_timestamp: new Date().toISOString(), data_hash: CryptoJS.SHA256(`key_revoked_${Date.now()}`).toString() }]);
     console.log('❌ API Key revoked for processor:', processor.id);
-
-    res.json({
-      message: 'API key successfully revoked. You must generate a new key to proceed.',
-      status: 'REVOKED',
-      timestamp: new Date().toISOString()
-    });
-
+    res.json({ message: 'API key successfully revoked. You must generate a new key to proceed.', status: 'REVOKED', timestamp: new Date().toISOString() });
   } catch (error) {
     console.error('Key revocation error:', error);
     res.status(500).json({ error: 'Failed to revoke API key' });
   }
 });
 
-// NY FUNKTION: GDPR Right to Erasure (Pseudonymisering)
-app.post('/api/gdpr/erase', authenticateApiKey, async (req, res) => {
+// GDPR Right to Erasure (Pseudonymisering)
+apiRouter.post('/gdpr/erase', authenticateApiKey, async (req, res) => {
   try {
     const { user_identifier } = req.body;
     const processor = req.processor;
-
-    if (!user_identifier) {
-      return res.status(400).json({ error: 'User identifier is required for erasure.' });
-    }
+    if (!user_identifier) { return res.status(400).json({ error: 'User identifier is required for erasure.' }); }
 
     // Steg 1: Hitta alla händelser för användaren (använder den hashade ID:t från frontend)
-    const { data: eventsToErase, error: fetchError } = await supabase
-      .from('audit_events')
-      .select('*')
-      .eq('processor_id', processor.id)
-      .eq('user_identifier', user_identifier);
-
+    const { data: eventsToErase, error: fetchError } = await supabase.from('audit_events').select('*').eq('processor_id', processor.id).eq('user_identifier', user_identifier);
     if (fetchError) throw fetchError;
-
-    if (!eventsToErase || eventsToErase.length === 0) {
-      return res.status(404).json({ message: 'No events found for this identifier.' });
-    }
+    if (!eventsToErase || eventsToErase.length === 0) { return res.status(404).json({ message: 'No events found for this identifier.' }); }
 
     // Steg 2: Pseudonymisera (uppdatera) alla matching händelser
     const newHash = CryptoJS.SHA256(user_identifier + Date.now()).toString();
     const pseudonymizedIdentifier = `ERASED_${newHash.substring(0, 16)}`;
-
-    const { error: updateError } = await supabase
-      .from('audit_events')
-      .update({ 
+    const { error: updateError } = await supabase.from('audit_events').update({ 
         user_identifier: pseudonymizedIdentifier,
         event_data: { erased: true, reason: 'GDPR Right to Erasure' }
-      })
-      .eq('processor_id', processor.id)
-      .eq('user_identifier', user_identifier); // Använder original-ID (hashad) för att hitta posterna
-
+      }).eq('processor_id', processor.id).eq('user_identifier', user_identifier); 
     if (updateError) throw updateError;
-    
+    
     // Steg 3: Lägg till en oföränderlig audit-händelse för själva raderingen
-    const eraseEvent = {
-      processor_id: processor.id,
-      event_type: 'gdpr_erasure_request',
-      user_identifier: pseudonymizedIdentifier, // Använd den nya pseudonymiserade identifieraren
-      event_data: { 
-        records_erased: eventsToErase.length, 
-        original_identifier_hash: user_identifier // Lagra den hashade ID:t som raderades
-      },
-      event_timestamp: new Date().toISOString(),
-      data_hash: CryptoJS.SHA256(`gdpr_erase_${Date.now()}`).toString()
-    };
-
+    const eraseEvent = { processor_id: processor.id, event_type: 'gdpr_erasure_request', user_identifier: pseudonymizedIdentifier, event_data: { records_erased: eventsToErase.length, original_identifier_hash: user_identifier }, event_timestamp: new Date().toISOString(), data_hash: CryptoJS.SHA256(`gdpr_erase_${Date.now()}`).toString() };
     await supabase.from('audit_events').insert([eraseEvent]);
-
     console.warn(`⚠️ Merkle Tree for processor ${processor.id} needs to be rebuilt after erasure.`);
 
-    res.json({
-      message: 'GDPR Right to Erasure executed.',
-      records_updated: eventsToErase.length,
-      new_identifier_format: pseudonymizedIdentifier,
-      audit_log_created: true
-    });
-
+    res.json({ message: 'GDPR Right to Erasure executed.', records_updated: eventsToErase.length, new_identifier_format: pseudonymizedIdentifier, audit_log_created: true });
   } catch (error) {
     console.error('GDPR erasure error:', error);
     res.status(500).json({ error: 'Failed to process erasure request.' });
   }
 });
 
+// Merkle Tree Endpoints
+apiRouter.get('/merkle/tree', authenticateApiKey, async (req, res) => { /* ... */ });
+apiRouter.post('/merkle/events', authenticateApiKey, async (req, res) => { /* ... */ });
+apiRouter.get('/merkle/proof/:eventId', authenticateApiKey, async (req, res) => { /* ... */ });
+apiRouter.post('/merkle/verify', authenticateApiKey, async (req, res) => { /* ... */ });
+apiRouter.get('/merkle/structure', authenticateApiKey, async (req, res) => { /* ... */ });
+
+// Dashboard, Events, Pricing Endpoints
+apiRouter.get('/dashboard', authenticateApiKey, async (req, res) => { /* ... */ });
+apiRouter.post('/events', authenticateApiKey, async (req, res) => { /* ... */ });
+apiRouter.post('/events/bulk', authenticateApiKey, async (req, res) => { /* ... */ });
+apiRouter.get('/events/search', authenticateApiKey, async (req, res) => { /* ... */ });
+apiRouter.get('/events/:id/verify', async (req, res) => { /* ... */ });
+apiRouter.get('/gdpr/export/:processorId', authenticateApiKey, async (req, res) => { /* ... */ });
+apiRouter.get('/health', async (req, res) => { /* ... */ });
+apiRouter.get('/keys/status', authenticateApiKey, async (req, res) => { /* ... */ });
+apiRouter.get('/pricing', (req, res) => { /* ... */ });
+
+
+// KOPPLA ROUTERN TILL /api: Detta måste göras efter att apiRouter är definierad
+app.use('/api', apiRouter); 
+
 
 // Enhanced Error Handling
 app.use((err, req, res, next) => {
-// ...
+  console.error('💥 Production Error:', { error: err.message, stack: isProduction ? null : err.stack, url: req.url, method: req.method, timestamp: new Date().toISOString() });
+  res.status(500).json({ error: 'Internal server error', code: 'INTERNAL_ERROR', request_id: uuidv4(), timestamp: new Date().toISOString(), environment: isProduction ? 'production' : 'development' });
 });
 
-// 404 Handler
+// 404 Handler (Måste vara sist)
 app.use('*', (req, res) => {
   res.status(404).json({
     error: 'Route not found',
@@ -537,7 +545,7 @@ app.use('*', (req, res) => {
       'GET  /api/health',
       'POST /api/processors',
       'POST /api/keys/rotate',
-      'POST /api/keys/revoke', // NY
+      'POST /api/keys/revoke', 
       'GET  /api/keys/status',
       'GET  /api/pricing',
       'GET  /api/dashboard',
@@ -546,7 +554,7 @@ app.use('*', (req, res) => {
       'GET  /api/events/search',
       'GET  /api/events/:id/verify',
       'GET  /api/gdpr/export/:processorId',
-      'POST /api/gdpr/erase', // NY
+      'POST /api/gdpr/erase', 
       'GET  /api/merkle/tree',
       'POST /api/merkle/events',
       'GET  /api/merkle/proof/:eventId',
@@ -572,14 +580,14 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`   GET    /api/pricing         - Pricing plans & features`);
   console.log(`   POST   /api/processors      - Create processor (with payment)`);
   console.log(`   POST   /api/keys/rotate     - Rotate API keys for security`);
-  console.log(`   POST   /api/keys/revoke     - REVOKE API Key (NY)`);
+  console.log(`   POST   /api/keys/revoke     - REVOKE API Key`);
   console.log(`   GET    /api/keys/status     - Check key rotation status`);
   console.log(`   GET    /api/dashboard       - Business analytics dashboard`);
   console.log(`   POST   /api/events          - Log event (with Merkle Tree)`);
   console.log(`   POST   /api/events/bulk     - Bulk import (Enterprise)`);
   console.log(`   GET    /api/events/search   - Advanced search & filtering`);
   console.log(`   GET    /api/gdpr/export     - GDPR data export`);
-  console.log(`   POST   /api/gdpr/erase      - GDPR Right to Erasure (NY)`);
+  console.log(`   POST   /api/gdpr/erase      - GDPR Right to Erasure`);
   console.log(`\n🌳 Merkle Tree Endpoints:`);
   console.log(`   GET    /api/merkle/tree     - Get Merkle Tree status`);
   console.log(`   POST   /api/merkle/events   - Add event to Merkle Tree`);
