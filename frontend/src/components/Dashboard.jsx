@@ -1,5 +1,5 @@
-import React, { useState } from 'react'; // Importerade useState för att hantera detaljer
-import { Activity, Search, MoreHorizontal, CheckCircle2, AlertCircle, RefreshCw, Zap, Lock, Clock, Key, LogOut, ChevronRight, LayoutGrid, ChevronDown, ChevronUp } from 'lucide-react';
+import React from 'react';
+import { Activity, Search, MoreHorizontal, CheckCircle2, AlertCircle, RefreshCw, Zap, Lock, Clock, Key, LogOut, ChevronRight, LayoutGrid } from 'lucide-react';
 
 // --- SUB-COMPONENT: PREMIER ACTIVITY CHART ---
 const LiveActivityChart = ({ dataPoints = [] }) => {
@@ -62,9 +62,6 @@ const LiveActivityChart = ({ dataPoints = [] }) => {
 
 // --- SUB-COMPONENT: RECENT LOGS TABLE ---
 const RecentLogsTable = ({ logs = [] }) => {
-  // Använder index för att spåra vilken rad som är expanderad
-  const [expandedIndex, setExpandedIndex] = useState(null); 
-
   if (logs.length === 0) {
     return (
       <div className="bg-white rounded-xl border border-slate-200 p-12 text-center flex flex-col items-center justify-center h-64">
@@ -76,10 +73,6 @@ const RecentLogsTable = ({ logs = [] }) => {
       </div>
     );
   }
-  
-  const toggleDetails = (index) => {
-    setExpandedIndex(expandedIndex === index ? null : index);
-  };
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
@@ -88,7 +81,6 @@ const RecentLogsTable = ({ logs = [] }) => {
         <button className="text-xs font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1">
             View all <ChevronRight size={12} />
         </button>
-        
       </div>
       <div className="w-full overflow-x-auto">
         <table className="w-full text-left text-xs">
@@ -97,51 +89,41 @@ const RecentLogsTable = ({ logs = [] }) => {
               <th className="py-3 pl-5 w-10"></th>
               <th className="py-3 px-3">Event</th>
               <th className="py-3 px-3">User ID</th>
-              <th className="py-3 px-3 text-right pr-5 w-20">Details</th> {/* Liten kolumn för expander-knapp */}
+              <th className="py-3 px-3 w-1/3">Data Payload (NY)</th> {/* <-- NY KOLUMN */}
               <th className="py-3 px-3 text-right pr-5">Timestamp</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
             {logs.map((log, index) => (
-              <React.Fragment key={index}>
-                <tr 
-                  className="hover:bg-slate-50/80 transition-colors group cursor-pointer"
-                  onClick={() => toggleDetails(index)}
-                >
-                  <td className="py-3 pl-5">
-                    <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center">
-                      <CheckCircle2 size={12} className="text-emerald-600" />
-                    </div>
-                  </td>
-                  <td className="py-3 px-3">
-                      <span className="font-mono text-slate-700 font-medium group-hover:text-blue-600 bg-slate-100 px-1.5 py-0.5 rounded text-[10px] border border-slate-200">
-                          {log.event_type}
-                      </span>
-                  </td>
-                  <td className="py-3 px-3 text-slate-500 font-mono text-[10px]">{log.user_identifier ? log.user_identifier.substring(0, 16) + '...' : 'N/A'}</td>
-                  
-                  {/* KNAPP FÖR EXPANDERING */}
-                  <td className="py-3 px-3 text-right pr-5 text-slate-500">
-                    {expandedIndex === index ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                  </td>
+              <tr key={index} className="hover:bg-slate-50/80 transition-colors group">
+                <td className="py-3 pl-5">
+                  <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center">
+                    <CheckCircle2 size={12} className="text-emerald-600" />
+                  </div>
+                </td>
+                <td className="py-3 px-3">
+                    <span className="font-mono text-slate-700 font-medium group-hover:text-blue-600 bg-slate-100 px-1.5 py-0.5 rounded text-[10px] border border-slate-200">
+                        {log.event_type}
+                    </span>
+                </td>
+                <td className="py-3 px-3 text-slate-500 font-mono text-[10px]">{log.user_identifier ? log.user_identifier.substring(0, 16) + '...' : 'N/A'}</td>
+                
+                {/* <-- IMPLEMENTERING AV DETALJERAD DATA --> */}
+                <td className="py-3 px-3 max-w-xs overflow-hidden">
+                  {log.event_data && typeof log.event_data === 'object' ? (
+                    <pre className="text-[10px] font-mono text-slate-700 bg-slate-50 p-1 rounded-md overflow-x-auto whitespace-pre-wrap max-h-16">
+                      {JSON.stringify(log.event_data, null, 2)}
+                    </pre>
+                  ) : (
+                    <span className="text-[10px] text-slate-400">N/A</span>
+                  )}
+                </td>
+                {/* <-- SLUT IMPLEMENTERING AV DETALJERAD DATA --> */}
 
-                  <td className="py-3 px-3 text-right pr-5 text-slate-400 font-mono text-[10px]">
-                    {new Date(log.timestamp).toLocaleTimeString()}
-                  </td>
-                </tr>
-                
-                {/* EXPANDERAD DETALJ-RAD */}
-                {expandedIndex === index && (
-                  <tr>
-                    <td colSpan="5" className="p-4 pl-12 bg-slate-50/50">
-                      <div className="text-xs font-bold text-slate-600 mb-2">Data Payload (JSON)</div>
-                      <pre className="text-[10px] font-mono text-slate-800 bg-white p-3 rounded-lg border border-slate-200 overflow-x-auto whitespace-pre-wrap">
-                        {JSON.stringify(log.event_data, null, 2)}
-                      </pre>
-                    </td>
-                  </tr>
-                )}
-              </React.Fragment>
+                <td className="py-3 px-3 text-right pr-5 text-slate-400 font-mono text-[10px]">
+                  {new Date(log.timestamp).toLocaleTimeString()}
+                </td>
+              </tr>
             ))}
           </tbody>
         </table>
@@ -225,76 +207,76 @@ const Dashboard = ({ processor, stats, apiKey, onLogEvent, eventData, setEventDa
 
             {KeyRotation}
         </div>
-        
-        {/* Main Content Split (Logs & Tools) */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
-            {/* Left: Logs (2/3) */}
-            <div className="lg:col-span-2">
-               <RecentLogsTable logs={recentLogs} />
-            </div>
+      </div>
 
-            {/* Right: Event Tester (1/3) */}
-            <div className="space-y-6">
-               <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                  <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex items-center gap-2">
-                     <Zap className="text-amber-500" size={16} />
-                     <h3 className="font-bold text-slate-700 text-sm">API Simulator</h3>
-                  </div>
-                  
-                  <div className="p-5">
-                    <p className="text-xs text-slate-500 mb-4">
-                        Manually inject an event to test your webhook configuration and audit stream.
-                    </p>
-                    <form onSubmit={onLogEvent} className="space-y-4">
-                        <div>
-                        <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5">Event Type</label>
-                        <input 
-                            type="text" 
-                            placeholder="e.g. payment.success" 
-                            className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-slate-300 text-slate-700 font-medium" 
-                            value={eventData.event_type} 
-                            onChange={e => setEventData({...eventData, event_type: e.target.value})} 
-                            required 
-                        />
-                        </div>
-                        <div>
-                        <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5">JSON Payload</label>
-                        <textarea 
-                            placeholder='{"amount": 500, "currency": "SEK"}' 
-                            className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg font-mono text-xs h-24 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all resize-none placeholder:text-slate-300 text-slate-600" 
-                            value={eventData.event_data} 
-                            onChange={e => setEventData({...eventData, event_data: e.target.value})} 
-                            required 
-                        />
-                        </div>
-                        <button 
-                        type="submit" 
-                        disabled={isLoading} 
-                        className="w-full bg-[#0a2540] hover:bg-[#1e293b] text-white py-2.5 rounded-lg font-bold text-xs uppercase tracking-wide transition-all shadow-md hover:shadow-lg flex justify-center items-center gap-2"
-                        >
-                        {isLoading ? <RefreshCw className="animate-spin w-3.5 h-3.5"/> : 'Inject Test Event'}
-                        </button>
-                    </form>
-                  </div>
-               </div>
-               
-               {/* Help Card */}
-               <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 flex items-start gap-3">
-                    <div className="p-1.5 bg-blue-100 rounded-full shrink-0 text-blue-600">
-                        <Lock size={14} />
+      {/* Main Content Split (Logs & Tools) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        {/* Left: Logs (2/3) */}
+        <div className="lg:col-span-2">
+           <RecentLogsTable logs={recentLogs} />
+        </div>
+
+        {/* Right: Event Tester (1/3) */}
+        <div className="space-y-6">
+           <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+              <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex items-center gap-2">
+                 <Zap className="text-amber-500" size={16} />
+                 <h3 className="font-bold text-slate-700 text-sm">API Simulator</h3>
+              </div>
+              
+              <div className="p-5">
+                <p className="text-xs text-slate-500 mb-4">
+                    Manually inject an event to test your webhook configuration and audit stream.
+                </p>
+                <form onSubmit={onLogEvent} className="space-y-4">
+                    <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5">Event Type</label>
+                    <input 
+                        type="text" 
+                        placeholder="e.g. payment.success" 
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-slate-300 text-slate-700 font-medium" 
+                        value={eventData.event_type} 
+                        onChange={e => setEventData({...eventData, event_type: e.target.value})} 
+                        required 
+                    />
                     </div>
                     <div>
-                        <h4 className="text-xs font-bold text-blue-800 mb-1">Security Note</h4>
-                        <p className="text-[10px] text-blue-600/80 leading-relaxed">
-                            Events logged here are signed with your active API key and stored immutably.
-                        </p>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5">JSON Payload</label>
+                    <textarea 
+                        placeholder='{"amount": 500, "currency": "SEK"}' 
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg font-mono text-xs h-24 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all resize-none placeholder:text-slate-300 text-slate-600" 
+                        value={eventData.event_data} 
+                        onChange={e => setEventData({...eventData, event_data: e.target.value})} 
+                        required 
+                    />
                     </div>
-               </div>
+                    <button 
+                    type="submit" 
+                    disabled={isLoading} 
+                    className="w-full bg-[#0a2540] hover:bg-[#1e293b] text-white py-2.5 rounded-lg font-bold text-xs uppercase tracking-wide transition-all shadow-md hover:shadow-lg flex justify-center items-center gap-2"
+                    >
+                    {isLoading ? <RefreshCw className="animate-spin w-3.5 h-3.5"/> : 'Inject Test Event'}
+                    </button>
+                </form>
+              </div>
+           </div>
+           
+           {/* Help Card */}
+           <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 flex items-start gap-3">
+                <div className="p-1.5 bg-blue-100 rounded-full shrink-0 text-blue-600">
+                    <Lock size={14} />
+                </div>
+                <div>
+                    <h4 className="text-xs font-bold text-blue-800 mb-1">Security Note</h4>
+                    <p className="text-[10px] text-blue-600/80 leading-relaxed">
+                        Events logged here are signed with your active API key and stored immutably.
+                    </p>
+                </div>
+           </div>
 
-            </div>
+        </div>
 
-          </div>
       </div>
     </div>
   );
