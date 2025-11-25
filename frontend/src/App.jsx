@@ -17,7 +17,7 @@ import AnimatedBackground from './components/AnimatedBackground';
 import PrivacyPage from './components/PrivacyPage'; 
 import CreateProcessor from './components/CreateProcessor'; 
 import Footer from './components/Footer';
-import EnterpriseForm from './components/EnterpriseForm';
+import PricingPage from './components/PricingPage'; 
 import CodeIntegration from './components/CodeIntegration'; 
 import Dashboard from './components/Dashboard'; 
 
@@ -153,6 +153,7 @@ function App() {
   const [activeTab, setActiveTab] = useState('home');
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [showFooterPrivacy, setShowFooterPrivacy] = useState(false);
+  const [legalInitialTab, setLegalInitialTab] = useState('privacy'); // <--- NY STATE FÖR LEGAL TAB
   const [theme, setTheme] = useState('theme-dark'); 
   const [processor, setProcessor] = useState(null);
   const [apiKey, setApiKey] = useState('');
@@ -170,6 +171,17 @@ function App() {
     const savedKey = localStorage.getItem('auditorApiKey');
     if (savedKey) setApiKey(savedKey);
   }, []);
+
+  // --- HELPER FUNCTIONS FÖR MODALER ---
+  const openPrivacyModal = () => {
+    setLegalInitialTab('privacy');
+    setShowFooterPrivacy(true);
+  };
+
+  const openTermsModal = () => {
+    setLegalInitialTab('terms');
+    setShowFooterPrivacy(true);
+  };
 
   // --- SCROLL THEME LOGIC ---
   useEffect(() => {
@@ -239,7 +251,6 @@ function App() {
       };
       setRecentLogs(prev => [newLog, ...prev].slice(0, 10));
       
-      // Uppdatera grafen
       setChartData(prev => [...prev.slice(1), (prev[prev.length-1] || 10) + Math.floor(Math.random() * 20)]);
 
       setEventData({ event_type: '', event_data: '{}', user_identifier: '' }); 
@@ -254,7 +265,15 @@ function App() {
 
   return (
     <div className={`min-h-screen font-sans selection:bg-[#635bff] selection:text-white flex flex-col transition-colors duration-700 ${theme}`}>
-      <AnimatePresence>{showFooterPrivacy && <PrivacyPage isFooterView={true} onClose={() => setShowFooterPrivacy(false)} />}</AnimatePresence>
+      <AnimatePresence>
+        {showFooterPrivacy && (
+          <PrivacyPage 
+            isFooterView={true} 
+            onClose={() => setShowFooterPrivacy(false)} 
+            initialTab={legalInitialTab} // PASSAR RÄTT TABB HÄR
+          />
+        )}
+      </AnimatePresence>
       
       <Navbar activeTab={activeTab} setActiveTab={setActiveTab} />
       
@@ -323,7 +342,11 @@ function App() {
           </>
         )}
         
-        {activeTab === 'pricing' && <div id="pricing" className="pt-24 md:pt-32 px-4 md:px-6 pb-20 bg-slate-50 min-h-screen text-slate-900"><EnterpriseForm /></div>}
+        {activeTab === 'pricing' && (
+          <div id="pricing">
+             <PricingPage setActiveTab={setActiveTab} />
+          </div>
+        )}
         
         {activeTab === 'dashboard' && (
           <div className="min-h-screen bg-[#f7fafc] text-slate-900">
@@ -358,7 +381,11 @@ function App() {
         {activeTab === 'create' && <div className="pt-24 md:pt-32 p-4 md:p-6 flex justify-center bg-slate-50 min-h-screen text-slate-900"><CreateProcessor /></div>}
       </main>
 
-      <Footer onOpenPrivacy={openPrivacy} />
+      <Footer 
+        onOpenPrivacy={openPrivacyModal} 
+        onOpenTerms={openTermsModal}
+        onNavigate={setActiveTab} // FÖR ATT LÄNKAR SKA FUNKA
+      />
     </div>
   );
 }

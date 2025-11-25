@@ -335,3 +335,93 @@ export const DarkAuroraBackground = () => {
     />
   );
 };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// ... (Behåll alla tidigare komponenter ovanför) ...
+
+/**
+ * 6. LIGHT GRADIENT BACKGROUND (För Pricing Page)
+ * En ljus, levande bakgrund med Stripe-liknande färger (Gul, Lila, Blå)
+ */
+export const LightGradientBackground = () => {
+  const canvasRef = useRef(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    let t = 0;
+    let animationFrameId;
+
+    const resize = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    };
+    window.addEventListener('resize', resize);
+    resize();
+
+    const draw = () => {
+      // Vit bas
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      const w = canvas.width;
+      const h = canvas.height;
+
+      const drawBlob = (x, y, r, color) => {
+        const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+        g.addColorStop(0, color);
+        g.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+      };
+
+      // Stripe-inspirerade färger (Mjukare)
+      
+      // Varm Orange/Gul (Vänster)
+      const x1 = w * 0.2 + Math.sin(t * 0.002) * w * 0.1;
+      const y1 = h * 0.4 + Math.cos(t * 0.003) * h * 0.1;
+      drawBlob(x1, y1, w * 0.6, 'rgba(255, 200, 100, 0.15)');
+
+      // Stripe Purple (Höger)
+      const x2 = w * 0.8 + Math.cos(t * 0.0025) * w * 0.1;
+      const y2 = h * 0.3 + Math.sin(t * 0.002) * h * 0.1;
+      drawBlob(x2, y2, w * 0.7, 'rgba(99, 91, 255, 0.12)');
+
+      // Cyan/Blue (Mitten/Botten)
+      const x3 = w * 0.5 + Math.sin(t * 0.001) * w * 0.2;
+      const y3 = h * 0.8 + Math.cos(t * 0.003) * h * 0.2;
+      drawBlob(x3, y3, w * 0.6, 'rgba(0, 212, 255, 0.15)');
+
+      t += 1;
+      animationFrameId = requestAnimationFrame(draw);
+    };
+    draw();
+
+    return () => {
+      window.removeEventListener('resize', resize);
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, []);
+
+  return (
+    <canvas 
+      ref={canvasRef} 
+      className="absolute inset-0 w-full h-full pointer-events-none blur-[80px]"
+    />
+  );
+};
