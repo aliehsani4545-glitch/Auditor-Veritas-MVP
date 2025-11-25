@@ -237,15 +237,27 @@ function App() {
       let hashedUser = eventData.user_identifier; 
       if (eventData.user_identifier) hashedUser = CryptoJS.SHA256(eventData.user_identifier).toString(); 
       
-      await apiCall('/api/events', { method: 'POST', body: { ...eventData, user_identifier: hashedUser, event_data: JSON.parse(eventData.event_data) } }, apiKey); 
+      // NY LOGIK: Parsa event_data FÖRE API-anropet och loggning
+      const eventDataParsed = JSON.parse(eventData.event_data); 
+      
+      await apiCall('/api/events', { 
+        method: 'POST', 
+        body: { 
+          event_type: eventData.event_type, 
+          user_identifier: hashedUser, 
+          event_data: eventDataParsed // Skickar det parsade objektet
+        } 
+      }, apiKey); 
       
       alert('Event Logged!'); 
       
       setStats(prev => ({...prev, totalEvents: prev.totalEvents + 1, monthlyEvents: prev.monthlyEvents + 1}));
       
+      // Skapa loggobjektet med det fullständiga, parsade event_data
       const newLog = {
-        ...eventData,
+        event_type: eventData.event_type,
         user_identifier: hashedUser || 'Anonymous',
+        event_data: eventDataParsed, // Använder det parsade objektet för att visa detaljer
         timestamp: new Date().toISOString(),
         status: 'success'
       };
