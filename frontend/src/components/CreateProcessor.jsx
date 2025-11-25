@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Building2, Mail, CreditCard, Rocket, CheckCircle, XCircle } from 'lucide-react';
-// Importera den globala apiCall-hjälparen som hanterar bas-URL:en
-import { apiCall } from '../App'; 
+
+// Samma tomma sträng som i App.jsx för att proxyn ska funka
+const API_BASE_URL = '';
 
 const CreateProcessor = () => {
   const [formData, setFormData] = useState({
@@ -19,25 +20,28 @@ const CreateProcessor = () => {
     setStatus({ type: '', message: '' });
 
     try {
-        // Använd den importerade apiCall-funktionen. 
-        // apiCall tar hand om bas-URL och serialisering.
-      const data = await apiCall(`/api/processors`, { 
-            method: 'POST', 
-            body: formData 
-        });
+      const response = await fetch(`${API_BASE_URL}/api/processors`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        // Hantera specifikt dubblett-fel snyggt
+        if (response.status === 409) {
+          throw new Error('An account with this email already exists.');
+        }
+        throw new Error(data.error || 'Failed to create processor');
+      }
 
       setStatus({ type: 'success', message: 'Processor created successfully!' });
       setCreatedApiKey(data.apiKey); // Spara nyckeln för visning
       setFormData({ companyName: '', email: '', plan: 'starter' }); // Rensa formulär
       
     } catch (error) {
-        // apiCall kastar Error-objekt baserat på serverns svar
-      setStatus({ 
-            type: 'error', 
-            message: error.message.includes('email already exists') 
-                ? 'Ett konto med denna e-postadress finns redan.' 
-                : error.message 
-        });
+      setStatus({ type: 'error', message: error.message });
     } finally {
       setIsLoading(false);
     }

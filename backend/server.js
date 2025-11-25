@@ -278,7 +278,7 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-// API Key Authentication Middleware
+// KORRIGERAD PLATS: API Key Authentication (MÅSTE VARA INNAN ROUTES)
 const authenticateApiKey = async (req, res, next) => {
   try {
     const apiKey = req.headers['x-api-key'] || req.headers['authorization']?.replace('Bearer ', '');
@@ -307,7 +307,7 @@ const authenticateApiKey = async (req, res, next) => {
 
     if (processor.status !== 'active') {
       return res.status(403).json({
-        error: 'Processor account suspended or key revoked',
+        error: 'Processor account suspended',
         code: 'ACCOUNT_SUSPENDED'
       });
     }
@@ -327,7 +327,7 @@ const authenticateApiKey = async (req, res, next) => {
 // PRICING CONFIGURATION
 const PRICING_PLANS = {
   starter: { 
-    events: 100, 
+    events: 100,
     price: 0,
     features: ['Basic Audit Trail', 'GDPR Compliance', 'Email Support']
   },
@@ -343,18 +343,300 @@ const PRICING_PLANS = {
   }
 };
 
+// --- MERKLE TREE ENDPOINTS ---
+// Get or Create Merkle Tree for Processor (RAD 143: FUNGERAR NU)
+app.get('/api/merkle/tree', authenticateApiKey, async (req, res) => {
+  try {
+    const processor = req.processor;
+    const treeId = `processor_${processor.id}`;
 
-// --- START DEFINITION AV API ROUTER (apiRouter) ---
-// ************************************************
-// Här definieras alla dina API-rutter UTAN /api prefixet
-// ************************************************
+    if (!merkleTrees.has(treeId)) {
+      // Build initial tree from existing events
+      const { data: events } = await supabase
+        .from('audit_events')
+        .select('*')
+        .eq('processor_id', processor.id)
+        .order('event_timestamp', { ascending: true });
 
+      const tree = new MerkleTree(events?.map(event => ({
+        id: event.id,
+        event_type: event.event_type,
+        event_data: event.event_data,
+        timestamp: event.event_timestamp,
+        data_hash: event.data_hash
+      })) || []);
 
-// DIAGNOSTISK TEST ROUTE FÖR ATT VERIFIERA EXPRESS ROUTER LADDAS
-app.get('/api/processors', (req, res) => {
-    res.status(200).json({ message: 'Processor GET endpoint is active.' });
+      merkleTrees.set(treeId, tree);
+    }
+
+    const tree = merkleTrees.get(treeId);
+    res.json({
+      treeId: treeId,
+      ...tree.getTreeSummary(),
+      message: 'Merkle Tree loaded successfully'
+    });
+
+  } catch (error) {
+    console.error('Merkle tree error:', error);
+    res.status(500).json({
+      error: 'Failed to load Merkle tree'
+    });
+  }
 });
 
+// Add Event to Merkle Tree
+app.post('/api/merkle/events', authenticateApiKey, async (req, res) => {
+  try {
+    const { event_type, event_data, user_identifier } = req.body;
+    const processor = req.processor;
+
+    if (!event_type?.trim()) {
+      return res.status(400).json({
+        error: 'Event type is required'
+      });
+    }
+
+    // Create the event first
+    const eventTimestamp = new Date().toISOString();
+    const hashData = {
+      processor_id: processor.id,
+      event_type: event_type.trim(),
+      event_data: event_data || {},
+      user_identifier: user_identifier,
+      event_timestamp: eventTimestamp
+    };
+
+    const data_hash = CryptoJS.SHA256(JSON.stringify(hashData)).toString();
+
+    const { data: event, error } = await supabase
+      .from('audit_events')
+      .insert([{
+        processor_id: processor.id,
+        event_type: event_type.trim(),
+        event_data: event_data || {},
+        user_identifier: user_identifier,
+        event_timestamp: eventTimestamp,
+        data_hash: data_hash
+      }])
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Add to Merkle Tree
+    const treeId = `processor_${processor.id}`;
+    if (!merkleTrees.has(treeId)) {
+      merkleTrees.set(treeId, new MerkleTree());
+    }
+
+    const tree = merkleTrees.get(treeId);
+    const leafHash = tree.addLeaf({
+      id: event.id,
+      event_type: event_type.trim(),
+      event_data: event_data || {},
+      timestamp: eventTimestamp,
+      data_hash: data_hash
+    });
+
+    res.json({
+      message: 'Event added to Merkle Tree',
+      eventId: event.id,
+      leafHash: leafHash,
+      merkleRoot: tree.root,
+      treeSummary: tree.getTreeSummary()
+    });
+
+  } catch (error) {
+    console.error('Merkle event error:', error);
+    res.status(500).json({
+      error: 'Failed to add event to Merkle tree'
+    });
+  }
+});
+
+// Generate Merkle Proof for Event
+app.get('/api/merkle/proof/:eventId', authenticateApiKey, async (req, res) => {
+  try {
+    const { eventId } = req.params;
+    const processor = req.processor;
+
+    // Get the event
+    const { data: event } = await supabase
+      .from('audit_events')
+      .select('*')
+      .eq('id', eventId)
+      .eq('processor_id', processor.id)
+      .single();
+
+    if (!event) {
+      return res.status(404).json({
+        error: 'Event not found'
+      });
+    }
+
+    const treeId = `processor_${processor.id}`;
+    if (!merkleTrees.has(treeId)) {
+      return res.status(404).json({
+        error: 'Merkle tree not found for processor'
+      });
+    }
+
+    const tree = merkleTrees.get(treeId);
+    const leafData = {
+      id: event.id,
+      event_type: event.event_type,
+      event_data: event.event_data,
+      timestamp: event.event_timestamp,
+      data_hash: event.data_hash
+    };
+
+    const leafHash = tree.hash(leafData);
+    const proof = tree.getProof(leafHash);
+
+    if (!proof) {
+      return res.status(404).json({
+        error: 'Event not found in Merkle tree'
+      });
+    }
+
+    // Verify the proof
+    const isValid = tree.verifyProof(leafHash, proof, tree.root);
+
+    res.json({
+      eventId: eventId,
+      leafHash: leafHash,
+      merkleRoot: tree.root,
+      proof: proof,
+      isValid: isValid,
+      verification: {
+        verified: isValid,
+        timestamp: new Date().toISOString(),
+        rootHash: tree.root
+      },
+      treeInfo: {
+        totalLeaves: tree.leaves.length,
+        treeLevels: tree.levels.length
+      }
+    });
+
+  } catch (error) {
+    console.error('Merkle proof error:', error);
+    res.status(500).json({
+      error: 'Failed to generate Merkle proof'
+    });
+  }
+});
+
+// Verify Merkle Proof
+app.post('/api/merkle/verify', authenticateApiKey, async (req, res) => {
+  try {
+    const { leafHash, proof, root } = req.body;
+    const processor = req.processor;
+
+    if (!leafHash || !proof || !root) {
+      return res.status(400).json({
+        error: 'leafHash, proof, and root are required'
+      });
+    }
+
+    const treeId = `processor_${processor.id}`;
+    if (!merkleTrees.has(treeId)) {
+      return res.status(404).json({
+        error: 'Merkle tree not found'
+      });
+    }
+
+    const tree = merkleTrees.get(treeId);
+    const isValid = tree.verifyProof(leafHash, proof, root);
+
+    res.json({
+      verified: isValid,
+      leafHash: leafHash,
+      providedRoot: root,
+      currentRoot: tree.root,
+      matchesCurrent: root === tree.root,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Merkle verify error:', error);
+    res.status(500).json({
+      error: 'Failed to verify Merkle proof'
+    });
+  }
+});
+
+// Get Merkle Tree Structure
+app.get('/api/merkle/structure', authenticateApiKey, async (req, res) => {
+  try {
+    const processor = req.processor;
+    const treeId = `processor_${processor.id}`;
+
+    if (!merkleTrees.has(treeId)) {
+      return res.status(404).json({
+        error: 'Merkle tree not found'
+      });
+    }
+
+    const tree = merkleTrees.get(treeId);
+    
+    res.json({
+      treeId: treeId,
+      root: tree.root,
+      leafCount: tree.leaves.length,
+      levels: tree.levels.length,
+      structure: {
+        leaves: tree.leaves.slice(0, 10),
+        levelCount: tree.levels.length,
+        treeSummary: tree.getTreeSummary()
+      }
+    });
+
+  } catch (error) {
+    console.error('Merkle structure error:', error);
+    res.status(500).json({
+      error: 'Failed to get Merkle tree structure'
+    });
+  }
+});
+
+// Enhanced Routes
+
+// Health Check with Business Metrics
+app.get('/api/health', async (req, res) => {
+  try {
+    const { data: processors, error: pError } = await supabase
+      .from('processors')
+      .select('id, plan, status, created_at');
+
+    const { data: events, error: eError } = await supabase
+      .from('audit_events')
+      .select('id, event_timestamp');
+
+    const monthlyRevenue = processors?.reduce((sum, p) => {
+      return sum + (PRICING_PLANS[p.plan]?.price || 0);
+    }, 0);
+
+    res.json({ 
+      status: 'OK', 
+      timestamp: new Date().toISOString(),
+      environment: isProduction ? 'production' : 'development',
+      business: {
+        totalProcessors: processors?.length || 0,
+        totalEvents: events?.length || 0,
+        activeProcessors: processors?.filter(p => p.status === 'active').length || 0,
+        monthlyRevenue: monthlyRevenue,
+        uptime: process.uptime()
+      },
+      database: pError || eError ? 'Error' : 'Connected'
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 'Error',
+      error: isProduction ? 'Internal server error' : error.message
+    });
+  }
+});
 
 // Create Processor with Payment Integration
 app.post('/api/processors', async (req, res) => {
@@ -363,25 +645,50 @@ app.post('/api/processors', async (req, res) => {
 
     // Enhanced validation
     if (!companyName?.trim() || !email?.trim()) {
-      return res.status(400).json({ error: 'Company name and email are required', code: 'VALIDATION_ERROR' });
+      return res.status(400).json({
+        error: 'Company name and email are required',
+        code: 'VALIDATION_ERROR'
+      });
     }
+
     if (!isValidEmail(email)) {
-      return res.status(400).json({ error: 'Invalid email format', code: 'INVALID_EMAIL' });
+      return res.status(400).json({
+        error: 'Invalid email format',
+        code: 'INVALID_EMAIL'
+      });
     }
+
     if (!PRICING_PLANS[plan]) {
-      return res.status(400).json({ error: 'Invalid plan selected', code: 'INVALID_PLAN' });
+      return res.status(400).json({
+        error: 'Invalid plan selected',
+        code: 'INVALID_PLAN',
+        availablePlans: Object.keys(PRICING_PLANS)
+      });
     }
 
     // Check for existing processor
-    const { data: existing } = await supabase.from('processors').select('id').eq('email', email.trim().toLowerCase()).limit(1);
+    const { data: existing } = await supabase
+      .from('processors')
+      .select('id')
+      .eq('email', email.trim().toLowerCase())
+      .limit(1);
 
     if (existing?.length > 0) {
-      return res.status(409).json({ error: 'Processor with this email already exists', code: 'EMAIL_EXISTS' });
+      return res.status(409).json({
+        error: 'Processor with this email already exists',
+        code: 'EMAIL_EXISTS'
+      });
     }
 
     // Payment validation for paid plans
     if (PRICING_PLANS[plan].price > 0 && !paymentIntent) {
-      return res.status(402).json({ error: 'Payment required for this plan', code: 'PAYMENT_REQUIRED' });
+      return res.status(402).json({
+        error: 'Payment required for this plan',
+        code: 'PAYMENT_REQUIRED',
+        plan: plan,
+        price: PRICING_PLANS[plan].price,
+        features: PRICING_PLANS[plan].features
+      });
     }
 
     // Create processor
@@ -402,11 +709,17 @@ app.post('/api/processors', async (req, res) => {
       last_key_rotation: new Date().toISOString()
     };
 
-    const { data, error } = await supabase.from('processors').insert([processorData]).select();
+    const { data, error } = await supabase
+      .from('processors')
+      .insert([processorData])
+      .select();
 
     if (error) {
       console.error('Database error:', error);
-      return res.status(500).json({ error: 'Failed to create processor', code: 'DATABASE_ERROR' });
+      return res.status(500).json({
+        error: 'Failed to create processor',
+        code: 'DATABASE_ERROR'
+      });
     }
 
     console.log('💰 New processor created:', { companyName, email, plan });
@@ -434,7 +747,10 @@ app.post('/api/processors', async (req, res) => {
 
   } catch (error) {
     console.error('Processor creation error:', error);
-    res.status(500).json({ error: 'Internal server error', code: 'INTERNAL_ERROR' });
+    res.status(500).json({
+      error: 'Internal server error',
+      code: 'INTERNAL_ERROR'
+    });
   }
 });
 
@@ -442,94 +758,672 @@ app.post('/api/processors', async (req, res) => {
 app.post('/api/keys/rotate', authenticateApiKey, async (req, res) => {
   try {
     const processor = req.processor;
+
+    // Generate new API key
     const newApiKey = `av_${uuidv4().replace(/-/g, '')}`;
     const newApiKeyHash = CryptoJS.SHA256(newApiKey).toString();
-    const { error } = await supabase.from('processors').update({ api_key_hash: newApiKeyHash, last_key_rotation: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', processor.id);
-    if (error) { console.error('Key rotation error:', error); return res.status(500).json({ error: 'Failed to rotate API key', code: 'KEY_ROTATION_FAILED' }); }
-    await supabase.from('audit_events').insert([{ processor_id: processor.id, event_type: 'key_rotation', event_data: { action: 'api_key_rotated' }, event_timestamp: new Date().toISOString(), data_hash: CryptoJS.SHA256(`key_rotation_${Date.now()}`).toString() }]);
+
+    // Update processor with new key
+    const { error } = await supabase
+      .from('processors')
+      .update({
+        api_key_hash: newApiKeyHash,
+        last_key_rotation: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', processor.id);
+
+    if (error) {
+      console.error('Key rotation error:', error);
+      return res.status(500).json({
+        error: 'Failed to rotate API key',
+        code: 'KEY_ROTATION_FAILED'
+      });
+    }
+
+    // Log the key rotation event
+    await supabase
+      .from('audit_events')
+      .insert([{
+        processor_id: processor.id,
+        event_type: 'key_rotation',
+        event_data: {
+          action: 'api_key_rotated',
+          previous_key_hash: processor.api_key_hash.substring(0, 8) + '...',
+          rotation_timestamp: new Date().toISOString()
+        },
+        event_timestamp: new Date().toISOString(),
+        data_hash: CryptoJS.SHA256(`key_rotation_${Date.now()}`).toString()
+      }]);
+
     console.log('🔑 API Key rotated for processor:', processor.id);
-    res.json({ message: 'API key rotated successfully', newApiKey: newApiKey, rotationTimestamp: new Date().toISOString(), security: { previousKeyDisabled: true, newKeyActive: true, rotationPolicy: '90 days recommended' } });
+
+    res.json({
+      message: 'API key rotated successfully',
+      newApiKey: newApiKey,
+      rotationTimestamp: new Date().toISOString(),
+      security: {
+        previousKeyDisabled: true,
+        newKeyActive: true,
+        rotationPolicy: '90 days recommended'
+      }
+    });
+
   } catch (error) {
     console.error('Key rotation error:', error);
-    res.status(500).json({ error: 'Internal server error during key rotation', code: 'ROTATION_ERROR' });
+    res.status(500).json({
+      error: 'Internal server error during key rotation',
+      code: 'ROTATION_ERROR'
+    });
   }
 });
 
-// API Key Revocation
-app.post('/api/keys/revoke', authenticateApiKey, async (req, res) => {
+// Get Key Rotation Status
+app.get('/api/keys/status', authenticateApiKey, async (req, res) => {
   try {
     const processor = req.processor;
-    const revokedKeyHash = CryptoJS.SHA256(`revoked_${uuidv4()}_${Date.now()}`).toString();
-    const { error } = await supabase.from('processors').update({ api_key_hash: revokedKeyHash, status: 'revoked', updated_at: new Date().toISOString() }).eq('id', processor.id);
-    if (error) throw error;
-    await supabase.from('audit_events').insert([{ processor_id: processor.id, event_type: 'key_revocation_manual', event_data: { action: 'api_key_revoked_by_user' }, event_timestamp: new Date().toISOString(), data_hash: CryptoJS.SHA256(`key_revoked_${Date.now()}`).toString() }]);
-    console.log('❌ API Key revoked for processor:', processor.id);
-    res.json({ message: 'API key successfully revoked. You must generate a new key to proceed.', status: 'REVOKED', timestamp: new Date().toISOString() });
+
+    const lastRotation = new Date(processor.last_key_rotation);
+    const daysSinceRotation = Math.floor((new Date() - lastRotation) / (1000 * 60 * 60 * 24));
+    const recommendedRotation = 90;
+    const rotationStatus = daysSinceRotation >= recommendedRotation ? 'overdue' : 
+                          daysSinceRotation >= recommendedRotation - 30 ? 'due_soon' : 'current';
+
+    res.json({
+      keyStatus: {
+        lastRotation: processor.last_key_rotation,
+        daysSinceRotation: daysSinceRotation,
+        rotationStatus: rotationStatus,
+        recommendedRotationDays: recommendedRotation,
+        securityScore: rotationStatus === 'current' ? 100 : 
+                      rotationStatus === 'due_soon' ? 70 : 40
+      },
+      recommendations: rotationStatus === 'overdue' ? 
+        ['Immediate key rotation recommended'] :
+        rotationStatus === 'due_soon' ?
+        ['Consider rotating your API key in the next 30 days'] :
+        ['Your key rotation schedule is current']
+    });
+
   } catch (error) {
-    console.error('Key revocation error:', error);
-    res.status(500).json({ error: 'Failed to revoke API key' });
+    console.error('Key status error:', error);
+    res.status(500).json({
+      error: 'Failed to retrieve key status'
+    });
   }
 });
 
-// GDPR Right to Erasure (Pseudonymisering)
-app.post('/api/gdpr/erase', authenticateApiKey, async (req, res) => {
+// Get Pricing Plans
+app.get('/api/pricing', (req, res) => {
+  res.json({
+    plans: PRICING_PLANS,
+    currency: 'USD',
+    billingPeriod: 'monthly'
+  });
+});
+
+// Enhanced Dashboard with Business Analytics
+app.get('/api/dashboard', authenticateApiKey, async (req, res) => {
   try {
-    const { user_identifier } = req.body;
     const processor = req.processor;
-    if (!user_identifier) { return res.status(400).json({ error: 'User identifier is required for erasure.' }); }
 
-    // Steg 1: Hitta alla händelser för användaren (använder den hashade ID:t från frontend)
-    const { data: eventsToErase, error: fetchError } = await supabase.from('audit_events').select('*').eq('processor_id', processor.id).eq('user_identifier', user_identifier);
-    if (fetchError) throw fetchError;
-    if (!eventsToErase || eventsToErase.length === 0) { return res.status(404).json({ message: 'No events found for this identifier.' }); }
+    // Get current month events
+    const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+    const { data: monthlyEvents, error: monthlyError } = await supabase
+      .from('audit_events')
+      .select('id', { count: 'exact' })
+      .eq('processor_id', processor.id)
+      .gte('event_timestamp', startOfMonth);
 
-    // Steg 2: Pseudonymisera (uppdatera) alla matching händelser
-    const newHash = CryptoJS.SHA256(user_identifier + Date.now()).toString();
-    const pseudonymizedIdentifier = `ERASED_${newHash.substring(0, 16)}`;
-    const { error: updateError } = await supabase.from('audit_events').update({ 
-        user_identifier: pseudonymizedIdentifier,
-        event_data: { erased: true, reason: 'GDPR Right to Erasure' }
-      }).eq('processor_id', processor.id).eq('user_identifier', user_identifier); 
-    if (updateError) throw updateError;
-    
-    // Steg 3: Lägg till en oföränderlig audit-händelse för själva raderingen
-    const eraseEvent = { processor_id: processor.id, event_type: 'gdpr_erasure_request', user_identifier: pseudonymizedIdentifier, event_data: { records_erased: eventsToErase.length, original_identifier_hash: user_identifier }, event_timestamp: new Date().toISOString(), data_hash: CryptoJS.SHA256(`gdpr_erase_${Date.now()}`).toString() };
-    await supabase.from('audit_events').insert([eraseEvent]);
-    console.warn(`⚠️ Merkle Tree for processor ${processor.id} needs to be rebuilt after erasure.`);
+    // Get total events
+    const { data: totalEvents, error: totalError } = await supabase
+      .from('audit_events')
+      .select('id', { count: 'exact' })
+      .eq('processor_id', processor.id);
 
-    res.json({ message: 'GDPR Right to Erasure executed.', records_updated: eventsToErase.length, new_identifier_format: pseudonymizedIdentifier, audit_log_created: true });
+    if (monthlyError || totalError) {
+      return res.status(500).json({
+        error: 'Failed to fetch dashboard data'
+      });
+    }
+
+    // Update monthly usage
+    await supabase
+      .from('processors')
+      .update({ monthly_events_used: monthlyEvents.length })
+      .eq('id', processor.id);
+
+    // Calculate usage analytics
+    const utilization = ((monthlyEvents.length / processor.events_limit) * 100).toFixed(1);
+    const usageTrend = await getUsageTrend(processor.id);
+
+    // Get key rotation status
+    const lastRotation = new Date(processor.last_key_rotation);
+    const daysSinceRotation = Math.floor((new Date() - lastRotation) / (1000 * 60 * 60 * 24));
+
+    // Get Merkle Tree status
+    const treeId = `processor_${processor.id}`;
+    const hasMerkleTree = merkleTrees.has(treeId);
+    const merkleTree = hasMerkleTree ? merkleTrees.get(treeId) : null;
+
+    res.json({
+      processor: {
+        id: processor.id,
+        companyName: processor.company_name,
+        email: processor.email,
+        plan: processor.plan,
+        eventsLimit: processor.events_limit,
+        monthlyEventsUsed: monthlyEvents.length,
+        status: processor.status,
+        createdAt: processor.created_at,
+        lastKeyRotation: processor.last_key_rotation,
+        daysSinceKeyRotation: daysSinceRotation,
+        features: PRICING_PLANS[processor.plan]?.features || []
+      },
+      stats: {
+        monthlyEvents: monthlyEvents.length,
+        totalEvents: totalEvents.length,
+        eventsLimit: processor.events_limit,
+        remainingEvents: Math.max(0, processor.events_limit - monthlyEvents.length),
+        utilization: utilization + '%',
+        dailyAverage: calculateDailyAverage(monthlyEvents.length),
+        usageTrend: usageTrend
+      },
+      security: {
+        keyRotationStatus: daysSinceRotation > 90 ? 'overdue' : daysSinceRotation > 60 ? 'due_soon' : 'current',
+        lastRotation: processor.last_key_rotation,
+        encryption: 'AES-256',
+        compliance: 'GDPR Certified',
+        merkleTree: {
+          active: hasMerkleTree,
+          rootHash: merkleTree?.root?.substring(0, 16) + '...',
+          eventCount: merkleTree?.leaves.length || 0
+        }
+      },
+      billing: {
+        plan: processor.plan,
+        price: PRICING_PLANS[processor.plan]?.price || 0,
+        nextBillingDate: new Date(new Date(processor.created_at).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString()
+      }
+    });
+
   } catch (error) {
-    console.error('GDPR erasure error:', error);
-    res.status(500).json({ error: 'Failed to process erasure request.' });
+    console.error('Dashboard error:', error);
+    res.status(500).json({
+      error: 'Internal server error'
+    });
   }
 });
 
-// Merkle Tree Endpoints
-app.get('/api/merkle/tree', authenticateApiKey, async (req, res) => { /* ... */ });
-app.post('/api/merkle/events', authenticateApiKey, async (req, res) => { /* ... */ });
-app.get('/api/merkle/proof/:eventId', authenticateApiKey, async (req, res) => { /* ... */ });
-app.post('/api/merkle/verify', authenticateApiKey, async (req, res) => { /* ... */ });
-app.get('/api/merkle/structure', authenticateApiKey, async (req, res) => { /* ... */ });
+// Enhanced Event Logging with Analytics
+app.post('/api/events', authenticateApiKey, async (req, res) => {
+  try {
+    const { event_type, event_data, user_identifier } = req.body;
+    const processor = req.processor;
 
-// Dashboard, Events, Pricing Endpoints
-app.get('/api/dashboard', authenticateApiKey, async (req, res) => { /* ... */ });
-app.post('/api/events', authenticateApiKey, async (req, res) => { /* ... */ });
-app.post('/api/events/bulk', authenticateApiKey, async (req, res) => { /* ... */ });
-app.get('/api/events/search', authenticateApiKey, async (req, res) => { /* ... */ });
-app.get('/api/events/:id/verify', async (req, res) => { /* ... */ });
-app.get('/api/gdpr/export/:processorId', authenticateApiKey, async (req, res) => { /* ... */ });
-app.get('/api/health', async (req, res) => { /* ... */ });
-app.get('/api/keys/status', authenticateApiKey, async (req, res) => { /* ... */ });
-app.get('/api/pricing', (req, res) => { /* ... */ });
+    // Enhanced validation
+    if (!event_type?.trim()) {
+      return res.status(400).json({
+        error: 'Event type is required',
+        code: 'EVENT_TYPE_REQUIRED'
+      });
+    }
 
+    if (!event_data) {
+      return res.status(400).json({
+        error: 'Event data is required',
+        code: 'EVENT_DATA_REQUIRED'
+      });
+    }
+
+    // Validate JSON
+    let parsedEventData;
+    try {
+      parsedEventData = typeof event_data === 'string' ? JSON.parse(event_data) : event_data;
+    } catch (error) {
+      return res.status(400).json({
+        error: 'Invalid JSON in event data',
+        code: 'INVALID_JSON'
+      });
+    }
+
+    // Check monthly limit
+    const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+    const { data: monthlyEvents, error: countError } = await supabase
+      .from('audit_events')
+      .select('id', { count: 'exact' })
+      .eq('processor_id', processor.id)
+      .gte('event_timestamp', startOfMonth);
+
+    if (countError) {
+      return res.status(500).json({
+        error: 'Failed to check event limit'
+      });
+    }
+
+    if (monthlyEvents.length >= processor.events_limit) {
+      return res.status(429).json({
+        error: 'Monthly event limit exceeded',
+        limit: processor.events_limit,
+        used: monthlyEvents.length,
+        code: 'EVENT_LIMIT_EXCEEDED',
+        upgradeUrl: '/api/pricing'
+      });
+    }
+
+    // Get previous hash for chain integrity
+    const { data: lastEvent } = await supabase
+      .from('audit_events')
+      .select('data_hash')
+      .eq('processor_id', processor.id)
+      .order('event_timestamp', { ascending: false })
+      .limit(1);
+
+    const previous_hash = lastEvent?.[0]?.data_hash || null;
+
+    // Create immutable hash
+    const eventTimestamp = new Date().toISOString();
+    const hashData = {
+      processor_id: processor.id,
+      event_type: event_type.trim(),
+      event_data: parsedEventData,
+      user_identifier: user_identifier,
+      ip_address: req.ip,
+      user_agent: req.get('User-Agent'),
+      event_timestamp: eventTimestamp,
+      previous_hash: previous_hash
+    };
+
+    const data_hash = CryptoJS.SHA256(JSON.stringify(hashData)).toString();
+
+    // Insert event
+    const { data, error } = await supabase
+      .from('audit_events')
+      .insert([{
+        processor_id: processor.id,
+        event_type: event_type.trim(),
+        event_data: parsedEventData,
+        user_identifier: user_identifier,
+        ip_address: req.ip,
+        user_agent: req.get('User-Agent'),
+        event_timestamp: eventTimestamp,
+        data_hash: data_hash,
+        previous_hash: previous_hash
+      }])
+      .select();
+
+    if (error) {
+      console.error('Event creation error:', error);
+      return res.status(500).json({
+        error: 'Failed to log audit event: ' + (isProduction ? 'Database error' : error.message)
+      });
+    }
+
+    // Add to Merkle Tree
+    const treeId = `processor_${processor.id}`;
+    if (!merkleTrees.has(treeId)) {
+      merkleTrees.set(treeId, new MerkleTree());
+    }
+
+    const tree = merkleTrees.get(treeId);
+    tree.addLeaf({
+      id: data[0].id,
+      event_type: event_type.trim(),
+      event_data: parsedEventData,
+      timestamp: eventTimestamp,
+      data_hash: data_hash
+    });
+
+    // Update analytics
+    await updateProcessorAnalytics(processor.id);
+
+    res.status(201).json({
+      message: 'Audit event logged successfully',
+      eventId: data[0].id,
+      event_timestamp: data[0].event_timestamp,
+      data_hash: data[0].data_hash,
+      merkleRoot: tree.root,
+      usage: {
+        monthlyUsed: monthlyEvents.length + 1,
+        remaining: processor.events_limit - (monthlyEvents.length + 1)
+      }
+    });
+
+  } catch (error) {
+    console.error('Event logging error:', error);
+    res.status(500).json({
+      error: 'Internal server error: ' + (isProduction ? null : error.message)
+    });
+  }
+});
+
+// Bulk Event Import for Enterprise
+app.post('/api/events/bulk', authenticateApiKey, async (req, res) => {
+  try {
+    const { events } = req.body;
+    const processor = req.processor;
+
+    if (!Array.isArray(events) || events.length === 0) {
+      return res.status(400).json({
+        error: 'Events array is required',
+        code: 'EVENTS_ARRAY_REQUIRED'
+      });
+    }
+
+    if (events.length > 1000) {
+      return res.status(400).json({
+        error: 'Maximum 1000 events per bulk import',
+        code: 'BULK_LIMIT_EXCEEDED'
+      });
+    }
+
+    // Feature Gating: Block Starter
+    if (processor.plan === 'starter') {
+      return res.status(403).json({
+        error: 'Bulk import requires Professional or Enterprise plan',
+        code: 'UPGRADE_REQUIRED',
+        upgradeUrl: '/api/pricing'
+      });
+    }
+
+    const processedEvents = [];
+    const errors = [];
+
+    for (const eventData of events) {
+      try {
+        const { event_type, event_data, user_identifier } = eventData;
+
+        if (!event_type?.trim()) {
+          errors.push({ event: eventData, error: 'Event type is required' });
+          continue;
+        }
+
+        const eventTimestamp = new Date().toISOString();
+        const hashData = {
+          processor_id: processor.id,
+          event_type: event_type.trim(),
+          event_data: event_data || {},
+          user_identifier: user_identifier,
+          event_timestamp: eventTimestamp
+        };
+
+        const data_hash = CryptoJS.SHA256(JSON.stringify(hashData)).toString();
+
+        processedEvents.push({
+          processor_id: processor.id,
+          event_type: event_type.trim(),
+          event_data: event_data || {},
+          user_identifier: user_identifier,
+          event_timestamp: eventTimestamp,
+          data_hash: data_hash
+        });
+      } catch (error) {
+        errors.push({ event: eventData, error: error.message });
+      }
+    }
+
+    // Insert all valid events
+    const { data, error } = await supabase
+      .from('audit_events')
+      .insert(processedEvents)
+      .select();
+
+    if (error) {
+      return res.status(500).json({
+        error: 'Failed to import events: ' + (isProduction ? 'Database error' : error.message)
+      });
+    }
+
+    // Add to Merkle Tree
+    const treeId = `processor_${processor.id}`;
+    if (!merkleTrees.has(treeId)) {
+      merkleTrees.set(treeId, new MerkleTree());
+    }
+
+    const tree = merkleTrees.get(treeId);
+    data.forEach(event => {
+      tree.addLeaf({
+        id: event.id,
+        event_type: event.event_type,
+        event_data: event.event_data,
+        timestamp: event.event_timestamp,
+        data_hash: event.data_hash
+      });
+    });
+
+    // Update analytics
+    await updateProcessorAnalytics(processor.id);
+
+    res.json({
+      message: `Bulk import completed successfully`,
+      imported: processedEvents.length,
+      errors: errors.length,
+      error_details: isProduction ? null : errors,
+      merkleRoot: tree.root,
+      usage: {
+        totalImported: processedEvents.length,
+        failedImports: errors.length
+      }
+    });
+
+  } catch (error) {
+    console.error('Bulk import error:', error);
+    res.status(500).json({
+      error: 'Internal server error: ' + (isProduction ? null : error.message)
+    });
+  }
+});
+
+// Advanced Event Search with Filtering
+app.get('/api/events/search', authenticateApiKey, async (req, res) => {
+  try {
+    const { 
+      query, 
+      event_type, 
+      start_date, 
+      end_date,
+      page = 1, 
+      limit = 50 
+    } = req.query;
+
+    let supabaseQuery = supabase
+      .from('audit_events')
+      .select('*', { count: 'exact' })
+      .eq('processor_id', req.processor.id);
+
+    // Apply filters
+    if (event_type) {
+      supabaseQuery = supabaseQuery.eq('event_type', event_type);
+    }
+
+    if (start_date) {
+      supabaseQuery = supabaseQuery.gte('event_timestamp', start_date);
+    }
+
+    if (end_date) {
+      supabaseQuery = supabaseQuery.lte('event_timestamp', end_date);
+    }
+
+    if (query) {
+      supabaseQuery = supabaseQuery.or(`event_type.ilike.%${query}%,event_data.ilike.%${query}%`);
+    }
+
+    const offset = (page - 1) * limit;
+    const { data, error, count } = await supabaseQuery
+      .order('event_timestamp', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (error) {
+      return res.status(500).json({
+        error: 'Failed to search events: ' + (isProduction ? 'Database error' : error.message)
+      });
+    }
+
+    res.json({
+      events: data,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: count,
+        pages: Math.ceil(count / limit)
+      },
+      filters: {
+        query,
+        event_type,
+        start_date,
+        end_date
+      },
+      analytics: {
+        totalMatching: count,
+        eventTypes: [...new Set(data.map(e => e.event_type))]
+      }
+    });
+
+  } catch (error) {
+    console.error('Search error:', error);
+    res.status(500).json({
+      error: 'Internal server error: ' + (isProduction ? null : error.message)
+    });
+  }
+});
+
+// Enhanced Event Verification with Chain Analysis
+app.get('/api/events/:id/verify', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { data: event, error } = await supabase
+      .from('audit_events')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error || !event) {
+      return res.status(404).json({
+        error: 'Event not found',
+        code: 'EVENT_NOT_FOUND'
+      });
+    }
+
+    // Recalculate hash
+    const hashData = {
+      processor_id: event.processor_id,
+      event_type: event.event_type,
+      event_data: event.event_data,
+      user_identifier: event.user_identifier,
+      ip_address: event.ip_address,
+      user_agent: event.user_agent,
+      event_timestamp: event.event_timestamp,
+      previous_hash: event.previous_hash
+    };
+
+    const calculated_hash = CryptoJS.SHA256(JSON.stringify(hashData)).toString();
+    const is_valid = calculated_hash === event.data_hash;
+
+    // Verify chain integrity
+    let chain_analysis = await analyzeChainIntegrity(event);
+
+    // Verify Merkle Tree inclusion if available
+    let merkle_proof = null;
+    const treeId = `processor_${event.processor_id}`;
+    if (merkleTrees.has(treeId)) {
+      const tree = merkleTrees.get(treeId);
+      const leafData = {
+        id: event.id,
+        event_type: event.event_type,
+        event_data: event.event_data,
+        timestamp: event.event_timestamp,
+        data_hash: event.data_hash
+      };
+      const leafHash = tree.hash(leafData);
+      merkle_proof = tree.getProof(leafHash);
+    }
+
+    res.json({
+      eventId: event.id,
+      event_timestamp: event.event_timestamp,
+      is_valid: is_valid && chain_analysis.chain_valid,
+      data_hash_match: is_valid,
+      chain_integrity: chain_analysis.chain_valid,
+      calculated_hash: calculated_hash,
+      stored_hash: event.data_hash,
+      verification_timestamp: new Date().toISOString(),
+      chain_analysis: chain_analysis,
+      merkle_proof: merkle_proof ? {
+        available: true,
+        root: merkleTrees.get(treeId)?.root,
+        proof_steps: merkle_proof.length
+      } : { available: false },
+      gdpr_compliant: true
+    });
+
+  } catch (error) {
+    console.error('Verification error:', error);
+    res.status(500).json({
+      error: 'Internal server error'
+    });
+  }
+});
+
+// GDPR Compliance Endpoints
+app.get('/api/gdpr/export/:processorId', authenticateApiKey, async (req, res) => {
+  try {
+    const processor = req.processor;
+
+    // Get all data for export
+    const { data: events } = await supabase
+      .from('audit_events')
+      .select('*')
+      .eq('processor_id', processor.id);
+
+    const exportData = {
+      exportDate: new Date().toISOString(),
+      processor: {
+        id: processor.id,
+        companyName: processor.company_name,
+        email: processor.email,
+        plan: processor.plan,
+        createdAt: processor.created_at
+      },
+      events: events,
+      merkleTree: merkleTrees.has(`processor_${processor.id}`) ? {
+        root: merkleTrees.get(`processor_${processor.id}`).root,
+        leafCount: merkleTrees.get(`processor_${processor.id}`).leaves.length
+      } : null,
+      gdprNotice: 'This export contains all your data as per GDPR Right to Access Article 15',
+      totalEvents: events?.length || 0
+    };
+
+    res.json(exportData);
+
+  } catch (error) {
+    console.error('GDPR export error:', error);
+    res.status(500).json({
+      error: 'Failed to generate GDPR export'
+    });
+  }
+});
 
 // Enhanced Error Handling
 app.use((err, req, res, next) => {
-  console.error('💥 Production Error:', { error: err.message, stack: isProduction ? null : err.stack, url: req.url, method: req.method, timestamp: new Date().toISOString() });
-  res.status(500).json({ error: 'Internal server error', code: 'INTERNAL_ERROR', request_id: uuidv4(), timestamp: new Date().toISOString(), environment: isProduction ? 'production' : 'development' });
+  console.error('💥 Production Error:', {
+    error: err.message,
+    stack: isProduction ? null : err.stack,
+    url: req.url,
+    method: req.method,
+    timestamp: new Date().toISOString()
+  });
+
+  res.status(500).json({
+    error: 'Internal server error',
+    code: 'INTERNAL_ERROR',
+    request_id: uuidv4(),
+    timestamp: new Date().toISOString(),
+    environment: isProduction ? 'production' : 'development'
+  });
 });
 
-// 404 Handler (Måste vara sist)
+// 404 Handler
 app.use('*', (req, res) => {
   res.status(404).json({
     error: 'Route not found',
@@ -538,7 +1432,6 @@ app.use('*', (req, res) => {
       'GET  /api/health',
       'POST /api/processors',
       'POST /api/keys/rotate',
-      'POST /api/keys/revoke', 
       'GET  /api/keys/status',
       'GET  /api/pricing',
       'GET  /api/dashboard',
@@ -547,7 +1440,6 @@ app.use('*', (req, res) => {
       'GET  /api/events/search',
       'GET  /api/events/:id/verify',
       'GET  /api/gdpr/export/:processorId',
-      'POST /api/gdpr/erase', 
       'GET  /api/merkle/tree',
       'POST /api/merkle/events',
       'GET  /api/merkle/proof/:eventId',
@@ -573,14 +1465,12 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`   GET    /api/pricing         - Pricing plans & features`);
   console.log(`   POST   /api/processors      - Create processor (with payment)`);
   console.log(`   POST   /api/keys/rotate     - Rotate API keys for security`);
-  console.log(`   POST   /api/keys/revoke     - REVOKE API Key`);
   console.log(`   GET    /api/keys/status     - Check key rotation status`);
   console.log(`   GET    /api/dashboard       - Business analytics dashboard`);
   console.log(`   POST   /api/events          - Log event (with Merkle Tree)`);
   console.log(`   POST   /api/events/bulk     - Bulk import (Enterprise)`);
   console.log(`   GET    /api/events/search   - Advanced search & filtering`);
   console.log(`   GET    /api/gdpr/export     - GDPR data export`);
-  console.log(`   POST   /api/gdpr/erase      - GDPR Right to Erasure`);
   console.log(`\n🌳 Merkle Tree Endpoints:`);
   console.log(`   GET    /api/merkle/tree     - Get Merkle Tree status`);
   console.log(`   POST   /api/merkle/events   - Add event to Merkle Tree`);
