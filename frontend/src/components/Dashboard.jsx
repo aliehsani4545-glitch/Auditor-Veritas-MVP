@@ -279,6 +279,7 @@ const Dashboard = ({ processor, stats, apiKey, onLogEvent, eventData, setEventDa
 
           </div>
       </div>
+    </div> // <--- KORREKT AVSLUTANDE DIV HÄR
   );
 };
 
