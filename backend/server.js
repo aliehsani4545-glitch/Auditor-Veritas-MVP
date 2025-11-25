@@ -16,9 +16,6 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 const isProduction = process.env.NODE_ENV === 'production';
 
-// SKAPA EN EXPRESS ROUTER FÖR ALLA /api/ SLUTPUNKTER
-const apiRouter = express.Router();
-
 // Supabase client
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
@@ -174,7 +171,7 @@ async function initializeMerkleTrees() {
   }
 }
 
-// Utility Functions (Oförändrad)
+// Utility Functions (Måste vara före de routes som använder dem)
 function isValidEmail(email) {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(email);
@@ -348,19 +345,19 @@ const PRICING_PLANS = {
 
 
 // --- START DEFINITION AV API ROUTER (apiRouter) ---
+// ************************************************
+// Här definieras alla dina API-rutter UTAN /api prefixet
+// ************************************************
+
 
 // DIAGNOSTISK TEST ROUTE FÖR ATT VERIFIERA EXPRESS ROUTER LADDAS
-apiRouter.get('/processors', (req, res) => {
-    res.status(200).json({ message: 'Processor endpoint is active and listening for POST requests.' });
-});
-
-apiRouter.get('/events/search', authenticateApiKey, async (req, res) => {
-    res.status(200).json({ message: 'Event search endpoint is active and functional.' });
+app.get('/api/processors', (req, res) => {
+    res.status(200).json({ message: 'Processor GET endpoint is active.' });
 });
 
 
 // Create Processor with Payment Integration
-apiRouter.post('/processors', async (req, res) => {
+app.post('/api/processors', async (req, res) => {
   try {
     const { companyName, email, plan = 'starter', paymentIntent } = req.body;
 
@@ -442,7 +439,7 @@ apiRouter.post('/processors', async (req, res) => {
 });
 
 // Key Rotation Endpoint
-apiRouter.post('/keys/rotate', authenticateApiKey, async (req, res) => {
+app.post('/api/keys/rotate', authenticateApiKey, async (req, res) => {
   try {
     const processor = req.processor;
     const newApiKey = `av_${uuidv4().replace(/-/g, '')}`;
@@ -459,7 +456,7 @@ apiRouter.post('/keys/rotate', authenticateApiKey, async (req, res) => {
 });
 
 // API Key Revocation
-apiRouter.post('/keys/revoke', authenticateApiKey, async (req, res) => {
+app.post('/api/keys/revoke', authenticateApiKey, async (req, res) => {
   try {
     const processor = req.processor;
     const revokedKeyHash = CryptoJS.SHA256(`revoked_${uuidv4()}_${Date.now()}`).toString();
@@ -475,7 +472,7 @@ apiRouter.post('/keys/revoke', authenticateApiKey, async (req, res) => {
 });
 
 // GDPR Right to Erasure (Pseudonymisering)
-apiRouter.post('/gdpr/erase', authenticateApiKey, async (req, res) => {
+app.post('/api/gdpr/erase', authenticateApiKey, async (req, res) => {
   try {
     const { user_identifier } = req.body;
     const processor = req.processor;
@@ -508,26 +505,22 @@ apiRouter.post('/gdpr/erase', authenticateApiKey, async (req, res) => {
 });
 
 // Merkle Tree Endpoints
-apiRouter.get('/merkle/tree', authenticateApiKey, async (req, res) => { /* ... */ });
-apiRouter.post('/merkle/events', authenticateApiKey, async (req, res) => { /* ... */ });
-apiRouter.get('/merkle/proof/:eventId', authenticateApiKey, async (req, res) => { /* ... */ });
-apiRouter.post('/merkle/verify', authenticateApiKey, async (req, res) => { /* ... */ });
-apiRouter.get('/merkle/structure', authenticateApiKey, async (req, res) => { /* ... */ });
+app.get('/api/merkle/tree', authenticateApiKey, async (req, res) => { /* ... */ });
+app.post('/api/merkle/events', authenticateApiKey, async (req, res) => { /* ... */ });
+app.get('/api/merkle/proof/:eventId', authenticateApiKey, async (req, res) => { /* ... */ });
+app.post('/api/merkle/verify', authenticateApiKey, async (req, res) => { /* ... */ });
+app.get('/api/merkle/structure', authenticateApiKey, async (req, res) => { /* ... */ });
 
 // Dashboard, Events, Pricing Endpoints
-apiRouter.get('/dashboard', authenticateApiKey, async (req, res) => { /* ... */ });
-apiRouter.post('/events', authenticateApiKey, async (req, res) => { /* ... */ });
-apiRouter.post('/events/bulk', authenticateApiKey, async (req, res) => { /* ... */ });
-apiRouter.get('/events/search', authenticateApiKey, async (req, res) => { /* ... */ });
-apiRouter.get('/events/:id/verify', async (req, res) => { /* ... */ });
-apiRouter.get('/gdpr/export/:processorId', authenticateApiKey, async (req, res) => { /* ... */ });
-apiRouter.get('/health', async (req, res) => { /* ... */ });
-apiRouter.get('/keys/status', authenticateApiKey, async (req, res) => { /* ... */ });
-apiRouter.get('/pricing', (req, res) => { /* ... */ });
-
-
-// KOPPLA ROUTERN TILL /api: Detta måste göras efter att apiRouter är definierad
-app.use('/api', apiRouter); 
+app.get('/api/dashboard', authenticateApiKey, async (req, res) => { /* ... */ });
+app.post('/api/events', authenticateApiKey, async (req, res) => { /* ... */ });
+app.post('/api/events/bulk', authenticateApiKey, async (req, res) => { /* ... */ });
+app.get('/api/events/search', authenticateApiKey, async (req, res) => { /* ... */ });
+app.get('/api/events/:id/verify', async (req, res) => { /* ... */ });
+app.get('/api/gdpr/export/:processorId', authenticateApiKey, async (req, res) => { /* ... */ });
+app.get('/api/health', async (req, res) => { /* ... */ });
+app.get('/api/keys/status', authenticateApiKey, async (req, res) => { /* ... */ });
+app.get('/api/pricing', (req, res) => { /* ... */ });
 
 
 // Enhanced Error Handling
