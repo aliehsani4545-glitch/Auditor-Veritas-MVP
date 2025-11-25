@@ -89,7 +89,7 @@ const RecentLogsTable = ({ logs = [] }) => {
               <th className="py-3 pl-5 w-10"></th>
               <th className="py-3 px-3">Event</th>
               <th className="py-3 px-3">User ID</th>
-              <th className="py-3 px-3 w-1/3">Data Payload (NY)</th> {/* <-- NY KOLUMN */}
+              <th className="py-3 px-3 w-1/3">Data Payload (NY)</th>
               <th className="py-3 px-3 text-right pr-5">Timestamp</th>
             </tr>
           </thead>
@@ -107,7 +107,7 @@ const RecentLogsTable = ({ logs = [] }) => {
                     </span>
                 </td>
                 <td className="py-3 px-3 text-slate-500 font-mono text-[10px]">{log.user_identifier ? log.user_identifier.substring(0, 16) + '...' : 'N/A'}</td>
-                
+                
                 {/* <-- IMPLEMENTERING AV DETALJERAD DATA --> */}
                 <td className="py-3 px-3 max-w-xs overflow-hidden">
                   {log.event_data && typeof log.event_data === 'object' ? (
@@ -128,6 +128,7 @@ const RecentLogsTable = ({ logs = [] }) => {
           </tbody>
         </table>
       </div>
+      
     </div>
   );
 };
@@ -207,78 +208,77 @@ const Dashboard = ({ processor, stats, apiKey, onLogEvent, eventData, setEventDa
 
             {KeyRotation}
         </div>
-      </div>
-
-      {/* Main Content Split (Logs & Tools) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        {/* Left: Logs (2/3) */}
-        <div className="lg:col-span-2">
-           <RecentLogsTable logs={recentLogs} />
-        </div>
+        {/* Main Content Split (Logs & Tools) */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+            {/* Left: Logs (2/3) */}
+            <div className="lg:col-span-2">
+               <RecentLogsTable logs={recentLogs} />
+            </div>
 
-        {/* Right: Event Tester (1/3) */}
-        <div className="space-y-6">
-           <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-              <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex items-center gap-2">
-                 <Zap className="text-amber-500" size={16} />
-                 <h3 className="font-bold text-slate-700 text-sm">API Simulator</h3>
-              </div>
-              
-              <div className="p-5">
-                <p className="text-xs text-slate-500 mb-4">
-                    Manually inject an event to test your webhook configuration and audit stream.
-                </p>
-                <form onSubmit={onLogEvent} className="space-y-4">
-                    <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5">Event Type</label>
-                    <input 
-                        type="text" 
-                        placeholder="e.g. payment.success" 
-                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-slate-300 text-slate-700 font-medium" 
-                        value={eventData.event_type} 
-                        onChange={e => setEventData({...eventData, event_type: e.target.value})} 
-                        required 
-                    />
-                    </div>
-                    <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5">JSON Payload</label>
-                    <textarea 
-                        placeholder='{"amount": 500, "currency": "SEK"}' 
-                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg font-mono text-xs h-24 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all resize-none placeholder:text-slate-300 text-slate-600" 
-                        value={eventData.event_data} 
-                        onChange={e => setEventData({...eventData, event_data: e.target.value})} 
-                        required 
-                    />
-                    </div>
-                    <button 
-                    type="submit" 
-                    disabled={isLoading} 
-                    className="w-full bg-[#0a2540] hover:bg-[#1e293b] text-white py-2.5 rounded-lg font-bold text-xs uppercase tracking-wide transition-all shadow-md hover:shadow-lg flex justify-center items-center gap-2"
-                    >
-                    {isLoading ? <RefreshCw className="animate-spin w-3.5 h-3.5"/> : 'Inject Test Event'}
-                    </button>
-                </form>
-              </div>
-           </div>
-           
-           {/* Help Card */}
-           <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 flex items-start gap-3">
-                <div className="p-1.5 bg-blue-100 rounded-full shrink-0 text-blue-600">
-                    <Lock size={14} />
-                </div>
-                <div>
-                    <h4 className="text-xs font-bold text-blue-800 mb-1">Security Note</h4>
-                    <p className="text-[10px] text-blue-600/80 leading-relaxed">
-                        Events logged here are signed with your active API key and stored immutably.
+            {/* Right: Event Tester (1/3) */}
+            <div className="space-y-6">
+               <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                  <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex items-center gap-2">
+                     <Zap className="text-amber-500" size={16} />
+                     <h3 className="font-bold text-slate-700 text-sm">API Simulator</h3>
+                  </div>
+                  
+                  <div className="p-5">
+                    <p className="text-xs text-slate-500 mb-4">
+                        Manually inject an event to test your webhook configuration and audit stream.
                     </p>
-                </div>
-           </div>
+                    <form onSubmit={onLogEvent} className="space-y-4">
+                        <div>
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5">Event Type</label>
+                        <input 
+                            type="text" 
+                            placeholder="e.g. payment.success" 
+                            className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-slate-300 text-slate-700 font-medium" 
+                            value={eventData.event_type} 
+                            onChange={e => setEventData({...eventData, event_type: e.target.value})} 
+                            required 
+                        />
+                        </div>
+                        <div>
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5">JSON Payload</label>
+                        <textarea 
+                            placeholder='{"amount": 500, "currency": "SEK"}' 
+                            className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg font-mono text-xs h-24 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all resize-none placeholder:text-slate-300 text-slate-600" 
+                            value={eventData.event_data} 
+                            onChange={e => setEventData({...eventData, event_data: e.target.value})} 
+                            required 
+                        />
+                        </div>
+                        <button 
+                        type="submit" 
+                        disabled={isLoading} 
+                        className="w-full bg-[#0a2540] hover:bg-[#1e293b] text-white py-2.5 rounded-lg font-bold text-xs uppercase tracking-wide transition-all shadow-md hover:shadow-lg flex justify-center items-center gap-2"
+                        >
+                        {isLoading ? <RefreshCw className="animate-spin w-3.5 h-3.5"/> : 'Inject Test Event'}
+                        </button>
+                    </form>
+                  </div>
+               </div>
+               
+               {/* Help Card */}
+               <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 flex items-start gap-3">
+                    <div className="p-1.5 bg-blue-100 rounded-full shrink-0 text-blue-600">
+                        <Lock size={14} />
+                    </div>
+                    <div>
+                        <h4 className="text-xs font-bold text-blue-800 mb-1">Security Note</h4>
+                        <p className="text-[10px] text-blue-600/80 leading-relaxed">
+                            Events logged here are signed with your active API key and stored immutably.
+                        </p>
+                    </div>
+               </div>
 
-        </div>
+            </div>
 
+          </div>
       </div>
-    </div>
   );
 };
 

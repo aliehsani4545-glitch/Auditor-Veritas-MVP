@@ -1,3 +1,5 @@
+// App.jsx
+
 import React, { useState, useEffect } from 'react';
 import './App.css';
 import CryptoJS from 'crypto-js';
@@ -5,7 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
-// --- KOMPONENTER ---
+// --- COMPONENTS ---
 import InteractiveFeatureSection from './components/InteractiveFeatureSection'; 
 import DashboardPreview from './components/DashboardPreview'; 
 import CoreArchitecture from './components/CoreArchitecture'; 
@@ -20,6 +22,7 @@ import Footer from './components/Footer';
 import PricingPage from './components/PricingPage'; 
 import CodeIntegration from './components/CodeIntegration'; 
 import Dashboard from './components/Dashboard'; 
+import IntegrityFocusPage from './components/IntegrityFocusPage'; // <-- NEW IMPORT
 
 // ICONS
 import { ShieldCheck, Lock, LogOut, Menu, X, Sparkles, RotateCw, RefreshCw, Copy, Eye, Cookie, Server } from 'lucide-react';
@@ -95,6 +98,18 @@ const Navbar = ({ activeTab, setActiveTab }) => {
   const navBackgroundClass = isHomePage && !isScrolled 
     ? 'bg-transparent border-transparent' 
     : 'bg-[#020617]/90 backdrop-blur-xl border-white/5 shadow-lg';
+    
+  // NEW TABS: 'integrity' added
+  const navTabs = ['home', 'create', 'integrity', 'pricing', 'dashboard']; 
+
+  const getTabLabel = (tab) => {
+    switch(tab) {
+      case 'pricing': return 'Enterprise';
+      case 'integrity': return 'Integrity';
+      case 'create': return 'Get Started';
+      default: return tab.charAt(0).toUpperCase() + tab.slice(1);
+    }
+  };
 
   return (
     <header className={`fixed w-full top-0 z-50 transition-all duration-300 border-b ${navBackgroundClass}`}>
@@ -111,17 +126,17 @@ const Navbar = ({ activeTab, setActiveTab }) => {
         </div>
         
         <nav className="hidden md:flex gap-1 items-center p-1 rounded-xl">
-          {['home', 'create', 'pricing', 'dashboard'].map((tab) => (
+          {navTabs.map((tab) => (
             <button 
               key={tab} 
               onClick={() => setActiveTab(tab)} 
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all capitalize ${
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                 activeTab === tab 
                   ? 'bg-white/10 text-white shadow-sm border border-white/10' 
                   : 'text-slate-400 hover:text-white hover:bg-white/5'
               }`}
             >
-              {tab === 'pricing' ? 'Enterprise' : tab}
+              {getTabLabel(tab)}
             </button>
           ))}
         </nav>
@@ -133,13 +148,13 @@ const Navbar = ({ activeTab, setActiveTab }) => {
 
       {mobileMenuOpen && (
         <div className="absolute top-16 left-0 w-full bg-[#020617] border-b border-slate-800 p-6 flex flex-col gap-4 md:hidden shadow-xl h-screen z-50">
-           {['home', 'create', 'pricing', 'dashboard'].map((tab) => (
+           {navTabs.map((tab) => (
              <button 
                key={tab} 
                onClick={() => {setActiveTab(tab); setMobileMenuOpen(false)}} 
                className="text-left font-bold text-white capitalize py-3 text-lg border-b border-slate-800"
              >
-               {tab === 'pricing' ? 'Enterprise' : tab}
+               {getTabLabel(tab)}
              </button>
            ))}
         </div>
@@ -153,7 +168,7 @@ function App() {
   const [activeTab, setActiveTab] = useState('home');
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [showFooterPrivacy, setShowFooterPrivacy] = useState(false);
-  const [legalInitialTab, setLegalInitialTab] = useState('privacy'); // <--- NY STATE FÖR LEGAL TAB
+  const [legalInitialTab, setLegalInitialTab] = useState('privacy'); 
   const [theme, setTheme] = useState('theme-dark'); 
   const [processor, setProcessor] = useState(null);
   const [apiKey, setApiKey] = useState('');
@@ -172,7 +187,7 @@ function App() {
     if (savedKey) setApiKey(savedKey);
   }, []);
 
-  // --- HELPER FUNCTIONS FÖR MODALER ---
+  // --- HELPER FUNCTIONS FOR MODALS ---
   const openPrivacyModal = () => {
     setLegalInitialTab('privacy');
     setShowFooterPrivacy(true);
@@ -187,6 +202,7 @@ function App() {
   useEffect(() => {
     window.scrollTo(0, 0);
 
+    // ONLY HOME TAB HAS THEME SWITCHING
     if (activeTab !== 'home') { setTheme('theme-light'); return; }
     
     const sections = [
@@ -237,7 +253,6 @@ function App() {
       let hashedUser = eventData.user_identifier; 
       if (eventData.user_identifier) hashedUser = CryptoJS.SHA256(eventData.user_identifier).toString(); 
       
-      // NY LOGIK: Parsa event_data FÖRE API-anropet och loggning
       const eventDataParsed = JSON.parse(eventData.event_data); 
       
       await apiCall('/api/events', { 
@@ -245,7 +260,7 @@ function App() {
         body: { 
           event_type: eventData.event_type, 
           user_identifier: hashedUser, 
-          event_data: eventDataParsed // Skickar det parsade objektet
+          event_data: eventDataParsed
         } 
       }, apiKey); 
       
@@ -253,11 +268,10 @@ function App() {
       
       setStats(prev => ({...prev, totalEvents: prev.totalEvents + 1, monthlyEvents: prev.monthlyEvents + 1}));
       
-      // Skapa loggobjektet med det fullständiga, parsade event_data
       const newLog = {
         event_type: eventData.event_type,
         user_identifier: hashedUser || 'Anonymous',
-        event_data: eventDataParsed, // Använder det parsade objektet för att visa detaljer
+        event_data: eventDataParsed, 
         timestamp: new Date().toISOString(),
         status: 'success'
       };
@@ -282,7 +296,7 @@ function App() {
           <PrivacyPage 
             isFooterView={true} 
             onClose={() => setShowFooterPrivacy(false)} 
-            initialTab={legalInitialTab} // PASSAR RÄTT TABB HÄR
+            initialTab={legalInitialTab} 
           />
         )}
       </AnimatePresence>
@@ -354,6 +368,12 @@ function App() {
           </>
         )}
         
+        {activeTab === 'integrity' && ( // <-- INTEGRITY TAB ROUTING
+          <div id="integrity-focus">
+             <IntegrityFocusPage setActiveTab={setActiveTab} />
+          </div>
+        )}
+
         {activeTab === 'pricing' && (
           <div id="pricing">
              <PricingPage setActiveTab={setActiveTab} />
@@ -396,7 +416,7 @@ function App() {
       <Footer 
         onOpenPrivacy={openPrivacyModal} 
         onOpenTerms={openTermsModal}
-        onNavigate={setActiveTab} // FÖR ATT LÄNKAR SKA FUNKA
+        onNavigate={setActiveTab} 
       />
     </div>
   );
