@@ -12,54 +12,45 @@
     <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
     <title>Auditor Veritas - GDPR Compliant Audit Trail</title>
     <style>
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-      }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
       body {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         min-height: 100vh;
-        -webkit-touch-callout: none;
-        -webkit-user-select: none;
-        -moz-user-select: none;
-        user-select: none;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -moz-user-select: none; user-select: none;
       }
-      
-      /* Loading animation */
       .loading-spinner {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        height: 100vh;
-        color: white;
-        font-size: 1.2rem;
+        display: flex; justify-content: center; align-items: center; height: 100vh; color: white; font-size: 1.2rem;
       }
-      
       .spinner {
-        border: 3px solid rgba(255, 255, 255, 0.3);
-        border-radius: 50%;
-        border-top: 3px solid white;
-        width: 40px;
-        height: 40px;
-        animation: spin 1s linear infinite;
-        margin-right: 15px;
+        border: 3px solid rgba(255, 255, 255, 0.3); border-radius: 50%; border-top: 3px solid white;
+        width: 40px; height: 40px; animation: spin 1s linear infinite; margin-right: 15px;
       }
-      
-      @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-      }
+      @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
-    <script type="module" crossorigin src="/assets/index-12153484.js"></script>
+    <script type="module" crossorigin src="/assets/index-bc635d68.js"></script>
     <link rel="modulepreload" crossorigin href="/assets/vendor-a4a0ee75.js">
     <link rel="modulepreload" crossorigin href="/assets/crypto-483b2097.js">
     <link rel="modulepreload" crossorigin href="/assets/animation-cf87e9ff.js">
-    <link rel="stylesheet" href="/assets/index-7395b9e7.css">
+    <link rel="stylesheet" href="/assets/index-b8156efe.css">
   </head>
   <body>
-    <!-- Loading screen while React app loads -->
+    
+    <form name="enterprise-inquiry" netlify netlify-honeypot="bot-field" hidden>
+      <input type="text" name="name" />
+      <input type="email" name="email" />
+      <input type="text" name="company" />
+      <input type="text" name="role" />
+      
+      <input type="text" name="industry" />
+      <input type="text" name="timeline" />
+      <input type="text" name="volume" />
+      <input type="text" name="region" />
+      <input type="text" name="retention" />
+      
+      <input type="text" name="compliance" />
+    </form>
     <div id="loading" class="loading-spinner">
       <div class="spinner"></div>
       <span>Loading Auditor Veritas...</span>
@@ -69,28 +60,16 @@
     
     
     <script>
-      // Hide loading screen when React app is ready
       window.addEventListener('load', function() {
         setTimeout(function() {
           const loading = document.getElementById('loading');
-          if (loading) {
-            loading.style.display = 'none';
-          }
+          if (loading) loading.style.display = 'none';
         }, 1000);
       });
       
-      // Additional security measures
       document.addEventListener('DOMContentLoaded', function() {
-        // Prevent any iframe embedding
-        if (window.location !== window.parent.location) {
-          window.top.location = window.location;
-        }
-        
-        // Prevent text selection
-        document.addEventListener('selectstart', function(e) {
-          e.preventDefault();
-          return false;
-        });
+        if (window.location !== window.parent.location) window.top.location = window.location;
+        document.addEventListener('selectstart', function(e) { e.preventDefault(); return false; });
       });
     </script>
   </body>
