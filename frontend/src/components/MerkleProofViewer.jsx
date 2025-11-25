@@ -3,7 +3,18 @@
 import React, { useState } from 'react';
 import { ShieldCheck, AlertCircle, RefreshCw, GitBranch, Zap, Layers, CheckCircle2 } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { apiCall } from '../App'; 
+// apiCall is expected to be imported from '../App' in a real environment
+const API_BASE_URL = 'https://auditor-veritas-mvp.onrender.com';
+const apiCall = async (endpoint, options = {}, apiKey = '') => {
+    const config = { headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, ...options.headers }, ...options };
+    if (options.body) config.body = JSON.stringify(options.body);
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
+    if (response.status === 204) return null;
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || `HTTP error! status: ${response.status}`);
+    return data;
+};
+
 
 const MerkleProofViewer = ({ apiKey }) => {
   const [eventId, setEventId] = useState('');
@@ -43,6 +54,7 @@ const MerkleProofViewer = ({ apiKey }) => {
     >
       <div className="p-2 rounded-full bg-slate-100 text-slate-500 shrink-0 mt-0.5">
         <GitBranch size={16} />
+        <span className="absolute top-0 right-0 text-[10px] text-slate-400 font-bold">{index+1}</span>
       </div>
       <div>
         <p className="font-bold text-sm text-slate-800">Steg {proofResult.proof.length - index}: Hashning med {step.position.toUpperCase()} Sibling</p>

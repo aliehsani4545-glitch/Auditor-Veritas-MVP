@@ -1,7 +1,18 @@
-import React from 'react';
-
-import { Activity, Search, MoreHorizontal, CheckCircle2, AlertCircle, RefreshCw, Zap, Lock, Clock, Key, LogOut, ChevronRight, LayoutGrid } from 'lucide-react';
-
+import React, { useState } from 'react';
+import CryptoJS from 'crypto-js';
+import { Activity, Search, MoreHorizontal, CheckCircle2, AlertCircle, RefreshCw, Zap, Lock, Clock, Key, LogOut, ChevronRight, LayoutGrid, Trash2, ShieldAlert, Layers } from 'lucide-react';
+import MerkleProofViewer from './MerkleProofViewer'; 
+// apiCall is expected to be imported from '../App' in a real environment
+const API_BASE_URL = 'https://auditor-veritas-mvp.onrender.com';
+const apiCall = async (endpoint, options = {}, apiKey = '') => {
+    const config = { headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, ...options.headers }, ...options };
+    if (options.body) config.body = JSON.stringify(options.body);
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
+    if (response.status === 204) return null;
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || `HTTP error! status: ${response.status}`);
+    return data;
+};
 
 
 // --- SUB-COMPONENT: PREMIER ACTIVITY CHART ---
@@ -134,6 +145,70 @@ const LiveActivityChart = ({ dataPoints = [] }) => {
 
 };
 
+// --- SUB-COMPONENT: GDPR ERASURE FORM (NEW) ---
+const ErasureForm = ({ apiKey }) => {
+    const [userId, setUserId] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const [result, setResult] = useState(null);
+
+    const handleErase = async (e) => {
+        e.preventDefault();
+        if(!confirm("Are you absolutely sure? This will pseudonymize all immutable logs for this user. This is irreversible.")) return;
+        setIsLoading(true);
+        setResult(null);
+
+        try {
+            // Frontend MUST hash the cleartext ID before sending for security
+            const hashedId = CryptoJS.SHA256(userId).toString();
+            
+            const data = await apiCall('/api/gdpr/erase', {
+                method: 'POST',
+                body: { user_identifier_hash: hashedId }
+            }, apiKey);
+
+            setResult({ success: true, ...data });
+        } catch (err) {
+            setResult({ success: false, message: err.message });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return (
+        <div className="bg-white rounded-xl border border-red-100 shadow-sm overflow-hidden">
+            <div className="p-4 border-b border-red-50 bg-red-50/30 flex items-center gap-2">
+                <ShieldAlert className="text-red-500" size={16} />
+                <h3 className="font-bold text-red-900 text-sm">GDPR Right to Erasure (Article 17)</h3>
+            </div>
+            <div className="p-5">
+                <p className="text-xs text-slate-500 mb-4">
+                    Permanently pseudonymize a user's data in the immutable log without breaking the audit chain. Data is replaced with a unique, un-linkable token.
+                </p>
+                <form onSubmit={handleErase} className="space-y-4">
+                    <div>
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5">User Identifier (Cleartext)</label>
+                        <input 
+                            type="text" 
+                            placeholder="e.g. user@example.com or internal_id_123" 
+                            className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:border-red-500 outline-none transition-all placeholder:text-slate-300"
+                            value={userId}
+                            onChange={e => setUserId(e.target.value)}
+                            required
+                        />
+                    </div>
+                    <button type="submit" disabled={isLoading} className="w-full bg-red-600 hover:bg-700 text-white py-2.5 rounded-lg font-bold text-xs uppercase transition-all flex justify-center items-center gap-2">
+                        {isLoading ? <RefreshCw className="animate-spin w-3.5 h-3.5"/> : <><Trash2 size={14}/> Execute Erasure</>}
+                    </button>
+                </form>
+                {result && (
+                    <div className={`mt-4 p-3 rounded-lg text-xs border ${result.success ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
+                        {result.success ? `Success! ${result.records_anonymized} records pseudonymized. Token: ${result.erasure_token.substring(0,10)}...` : result.message}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
 
 
 // --- SUB-COMPONENT: RECENT LOGS TABLE ---
@@ -194,7 +269,7 @@ const RecentLogsTable = ({ logs = [] }) => {
 
               <th className="py-3 px-3">User ID</th>
 
-              <th className="py-3 px-3 w-1/3">Data Payload (NY)</th> {/* <-- NY KOLUMN */}
+              <th className="py-3 px-3 w-1/3">Data Payload</th> 
 
               <th className="py-3 px-3 text-right pr-5">Timestamp</th>
 
@@ -210,9 +285,9 @@ const RecentLogsTable = ({ logs = [] }) => {
 
                 <td className="py-3 pl-5">
 
-                  <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center">
+                  <div className={`w-5 h-5 rounded-full flex items-center justify-center ${log.event_type.includes('erasure') ? 'bg-red-100' : 'bg-emerald-100'}`}>
 
-                    <CheckCircle2 size={12} className="text-emerald-600" />
+                    {log.event_type.includes('erasure') ? <Trash2 size={12} className="text-red-600"/> : <CheckCircle2 size={12} className="text-emerald-600" />}
 
                   </div>
 
@@ -220,7 +295,7 @@ const RecentLogsTable = ({ logs = [] }) => {
 
                 <td className="py-3 px-3">
 
-                    <span className="font-mono text-slate-700 font-medium group-hover:text-blue-600 bg-slate-100 px-1.5 py-0.5 rounded text-[10px] border border-slate-200">
+                    <span className={`font-mono font-medium px-1.5 py-0.5 rounded text-[10px] border ${log.event_type.includes('erasure') ? 'bg-red-50 text-red-600 border-red-100' : 'bg-slate-100 text-slate-700 border-slate-200'}`}>
 
                         {log.event_type}
 
@@ -258,7 +333,7 @@ const RecentLogsTable = ({ logs = [] }) => {
 
                 <td className="py-3 px-3 text-right pr-5 text-slate-400 font-mono text-[10px]">
 
-                  {new Date(log.timestamp).toLocaleTimeString()}
+                  {new Date(log.event_timestamp || log.timestamp).toLocaleTimeString()}
 
                 </td>
 
@@ -287,7 +362,7 @@ const Dashboard = ({ processor, stats, apiKey, onLogEvent, eventData, setEventDa
   // KORRIGERING: Använder stats.eventsLimit från App.jsx
 
   const eventsLimit = stats.eventsLimit || 100;
-
+  const [activeTab, setActiveTab] = useState('logs');
 
 
   return (
@@ -438,6 +513,19 @@ const Dashboard = ({ processor, stats, apiKey, onLogEvent, eventData, setEventDa
 
       </div>
 
+      
+      {/* Tabs */}
+      <div className="flex gap-4 border-b border-slate-200 mb-6">
+        <button onClick={() => setActiveTab('logs')} className={`pb-3 text-sm font-bold transition-all border-b-2 ${activeTab === 'logs' ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}>
+            <LayoutGrid size={16} className="inline mr-1"/> Live Logs
+        </button>
+        <button onClick={() => setActiveTab('verify')} className={`pb-3 text-sm font-bold transition-all border-b-2 ${activeTab === 'verify' ? 'border-purple-500 text-purple-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}>
+            <Layers size={16} className="inline mr-1"/> Merkle Proofs
+        </button>
+        <button onClick={() => setActiveTab('compliance')} className={`pb-3 text-sm font-bold transition-all border-b-2 ${activeTab === 'compliance' ? 'border-red-500 text-red-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}>
+            <ShieldAlert size={16} className="inline mr-1"/> GDPR Center
+        </button>
+      </div>
 
 
       {/* Main Content Split (Logs & Tools) */}
@@ -446,12 +534,12 @@ const Dashboard = ({ processor, stats, apiKey, onLogEvent, eventData, setEventDa
 
         
 
-        {/* Left: Logs (2/3) */}
+        {/* Left: Dynamic Content (2/3) */}
 
         <div className="lg:col-span-2">
-
-           <RecentLogsTable logs={recentLogs} />
-
+            {activeTab === 'logs' && <RecentLogsTable logs={recentLogs} />}
+            {activeTab === 'verify' && <MerkleProofViewer apiKey={apiKey} />}
+            {activeTab === 'compliance' && <ErasureForm apiKey={apiKey} />}
         </div>
 
 
@@ -503,6 +591,29 @@ const Dashboard = ({ processor, stats, apiKey, onLogEvent, eventData, setEventDa
                     />
 
                     </div>
+                    
+                    <div>
+
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5">User Identifier (Cleartext)</label>
+
+                    <input 
+
+                        type="text" 
+
+                        placeholder="e.g. user@gmail.com (Hashed on submit)" 
+
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-slate-300 text-slate-700 font-medium" 
+
+                        value={eventData.user_identifier} 
+
+                        onChange={e => setEventData({...eventData, user_identifier: e.target.value})} 
+
+                        required 
+
+                    />
+
+                    </div>
+
 
                     <div>
 

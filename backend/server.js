@@ -193,9 +193,8 @@ async function getUsageTrend(processorId) {
 }
 
 function calculateDailyAverage(monthlyEvents) {
-  const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
   const currentDay = new Date().getDate();
-  return Math.round(monthlyEvents / currentDay);
+  return Math.round(monthlyEvents / (currentDay || 1));
 }
 
 async function updateProcessorAnalytics(processorId) {
@@ -312,6 +311,13 @@ const authenticateApiKey = async (req, res, next) => {
       });
     }
 
+    if (processor.status === 'revoked') {
+        return res.status(403).json({ 
+            error: 'API Key has been permanently revoked.', 
+            code: 'KEY_REVOKED' 
+        });
+    }
+
     if (processor.status !== 'active') {
       return res.status(403).json({
         error: 'Processor account suspended or key revoked',
@@ -349,6 +355,201 @@ const PRICING_PLANS = {
     features: ['Everything in Professional', 'Dedicated Support', 'SLA Guarantee', 'Custom Integrations']
   }
 };
+
+// --- ENTERPRISE KEY MANAGEMENT ENDPOINTS ---
+
+// API Key Revocation (Immediate Kill Switch)
+app.post('/api/keys/revoke', authenticateApiKey, async (req, res) => {
+    try {
+        const processor = req.processor;
+        const revocationId = uuidv4();
+
+        // 1. Overwrite the key hash with a revocation signature and set status to 'revoked'
+        const { error } = await supabase
+            .from('processors')
+            .update({ 
+                status: 'revoked',
+                api_key_hash: `REVOKED_${revocationId}`, // Ensures old key cannot be re-used
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', processor.id);
+
+        if (error) throw error;
+
+        // 2. Log the immutable key revocation event
+        await supabase
+            .from('audit_events')
+            .insert([{
+                processor_id: processor.id,
+                event_type: 'key_revoked_immediate',
+                event_data: {
+                    action: 'api_key_revoked_by_user',
+                    previous_key_hash_prefix: processor.api_key_hash.substring(0, 8)
+                },
+                event_timestamp: new Date().toISOString(),
+                data_hash: CryptoJS.SHA256(`key_revoked_${Date.now()}`).toString()
+            }]);
+
+        console.log(`🚨 API Key REVOKED for processor: ${processor.id}`);
+
+        res.json({
+            success: true,
+            message: 'API Key has been permanently revoked. All current access tokens are invalidated.',
+            status: 'revoked',
+            timestamp: new Date().toISOString()
+        });
+
+    } catch (error) {
+        console.error('Revocation Error:', error);
+        res.status(500).json({ error: 'Failed to revoke key' });
+    }
+});
+
+
+// Key Rotation Endpoint (Existing)
+app.post('/api/keys/rotate', authenticateApiKey, async (req, res) => {
+  try {
+    const processor = req.processor;
+
+    // Generate new API key
+    const newApiKey = `av_${uuidv4().replace(/-/g, '')}`;
+    const newApiKeyHash = CryptoJS.SHA256(newApiKey).toString();
+
+    // Update processor with new key
+    const { error } = await supabase
+      .from('processors')
+      .update({
+        api_key_hash: newApiKeyHash,
+        last_key_rotation: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', processor.id);
+
+    if (error) {
+      console.error('Key rotation error:', error);
+      return res.status(500).json({
+        error: 'Failed to rotate API key',
+        code: 'KEY_ROTATION_FAILED'
+      });
+    }
+
+    // Log the key rotation event
+    await supabase
+      .from('audit_events')
+      .insert([{
+        processor_id: processor.id,
+        event_type: 'key_rotation',
+        event_data: {
+          action: 'api_key_rotated',
+          previous_key_hash: processor.api_key_hash.substring(0, 8) + '...',
+          rotation_timestamp: new Date().toISOString()
+        },
+        event_timestamp: new Date().toISOString(),
+        data_hash: CryptoJS.SHA256(`key_rotation_${Date.now()}`).toString()
+      }]);
+
+    console.log('🔑 API Key rotated for processor:', processor.id);
+
+    res.json({
+      message: 'API key rotated successfully',
+      newApiKey: newApiKey,
+      rotationTimestamp: new Date().toISOString(),
+      security: {
+        previousKeyDisabled: true,
+        newKeyActive: true,
+        rotationPolicy: '90 days recommended'
+      }
+    });
+
+  } catch (error) {
+    console.error('Key rotation error:', error);
+    res.status(500).json({
+      error: 'Internal server error during key rotation',
+      code: 'ROTATION_ERROR'
+    });
+  }
+});
+
+// --- GDPR COMPLIANCE ENDPOINT ---
+
+// GDPR Right to Erasure (Pseudonymization)
+app.post('/api/gdpr/erase', authenticateApiKey, async (req, res) => {
+    try {
+        const { user_identifier_hash } = req.body; // Expecting the already-hashed user ID from frontend
+        const processor = req.processor;
+
+        if (!user_identifier_hash) {
+            return res.status(400).json({ error: 'user_identifier_hash is required' });
+        }
+
+        // 1. Find all events for this user (using the hash)
+        const { data: eventsToErase, error: fetchError } = await supabase
+            .from('audit_events')
+            .select('id')
+            .eq('processor_id', processor.id)
+            .eq('user_identifier', user_identifier_hash);
+
+        if (fetchError) throw fetchError;
+
+        if (!eventsToErase || eventsToErase.length === 0) {
+            return res.status(404).json({ message: 'No records found for this identifier.' });
+        }
+
+        // 2. Generate a pseudonym (Erasure Token)
+        const erasureToken = `ERASED_${uuidv4()}`;
+
+        // 3. Update the records (Pseudonymization)
+        // NOTE: This updates the mutable user_identifier field, leaving data_hash intact to preserve the chain integrity.
+        const { error: updateError } = await supabase
+            .from('audit_events')
+            .update({ user_identifier: erasureToken })
+            .eq('processor_id', processor.id)
+            .eq('user_identifier', user_identifier_hash);
+
+        if (updateError) throw updateError;
+
+        // 4. Log the Erasure Event to maintain the Immutable Chain
+        const eventTimestamp = new Date().toISOString();
+        const erasureEventData = {
+            action: 'gdpr_right_to_erasure',
+            records_affected: eventsToErase.length,
+            original_hash_redacted: true, // Indicates hash field was targeted
+            erasure_token: erasureToken
+        };
+
+        const data_hash = CryptoJS.SHA256(JSON.stringify({
+            processor_id: processor.id,
+            event_type: 'gdpr.erasure_request',
+            event_data: erasureEventData,
+            event_timestamp: eventTimestamp
+        })).toString();
+
+        await supabase.from('audit_events').insert([{
+            processor_id: processor.id,
+            event_type: 'gdpr.erasure_request',
+            event_data: erasureEventData,
+            user_identifier: 'SYSTEM_COMPLIANCE_BOT',
+            event_timestamp: eventTimestamp,
+            data_hash: data_hash
+        }]);
+        
+        // No need to update Merkle Tree as we are logging a new event only. Old events keep their hash/leaf.
+
+        console.log(`🗑️ GDPR Erasure executed for ${eventsToErase.length} records.`);
+
+        res.json({
+            success: true,
+            message: 'GDPR Erasure completed successfully',
+            records_anonymized: eventsToErase.length,
+            erasure_token: erasureToken
+        });
+
+    } catch (error) {
+        console.error('GDPR Erasure Error:', error);
+        res.status(500).json({ error: 'Failed to process erasure request' });
+    }
+});
+
 
 // --- MERKLE TREE ENDPOINTS ---
 // Get or Create Merkle Tree for Processor (RAD 143: FUNGERAR NU)
@@ -757,70 +958,6 @@ app.post('/api/processors', async (req, res) => {
     res.status(500).json({
       error: 'Internal server error',
       code: 'INTERNAL_ERROR'
-    });
-  }
-});
-
-// Key Rotation Endpoint
-app.post('/api/keys/rotate', authenticateApiKey, async (req, res) => {
-  try {
-    const processor = req.processor;
-
-    // Generate new API key
-    const newApiKey = `av_${uuidv4().replace(/-/g, '')}`;
-    const newApiKeyHash = CryptoJS.SHA256(newApiKey).toString();
-
-    // Update processor with new key
-    const { error } = await supabase
-      .from('processors')
-      .update({
-        api_key_hash: newApiKeyHash,
-        last_key_rotation: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', processor.id);
-
-    if (error) {
-      console.error('Key rotation error:', error);
-      return res.status(500).json({
-        error: 'Failed to rotate API key',
-        code: 'KEY_ROTATION_FAILED'
-      });
-    }
-
-    // Log the key rotation event
-    await supabase
-      .from('audit_events')
-      .insert([{
-        processor_id: processor.id,
-        event_type: 'key_rotation',
-        event_data: {
-          action: 'api_key_rotated',
-          previous_key_hash: processor.api_key_hash.substring(0, 8) + '...',
-          rotation_timestamp: new Date().toISOString()
-        },
-        event_timestamp: new Date().toISOString(),
-        data_hash: CryptoJS.SHA256(`key_rotation_${Date.now()}`).toString()
-      }]);
-
-    console.log('🔑 API Key rotated for processor:', processor.id);
-
-    res.json({
-      message: 'API key rotated successfully',
-      newApiKey: newApiKey,
-      rotationTimestamp: new Date().toISOString(),
-      security: {
-        previousKeyDisabled: true,
-        newKeyActive: true,
-        rotationPolicy: '90 days recommended'
-      }
-    });
-
-  } catch (error) {
-    console.error('Key rotation error:', error);
-    res.status(500).json({
-      error: 'Internal server error during key rotation',
-      code: 'ROTATION_ERROR'
     });
   }
 });
@@ -1439,6 +1576,7 @@ app.use('*', (req, res) => {
       'GET  /api/health',
       'POST /api/processors',
       'POST /api/keys/rotate',
+      'POST /api/keys/revoke', // New
       'GET  /api/keys/status',
       'GET  /api/pricing',
       'GET  /api/dashboard',
@@ -1446,6 +1584,7 @@ app.use('*', (req, res) => {
       'POST /api/events/bulk',
       'GET  /api/events/search',
       'GET  /api/events/:id/verify',
+      'POST /api/gdpr/erase', // New
       'GET  /api/gdpr/export/:processorId',
       'GET  /api/merkle/tree',
       'POST /api/merkle/events',
@@ -1472,12 +1611,14 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`   GET    /api/pricing         - Pricing plans & features`);
   console.log(`   POST   /api/processors      - Create processor (with payment)`);
   console.log(`   POST   /api/keys/rotate     - Rotate API keys for security`);
+  console.log(`   POST   /api/keys/revoke     - Revoke API key (Kill Switch)`); // New
   console.log(`   GET    /api/keys/status     - Check key rotation status`);
   console.log(`   GET    /api/dashboard       - Business analytics dashboard`);
   console.log(`   POST   /api/events          - Log event (with Merkle Tree)`);
   console.log(`   POST   /api/events/bulk     - Bulk import (Enterprise)`);
   console.log(`   GET    /api/events/search   - Advanced search & filtering`);
   console.log(`   GET    /api/gdpr/export     - GDPR data export`);
+  console.log(`   POST   /api/gdpr/erase      - GDPR Right to Erasure`); // New
   console.log(`\n🌳 Merkle Tree Endpoints:`);
   console.log(`   GET    /api/merkle/tree     - Get Merkle Tree status`);
   console.log(`   POST   /api/merkle/events   - Add event to Merkle Tree`);
