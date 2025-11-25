@@ -50,18 +50,18 @@ const PrivacyPage = ({ onAccept, isFooterView = false, onClose, initialTab = 'pr
     alert("Standard DPA (PDF) downloaded.");
   };
 
+  // Börjar den yttre bakgrunden (Hela bakgrunden är nu ljusare grå (slate-50/70))
   return (
-    {/* Hela bakgrunden är nu ljusare grå (slate-50/70) */}
     <div className="fixed inset-0 z-[9999] bg-slate-50/70 backdrop-blur-sm flex items-center justify-center sm:p-4">
       
-      {/* Inre behållaren är nu vit */}
       <motion.div 
         initial={{ scale: 0.95, opacity: 0 }} 
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.95, opacity: 0 }}
         transition={{ type: "spring", damping: 25, stiffness: 300 }}
-        className="w-full sm:max-w-4xl bg-white sm:rounded-3xl rounded-none shadow-2xl border border-slate-200 overflow-hidden flex flex-col h-full sm:h-[85vh] relative"
-      >
+        
+        {/* Inre behållaren är nu vit */}
+        <div className="w-full sm:max-w-4xl bg-white sm:rounded-3xl rounded-none shadow-2xl border border-slate-200 overflow-hidden flex flex-col h-full sm:h-[85vh] relative">
         {/* Tar bort DarkAuroraBackground som skapar den mörka stämningen */}
 
         {isFooterView && (
