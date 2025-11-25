@@ -88,6 +88,7 @@ const RecentLogsTable = ({ logs = [] }) => {
         <button className="text-xs font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1">
             View all <ChevronRight size={12} />
         </button>
+        
       </div>
       <div className="w-full overflow-x-auto">
         <table className="w-full text-left text-xs">
