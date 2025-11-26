@@ -1,4 +1,4 @@
-// server.js (Fullständig kod med Stripe-integration)
+// server.js (Fullständig kod med Stripe-integration, CORS & CSP-fixar)
 
 import express from 'express';
 import cors from 'cors';
@@ -30,7 +30,7 @@ const stripeSecretKey = process.env.STRIPE_SECRET_KEY || 'sk_test_PLACEHOLDER_SE
 const stripe = new Stripe(stripeSecretKey);
 
 // --- STRIPE PRIS ID:n (PLATS-VÄRDEN - UPPDATERA DESSA!) ---
-// Dessa måste matchas med de Price ID:n du skapar i Stripe Dashboard för dina prenumerationer.
+// Du MÅSTE fylla i dessa med dina riktiga price_ ID:n från Stripe Dashboard.
 const STRIPE_PRICES = {
   professional: 'pk_live_51SX7O148POA4USE9AVuM0jqgZrC2aMUGt3MaVvWmgBAF8OibgzGeVefsjTHpQCXH2RRRhUIwH1jx2tvfMAF8JQiY00bD4dj0xf', 
   enterprise: 'price_PLACEHOLDER_ENTERPRISE_ID' 
@@ -192,7 +192,7 @@ async function updateProcessorAnalytics(processorId) {
   const { data: monthlyEvents } = await supabase
     .from('audit_events')
     .select('id', { count: 'exact' })
-    .eq('processor_id', processorId)
+    .eq('processor_id', processor.id)
     .gte('event_timestamp', startOfMonth);
 
   await supabase
@@ -227,36 +227,36 @@ async function analyzeChainIntegrity(event) {
   };
 }
 
-// server.js (Helmet/CSP sektion)
-
+// Enhanced Middleware - FIXAD CSP
 app.use(helmet({
   contentSecurityPolicy: isProduction ? {
     directives: {
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-      // FIX: Lägg till Stripes CDN här:
+      // FIX: Tillåt Stripe.js att laddas
       scriptSrc: ["'self'", "'unsafe-inline'", "https://js.stripe.com"], 
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:", "https:"],
-      // FIX: Lägg till connect-src för Stripe Fetch calls
-      connectSrc: ["'self'", "https://auditor-veritas-mvp.onrender.com", "https://api.stripe.com"]
+      // FIX: Tillåt anslutning till Stripe API
+      connectSrc: ["'self'", "https://auditor-veritas-mvp.onrender.com", "https://api.stripe.com"] 
     },
   } : false,
   crossOriginEmbedderPolicy: false
 }));
-const NETLIFY_DOMAIN = 'https://auditorveritas.com';
+
+// CORS - FIXAD
+const NETLIFY_DOMAIN = 'https://dreamy-banoffee-1603b3.netlify.app';
 const RENDER_DOMAIN = 'https://auditor-veritas-mvp.onrender.com';
-const FRONTEND_URL = process.env.VITE_API_URL || NETLIFY_DOMAIN; // Hämta frontend-URL
-const PRIMARY_FRONTEND_DOMAIN = 'https://auditorveritas.com';
+const PRIMARY_FRONTEND_DOMAIN = 'https://auditorveritas.com'; // FIX: Ny domän
+const FRONTEND_URL = process.env.VITE_API_URL || PRIMARY_FRONTEND_DOMAIN; 
 
 app.use(cors({
   origin: isProduction 
-    ? [RENDER_DOMAIN, NETLIFY_DOMAIN, PRIMARY_FRONTEND_DOMAIN] 
-    : ['http://localhost:3000', 'http://localhost:5173', NETLIFY_DOMAIN],
+    ? [RENDER_DOMAIN, NETLIFY_DOMAIN, PRIMARY_FRONTEND_DOMAIN] // NY UPPDATERAD PRODUKTIONSLISTA
+    : ['http://localhost:3000', 'http://localhost:5173', NETLIFY_DOMAIN, PRIMARY_FRONTEND_DOMAIN],
   credentials: true
 }));
 
-// Använd express.json för alla rutter utom webhooks
 app.use(express.json({ limit: '10mb' }));
 
 const limiter = rateLimit({
@@ -308,6 +308,7 @@ app.post('/api/stripe/create-checkout-session', async (req, res) => {
   try {
     const priceId = STRIPE_PRICES[plan];
     
+    // Använder stripe.checkout.sessions.create för att initiera betalningen
     const session = await stripe.checkout.sessions.create({
       ui_mode: 'embedded',
       line_items: [{
@@ -315,7 +316,6 @@ app.post('/api/stripe/create-checkout-session', async (req, res) => {
         quantity: 1,
       }],
       mode: 'subscription',
-      // success_url/cancel_url är inaktuella, men return_url är nödvändig för Embedded
       return_url: `${FRONTEND_URL}/checkout/return?session_id={CHECKOUT_SESSION_ID}`,
     });
 
@@ -348,7 +348,7 @@ app.get('/api/stripe/session-status', async (req, res) => {
   }
 });
 
-// 7. Stripe Webhook Endpoint (MÅSTE VARA FÖRE express.json för att få rå body)
+// 7. Stripe Webhook Endpoint 
 app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
   const sig = req.headers['stripe-signature'];
   let event;
@@ -375,15 +375,9 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
       break;
       
     case 'invoice.paid':
-      // Bekräfta betalning och aktiv prenumeration.
-      break;
-      
     case 'invoice.payment_failed':
-      // Uppdatera status till 'past_due'
-      break;
-      
     case 'customer.subscription.deleted':
-      // Hantera annullering
+      // HÄR SKA DU: Hantera livscykeln för prenumerationen i din DB.
       break;
       
     default:
@@ -394,7 +388,7 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
 });
 
 
-// --- RESTEN AV DINA EXISTERANDE ROUTES (OÄNDRADE) ---
+// --- RESTEN AV DINA EXISTERANDE ROUTES (OÄNDRAD) ---
 
 // 1. GDPR ERASURE 
 app.post('/api/gdpr/erase', authenticateApiKey, async (req, res) => {
@@ -636,7 +630,6 @@ app.get('/api/merkle/proof/:eventId', authenticateApiKey, async (req, res) => {
     }
 });
 
-// Other Routes
 app.get('/api/merkle/tree', authenticateApiKey, async (req, res) => {
     const tree = merkleTrees.get(`processor_${req.processor.id}`);
     if(tree) res.json({ ...tree.getTreeSummary(), message: 'Tree loaded' });
