@@ -32,8 +32,8 @@ const stripe = new Stripe(stripeSecretKey);
 // --- STRIPE PRIS ID:n (PLATS-VÄRDEN - UPPDATERA DESSA!) ---
 // Du MÅSTE fylla i dessa med dina riktiga price_ ID:n från Stripe Dashboard.
 const STRIPE_PRICES = {
-  professional: 'price_1SXpLc48POA4USE9M4nzLvKP', // FIX: Byt ut till ditt riktiga Price ID
-  enterprise: 'price_PLACEHOLDER_ENTERPRISE_ID' // FIX: Byt ut till ditt riktiga Price ID
+  professional: 'price_1SXpLc48POA4USE9M4nzLvKP', // ERSÄTT MED DITT RIKTIGA PRICE ID
+  enterprise: 'price_1SXpLc48POA4USE9M4nzLvKP' // ERSÄTT MED DITT RIKTIGA PRICE ID
 };
 
 // Produktionssäkerhetskontroller
@@ -306,7 +306,6 @@ app.post('/api/stripe/create-checkout-session', async (req, res) => {
     const priceId = STRIPE_PRICES[plan];
     
     if (priceId.startsWith('price_PLACEHOLDER')) {
-        // Detta kommer att trigga 500-felet om användaren inte ersätter Price ID
         console.error("CRITICAL ERROR: Price ID is still a placeholder.");
         throw new Error("Stripe Price ID placeholder not replaced.");
     }
