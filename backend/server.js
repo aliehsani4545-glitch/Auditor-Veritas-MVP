@@ -1,4 +1,4 @@
-// server.js (Fullständig kod med alla nödvändiga Stripe- och Säkerhetsfixar)
+// server.js (Fullständig kod med asynkron startup fix för Merkle Tree)
 
 import express from 'express';
 import cors from 'cors';
@@ -32,8 +32,8 @@ const stripe = new Stripe(stripeSecretKey);
 // --- STRIPE PRIS ID:n (PLATS-VÄRDEN - UPPDATERA DESSA!) ---
 // Du MÅSTE fylla i dessa med dina riktiga price_ ID:n från Stripe Dashboard.
 const STRIPE_PRICES = {
-  professional: 'price_1SXpLc48POA4USE9M4nzLvKP', // ERSÄTT MED DITT RIKTIGA PRICE ID
-  enterprise: 'price_1SXpLc48POA4USE9M4nzLvKP' // ERSÄTT MED DITT RIKTIGA PRICE ID
+  professional: 'price_1SXpLc48POA4USE9M4nzLvKP', 
+  enterprise: 'price_PLACEHOLDER_ENTERPRISE_ID' 
 };
 
 // Produktionssäkerhetskontroller
@@ -51,7 +51,7 @@ const supabase = createClient(
   supabaseServiceKey || 'placeholder_key'
 );
 
-// --- MERKLE TREE IMPLEMENTATION (OÄNDRAD) ---
+// --- MERKLE TREE IMPLEMENTATION ---
 class MerkleTree {
   constructor(leaves = []) {
     this.leaves = leaves.map(leaf => this.hash(leaf));
@@ -136,6 +136,7 @@ class MerkleTree {
 
 const merkleTrees = new Map();
 
+// FIX: Gjord asynkron för att säkerställa att DB-hämtingen är klar
 async function initializeMerkleTrees() {
   try {
     const { data: processors } = await supabase.from('processors').select('id');
@@ -157,6 +158,7 @@ async function initializeMerkleTrees() {
           data_hash: event.data_hash
         })));
         merkleTrees.set(treeId, tree);
+        console.log(`🌳 Merkle Tree initialized for processor ${processor.id} with ${events.length} events`);
       }
     }
   } catch (error) {
@@ -224,7 +226,7 @@ async function analyzeChainIntegrity(event) {
   };
 }
 
-// Enhanced Middleware - CSP FIXAD (Deepseek's förslag integrerat)
+// Enhanced Middleware - CSP FIXAD (Slutgiltig version)
 app.use(helmet({
   contentSecurityPolicy: isProduction ? {
     directives: {
@@ -242,7 +244,7 @@ app.use(helmet({
       // TILLÅT ANSLUTNINGAR
       connectSrc: ["'self'", "https://auditor-veritas-mvp.onrender.com", "https://api.stripe.com"], 
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      imgSrc: ["'self'", "data:", "https:", "https://*.stripe.com"], // Tillåt Stripe-bilder
+      imgSrc: ["'self'", "data:", "https:", "https://*.stripe.com"], 
     },
   } : false,
   crossOriginEmbedderPolicy: false
@@ -256,7 +258,7 @@ const FRONTEND_URL = process.env.VITE_API_URL || PRIMARY_FRONTEND_DOMAIN;
 
 app.use(cors({
   origin: isProduction 
-    ? [RENDER_DOMAIN, NETLIFY_DOMAIN, PRIMARY_FRONTEND_DOMAIN] // NY UPPDATERAD PRODUKTIONSLISTA
+    ? [RENDER_DOMAIN, NETLIFY_DOMAIN, PRIMARY_FRONTEND_DOMAIN] 
     : ['http://localhost:3000', 'http://localhost:5173', NETLIFY_DOMAIN, PRIMARY_FRONTEND_DOMAIN],
   credentials: true
 }));
@@ -389,7 +391,7 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
 });
 
 
-// --- RESTEN AV DINA EXISTERANDE ROUTES (OÄNDRAD) ---
+// --- RESTEN AV DINA EXISTERANDE ROUTES (OÄNDRAD LOGIK) ---
 
 // 1. GDPR ERASURE 
 app.post('/api/gdpr/erase', authenticateApiKey, async (req, res) => {
@@ -526,8 +528,12 @@ app.get('/api/merkle/tree', authenticateApiKey, async (req, res) => {
     else res.status(404).json({error: 'Tree not found'});
 });
 
-initializeMerkleTrees();
+// FIX: Anropar Merkle Tree initiering asynkront och väntar innan servern startar.
+async function startServer() {
+    await initializeMerkleTrees(); // Väntar på att trädet ska fyllas
+    app.listen(PORT, '0.0.0.0', () => {
+        console.log(`🚀 Server running on port ${PORT}`);
+    });
+}
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-});
+startServer(); // Starta servern asynkront
