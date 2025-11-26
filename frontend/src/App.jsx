@@ -1,4 +1,4 @@
-// App.jsx
+// App.jsx (Fullständig kod med ScrollTrigger-fix)
 
 import React, { useState, useEffect } from 'react';
 import './App.css';
@@ -19,10 +19,13 @@ import AnimatedBackground from './components/AnimatedBackground';
 import PrivacyPage from './components/PrivacyPage'; 
 import CreateProcessor from './components/CreateProcessor'; 
 import Footer from './components/Footer';
-import PricingPage from './components/PricingPage'; 
+// import PricingPage from './components/PricingPage'; // <-- Gamla komponenten
 import CodeIntegration from './components/CodeIntegration'; 
 import Dashboard from './components/Dashboard'; 
-import IntegrityFocusPage from './components/IntegrityFocusPage'; // <-- NEW IMPORT
+import IntegrityFocusPage from './components/IntegrityFocusPage'; 
+
+// --- NY IMPORT AV STRIPE KOMPONENTEN ---
+import PricingPageStripe from './components/PricingPageStripe'; 
 
 // ICONS
 import { ShieldCheck, Lock, LogOut, Menu, X, Sparkles, RotateCw, RefreshCw, Copy, Eye, Cookie, Server, AlertTriangle } from 'lucide-react';
@@ -246,13 +249,21 @@ function App() {
     setShowFooterPrivacy(true);
   };
 
-  // --- SCROLL THEME LOGIC ---
+  // --- SCROLL THEME LOGIC (FIXAD FÖR VARNINGAR) ---
   useEffect(() => {
     window.scrollTo(0, 0);
 
-    // ONLY HOME TAB HAS THEME SWITCHING
-    if (activeTab !== 'home') { setTheme('theme-light'); return; }
+    // FIX: Only register ScrollTriggers if we are on the home tab
+    if (activeTab !== 'home') { 
+        setTheme('theme-light'); 
+        // Kill existing ScrollTriggers to clean up the DOM references (This prevents "Element not found" warnings)
+        ScrollTrigger.getAll().forEach(t => t.kill()); 
+        return; 
+    }
     
+    // Safety check to kill previous triggers before creating new ones (if re-running on home tab)
+    ScrollTrigger.getAll().forEach(t => t.kill());
+
     const sections = [
       { id: 'hero-section', theme: 'theme-dark' },       
       { id: 'demo-section', theme: 'theme-light' },
@@ -450,7 +461,8 @@ function App() {
 
         {activeTab === 'pricing' && (
           <div id="pricing">
-             <PricingPage setActiveTab={setActiveTab} />
+             {/* ANVÄND DEN NYA STRIPE-INTEGRERADE PRICINGPAGE KOMPONENTEN */}
+             <PricingPageStripe setActiveTab={setActiveTab} />
           </div>
         )}
         

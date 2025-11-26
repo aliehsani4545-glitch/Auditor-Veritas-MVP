@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-	ShieldCheck, Lock, Users, FileText, ScrollText, AlertCircle, 
-	Server, Ban, X, Fingerprint, Globe, Download, CreditCard, 
-	ChevronDown, Activity 
+import { 
+	ShieldCheck, Lock, Users, FileText, ScrollText, AlertCircle, 
+	Server, Ban, X, Fingerprint, Globe, Download, CreditCard, 
+	ChevronDown, Activity 
 } from 'lucide-react';
 import { DarkAuroraBackground } from './SharedBackgrounds';
 

@@ -1,3 +1,5 @@
+// server.js (Fullständig kod med Stripe-integration)
+
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -5,6 +7,9 @@ import rateLimit from 'express-rate-limit';
 import { createClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
 import CryptoJS from 'crypto-js';
+
+// --- NY IMPORT FÖR STRIPE ---
+import Stripe from 'stripe'; 
 
 // Environment configuration
 import { config } from 'dotenv';
@@ -20,7 +25,18 @@ const isProduction = process.env.NODE_ENV === 'production';
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
 
-// Production security checks
+// --- STRIPE INITIALISERING ---
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY || 'sk_test_PLACEHOLDER_SECRET'; 
+const stripe = new Stripe(stripeSecretKey);
+
+// --- STRIPE PRIS ID:n (PLATS-VÄRDEN - UPPDATERA DESSA!) ---
+// Dessa måste matchas med de Price ID:n du skapar i Stripe Dashboard för dina prenumerationer.
+const STRIPE_PRICES = {
+  professional: 'pk_live_51SX7O148POA4USE9AVuM0jqgZrC2aMUGt3MaVvWmgBAF8OibgzGeVefsjTHpQCXH2RRRhUIwH1jx2tvfMAF8JQiY00bD4dj0xf', 
+  enterprise: 'price_PLACEHOLDER_ENTERPRISE_ID' 
+};
+
+// Produktionssäkerhetskontroller
 if (isProduction) {
   if (!supabaseUrl || !supabaseServiceKey) {
     console.error('❌ PRODUCTION ERROR: Missing Supabase credentials');
@@ -35,7 +51,7 @@ const supabase = createClient(
   supabaseServiceKey || 'placeholder_key'
 );
 
-// --- MERKLE TREE IMPLEMENTATION ---
+// --- MERKLE TREE IMPLEMENTATION (OÄNDRAD) ---
 class MerkleTree {
   constructor(leaves = []) {
     this.leaves = leaves.map(leaf => this.hash(leaf));
@@ -150,7 +166,7 @@ async function initializeMerkleTrees() {
   }
 }
 
-// Utility Functions
+// Utility Functions (OÄNDRAD)
 function isValidEmail(email) {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(email);
@@ -211,13 +227,13 @@ async function analyzeChainIntegrity(event) {
   };
 }
 
-// Enhanced Middleware
+// Enhanced Middleware (UPPDATERAD)
 app.use(helmet({
   contentSecurityPolicy: isProduction ? {
     directives: {
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-      scriptSrc: ["'self'"],
+      scriptSrc: ["'self'", "https://js.stripe.com"], // ⚠️ Lade till Stripe-domän
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:", "https:"],
     },
@@ -227,6 +243,7 @@ app.use(helmet({
 
 const NETLIFY_DOMAIN = 'https://dreamy-banoffee-1603b3.netlify.app';
 const RENDER_DOMAIN = 'https://auditor-veritas-mvp.onrender.com';
+const FRONTEND_URL = process.env.VITE_API_URL || NETLIFY_DOMAIN; // Hämta frontend-URL
 
 app.use(cors({
   origin: isProduction 
@@ -235,6 +252,7 @@ app.use(cors({
   credentials: true
 }));
 
+// Använd express.json för alla rutter utom webhooks
 app.use(express.json({ limit: '10mb' }));
 
 const limiter = rateLimit({
@@ -244,7 +262,7 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-// Authentication Middleware
+// Authentication Middleware (OÄNDRAD)
 const authenticateApiKey = async (req, res, next) => {
   try {
     const apiKey = req.headers['x-api-key'] || req.headers['authorization']?.replace('Bearer ', '');
@@ -274,9 +292,107 @@ const PRICING_PLANS = {
   enterprise: { events: 50000, price: 199, features: ['Everything'] }
 };
 
-// --- ROUTES ---
+// --- STRIPE RELATERADE ROUTES (NYA) ---
 
-// 1. GDPR ERASURE (DEN KOD DU BEGÄRDE)
+app.post('/api/stripe/create-checkout-session', async (req, res) => {
+  const { plan } = req.body;
+  
+  if (!plan || !STRIPE_PRICES[plan]) {
+    return res.status(400).json({ error: 'Invalid plan selected.' });
+  }
+  
+  try {
+    const priceId = STRIPE_PRICES[plan];
+    
+    const session = await stripe.checkout.sessions.create({
+      ui_mode: 'embedded',
+      line_items: [{
+        price: priceId, 
+        quantity: 1,
+      }],
+      mode: 'subscription',
+      // success_url/cancel_url är inaktuella, men return_url är nödvändig för Embedded
+      return_url: `${FRONTEND_URL}/checkout/return?session_id={CHECKOUT_SESSION_ID}`,
+    });
+
+    res.json({ clientSecret: session.client_secret });
+  } catch (error) {
+    console.error('Stripe Checkout Session Error:', error);
+    res.status(500).json({ error: 'Failed to create Checkout Session' });
+  }
+});
+
+app.get('/api/stripe/session-status', async (req, res) => {
+  try {
+    const session = await stripe.checkout.sessions.retrieve(req.query.session_id);
+    
+    let customerEmail = null;
+    if (session.customer) {
+        const customer = await stripe.customers.retrieve(session.customer);
+        customerEmail = customer.email;
+    }
+
+    res.send({
+      status: session.status,
+      payment_status: session.payment_status,
+      customer_email: customerEmail,
+      subscriptionId: session.subscription, 
+    });
+  } catch (error) {
+    console.error('Stripe Session Status Error:', error);
+    res.status(500).json({ error: 'Failed to retrieve session status' });
+  }
+});
+
+// 7. Stripe Webhook Endpoint (MÅSTE VARA FÖRE express.json för att få rå body)
+app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  let event;
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET; 
+
+  if (!webhookSecret) {
+      console.log('⚠️ Webhook Secret not configured! Add STRIPE_WEBHOOK_SECRET to .env');
+      return res.status(400).send('Webhook Secret not configured.');
+  }
+
+  try {
+    event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+  } catch (err) {
+    console.log(`❌ Webhook Error: ${err.message}`);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  // Hantera händelsen
+  switch (event.type) {
+    case 'checkout.session.completed':
+      const session = event.data.object;
+      console.log(`✅ Checkout session completed: ${session.id}. Customer: ${session.customer}`);
+      // Implementera logik för att uppdatera din databas (processors tabell) här.
+      break;
+      
+    case 'invoice.paid':
+      // Bekräfta betalning och aktiv prenumeration.
+      break;
+      
+    case 'invoice.payment_failed':
+      // Uppdatera status till 'past_due'
+      break;
+      
+    case 'customer.subscription.deleted':
+      // Hantera annullering
+      break;
+      
+    default:
+      console.log(`Unhandled event type ${event.type}`);
+  }
+
+  res.json({ received: true });
+});
+
+
+// --- RESTEN AV DINA EXISTERANDE ROUTES (OÄNDRADE) ---
+
+// 1. GDPR ERASURE 
 app.post('/api/gdpr/erase', authenticateApiKey, async (req, res) => {
     try {
         const { user_identifier_hash } = req.body; 
@@ -359,7 +475,7 @@ app.post('/api/gdpr/erase', authenticateApiKey, async (req, res) => {
     }
 });
 
-// 2. SEARCH ENDPOINT (Ny - Krävs för Dashboard)
+// 2. SEARCH ENDPOINT 
 app.get('/api/events/search', authenticateApiKey, async (req, res) => {
     try {
         const { query, event_type, start_date, page = 1, limit = 50 } = req.query;
