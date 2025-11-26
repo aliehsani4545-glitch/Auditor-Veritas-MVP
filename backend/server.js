@@ -32,7 +32,7 @@ const stripe = new Stripe(stripeSecretKey);
 // --- STRIPE PRIS ID:n (PLATS-VÄRDEN - UPPDATERA DESSA!) ---
 // Du MÅSTE fylla i dessa med dina riktiga price_ ID:n från Stripe Dashboard.
 const STRIPE_PRICES = {
-  professional: 'pk_live_51SX7O148POA4USE9AVuM0jqgZrC2aMUGt3MaVvWmgBAF8OibgzGeVefsjTHpQCXH2RRRhUIwH1jx2tvfMAF8JQiY00bD4dj0xf', 
+  professional: 'price_1SXpLc48POA4USE9M4nzLvKP', 
   enterprise: 'price_PLACEHOLDER_ENTERPRISE_ID' 
 };
 
