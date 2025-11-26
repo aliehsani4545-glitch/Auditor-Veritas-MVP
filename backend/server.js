@@ -1,4 +1,4 @@
-// server.js (Fullständig kod med asynkron startup fix för Merkle Tree)
+// server.js - Fullständig version med Stripe CSP-fix
 
 import express from 'express';
 import cors from 'cors';
@@ -7,12 +7,10 @@ import rateLimit from 'express-rate-limit';
 import { createClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
 import CryptoJS from 'crypto-js';
-
-// --- NY IMPORT FÖR STRIPE ---
 import Stripe from 'stripe'; 
+import { config } from 'dotenv';
 
 // Environment configuration
-import { config } from 'dotenv';
 if (process.env.NODE_ENV !== 'production') {
   config();
 }
@@ -21,19 +19,18 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 const isProduction = process.env.NODE_ENV === 'production';
 
-// Supabase client
+// --- CONFIGURATION ---
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
 
-// --- STRIPE INITIALISERING ---
+// Stripe Init
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY || 'sk_test_PLACEHOLDER_SECRET'; 
 const stripe = new Stripe(stripeSecretKey);
 
-// --- STRIPE PRIS ID:n (PLATS-VÄRDEN - UPPDATERA DESSA!) ---
-// Du MÅSTE fylla i dessa med dina riktiga price_ ID:n från Stripe Dashboard.
+// VIKTIGT: Dessa måste matcha dina API ID:n för produkter i Stripe Dashboard
 const STRIPE_PRICES = {
-  professional: 'price_1SXpLc48POA4USE9M4nzLvKP', 
-  enterprise: 'price_PLACEHOLDER_ENTERPRISE_ID' 
+  professional: 'price_1SXpLc48POA4USE9M4nzLvKP', // Kontrollera att detta stämmer i din dashboard
+  enterprise: 'price_PLACEHOLDER_ENTERPRISE_ID'   // Ersätt med riktigt ID om du använder denna
 };
 
 // Produktionssäkerhetskontroller
@@ -136,7 +133,6 @@ class MerkleTree {
 
 const merkleTrees = new Map();
 
-// FIX: Gjord asynkron för att säkerställa att DB-hämtingen är klar
 async function initializeMerkleTrees() {
   try {
     const { data: processors } = await supabase.from('processors').select('id');
@@ -166,6 +162,7 @@ async function initializeMerkleTrees() {
   }
 }
 
+// --- HELPER FUNCTIONS ---
 function isValidEmail(email) {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(email);
@@ -200,66 +197,63 @@ async function updateProcessorAnalytics(processorId) {
     .eq('id', processorId);
 }
 
-async function analyzeChainIntegrity(event) {
-  let currentEvent = event;
-  let chain_valid = true;
-  let chain_length = 1;
-  const chain_events = [event];
-  while (currentEvent.previous_hash) {
-    const { data: prevEvent } = await supabase
-      .from('audit_events')
-      .select('*')
-      .eq('data_hash', currentEvent.previous_hash)
-      .single();
-    if (!prevEvent) {
-      chain_valid = false;
-      break;
-    }
-    chain_events.unshift(prevEvent);
-    currentEvent = prevEvent;
-    chain_length++;
-  }
-  return {
-    chain_valid,
-    chain_length,
-    chain_events: chain_events.map(e => ({ id: e.id, event_type: e.event_type, timestamp: e.event_timestamp }))
-  };
-}
+// --- MIDDLEWARE & SECURITY (FIXED CSP) ---
 
-// Enhanced Middleware - CSP FIXAD (Slutgiltig version)
+// Här är fixen för Content Security Policy som tillåter Stripe
 app.use(helmet({
-  contentSecurityPolicy: isProduction ? {
+  contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-      
-      // FIX: Tillåt Stripe.js att laddas (scriptSrc och scriptSrcElem)
+      // Tillåt Stripe och Google Fonts script
       scriptSrc: ["'self'", "'unsafe-inline'", "https://js.stripe.com"],
-      scriptSrcElem: ["'self'", "'unsafe-inline'", "https://js.stripe.com"], 
-      
-      // FIX: Tillåt Stripe IFRAMES (Kritiskt för Embedded Checkout)
-      frameSrc: ["'self'", "https://js.stripe.com", "https://hooks.stripe.com", "https://checkout.stripe.com"],
-      childSrc: ["'self'", "https://js.stripe.com"],
-      
-      // TILLÅT ANSLUTNINGAR
-      connectSrc: ["'self'", "https://auditor-veritas-mvp.onrender.com", "https://api.stripe.com"], 
+      scriptSrcElem: ["'self'", "'unsafe-inline'", "https://js.stripe.com"],
+      // Tillåt Google Fonts styles
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      // Tillåt Google Fonts
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      // TILLÅT STRIPE IFRAMES (Avgörande för Embedded Checkout)
+      frameSrc: ["'self'", "https://js.stripe.com", "https://hooks.stripe.com", "https://checkout.stripe.com"],
+      // TILLÅT ANSLUTNINGAR TILL STRIPE API & DIN BACKEND
+      connectSrc: [
+        "'self'", 
+        "https://api.stripe.com", 
+        "https://checkout.stripe.com", 
+        "https://auditor-veritas-mvp.onrender.com",
+        process.env.VITE_API_URL || "https://auditorveritas.com"
+      ],
+      // Tillåt bilder från Stripe
       imgSrc: ["'self'", "data:", "https:", "https://*.stripe.com"], 
     },
-  } : false,
+  },
   crossOriginEmbedderPolicy: false
 }));
 
-// CORS - FIXAD
+const PRIMARY_FRONTEND_DOMAIN = 'https://auditorveritas.com'; 
 const NETLIFY_DOMAIN = 'https://dreamy-banoffee-1603b3.netlify.app';
 const RENDER_DOMAIN = 'https://auditor-veritas-mvp.onrender.com';
-const PRIMARY_FRONTEND_DOMAIN = 'https://auditorveritas.com'; 
-const FRONTEND_URL = process.env.VITE_API_URL || PRIMARY_FRONTEND_DOMAIN; 
+const FRONTEND_URL = process.env.VITE_API_URL || PRIMARY_FRONTEND_DOMAIN;
+
+const ALLOWED_ORIGINS = [
+    PRIMARY_FRONTEND_DOMAIN,
+    NETLIFY_DOMAIN,
+    RENDER_DOMAIN,
+    'http://localhost:5173',
+    'http://localhost:3000'
+];
 
 app.use(cors({
-  origin: isProduction 
-    ? [RENDER_DOMAIN, NETLIFY_DOMAIN, PRIMARY_FRONTEND_DOMAIN] 
-    : ['http://localhost:3000', 'http://localhost:5173', NETLIFY_DOMAIN, PRIMARY_FRONTEND_DOMAIN],
+  origin: (origin, callback) => {
+    // Tillåt requests utan origin (t.ex. curl eller server-to-server)
+    if (!origin) return callback(null, true);
+    if (ALLOWED_ORIGINS.indexOf(origin) !== -1 || !isProduction) {
+      callback(null, true);
+    } else {
+      // För att inte krascha vid okända origins i dev, kan man vara mer tillåtande,
+      // men för prod håller vi det strikt eller loggar.
+      console.log('Blocked by CORS:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true
 }));
 
@@ -272,7 +266,7 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-// Authentication Middleware (OÄNDRAD)
+// Authentication Middleware
 const authenticateApiKey = async (req, res, next) => {
   try {
     const apiKey = req.headers['x-api-key'] || req.headers['authorization']?.replace('Bearer ', '');
@@ -296,13 +290,7 @@ const authenticateApiKey = async (req, res, next) => {
   }
 };
 
-const PRICING_PLANS = {
-  starter: { events: 100, price: 0, features: ['Basic Audit Trail'] },
-  professional: { events: 5000, price: 49, features: ['Advanced Analytics'] },
-  enterprise: { events: 50000, price: 199, features: ['Everything'] }
-};
-
-// --- STRIPE RELATERADE ROUTES (NYA) ---
+// --- STRIPE ROUTES ---
 
 app.post('/api/stripe/create-checkout-session', async (req, res) => {
   const { plan } = req.body;
@@ -327,6 +315,7 @@ app.post('/api/stripe/create-checkout-session', async (req, res) => {
         quantity: 1,
       }],
       mode: 'subscription',
+      // VIKTIGT: Return URL måste matcha din frontend
       return_url: `${FRONTEND_URL}/checkout/return?session_id={CHECKOUT_SESSION_ID}`,
     });
 
@@ -342,9 +331,12 @@ app.get('/api/stripe/session-status', async (req, res) => {
     const session = await stripe.checkout.sessions.retrieve(req.query.session_id);
     
     let customerEmail = null;
-    if (session.customer) {
-        const customer = await stripe.customers.retrieve(session.customer);
-        customerEmail = customer.email;
+    if (session.customer && typeof session.customer === 'string') {
+        // Om customer expanderas automatiskt eller inte beror på API-version, 
+        // men retrieve returnerar oftast ID om man inte expandar.
+        // För säkerhets skull kan vi hämta kunden om vi behöver e-posten.
+        // customer_details brukar dock finnas direkt på session-objektet i nyare API-versioner.
+        customerEmail = session.customer_details?.email;
     }
 
     res.send({
@@ -359,13 +351,13 @@ app.get('/api/stripe/session-status', async (req, res) => {
   }
 });
 
-// 7. Stripe Webhook Endpoint 
 app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
   const sig = req.headers['stripe-signature'];
   let event;
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET; 
 
   if (!webhookSecret) {
+      // Om ingen secret finns, logga bara varning men krascha inte (bra för dev)
       console.log('⚠️ Webhook Secret not configured! Add STRIPE_WEBHOOK_SECRET to .env');
       return res.status(400).send('Webhook Secret not configured.');
   }
@@ -381,7 +373,7 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
   switch (event.type) {
     case 'checkout.session.completed':
       const session = event.data.object;
-      console.log(`✅ Checkout session completed: ${session.id}. Customer: ${session.customer}`);
+      console.log(`✅ Checkout session completed: ${session.id}.`);
       break;
     default:
       console.log(`Unhandled event type ${event.type}`);
@@ -391,7 +383,7 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
 });
 
 
-// --- RESTEN AV DINA EXISTERANDE ROUTES (OÄNDRAD LOGIK) ---
+// --- APPLICATION ROUTES ---
 
 // 1. GDPR ERASURE 
 app.post('/api/gdpr/erase', authenticateApiKey, async (req, res) => {
@@ -528,12 +520,12 @@ app.get('/api/merkle/tree', authenticateApiKey, async (req, res) => {
     else res.status(404).json({error: 'Tree not found'});
 });
 
-// FIX: Anropar Merkle Tree initiering asynkront och väntar innan servern startar.
+// START SERVER ASYNC
 async function startServer() {
-    await initializeMerkleTrees(); // Väntar på att trädet ska fyllas
+    await initializeMerkleTrees(); // Laddar merkle trees i minnet innan servern öppnar
     app.listen(PORT, '0.0.0.0', () => {
         console.log(`🚀 Server running on port ${PORT}`);
     });
 }
 
-startServer(); // Starta servern asynkront
+startServer();
