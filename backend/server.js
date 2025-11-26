@@ -227,27 +227,31 @@ async function analyzeChainIntegrity(event) {
   };
 }
 
-// Enhanced Middleware (UPPDATERAD)
+// server.js (Helmet/CSP sektion)
+
 app.use(helmet({
   contentSecurityPolicy: isProduction ? {
     directives: {
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-      scriptSrc: ["'self'", "https://js.stripe.com"], // ⚠️ Lade till Stripe-domän
+      // FIX: Lägg till Stripes CDN här:
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://js.stripe.com"], 
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:", "https:"],
+      // FIX: Lägg till connect-src för Stripe Fetch calls
+      connectSrc: ["'self'", "https://auditor-veritas-mvp.onrender.com", "https://api.stripe.com"]
     },
   } : false,
   crossOriginEmbedderPolicy: false
 }));
-
 const NETLIFY_DOMAIN = 'https://auditorveritas.com';
 const RENDER_DOMAIN = 'https://auditor-veritas-mvp.onrender.com';
 const FRONTEND_URL = process.env.VITE_API_URL || NETLIFY_DOMAIN; // Hämta frontend-URL
+const PRIMARY_FRONTEND_DOMAIN = 'https://auditorveritas.com';
 
 app.use(cors({
   origin: isProduction 
-    ? [RENDER_DOMAIN, NETLIFY_DOMAIN] 
+    ? [RENDER_DOMAIN, NETLIFY_DOMAIN, PRIMARY_FRONTEND_DOMAIN] 
     : ['http://localhost:3000', 'http://localhost:5173', NETLIFY_DOMAIN],
   credentials: true
 }));

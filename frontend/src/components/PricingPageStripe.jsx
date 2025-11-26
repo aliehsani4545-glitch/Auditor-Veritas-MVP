@@ -1,4 +1,4 @@
-// components/PricingPageStripe.jsx (KORRIGERAD KOD MED GDPR ERASURE I PROFESSIONAL)
+// components/PricingPageStripe.jsx (FULLSTÄNDIG KOD MED ALLA JUSTERINGAR)
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
@@ -18,17 +18,16 @@ const DEDICATED_ENTERPRISE_PLAN = {
     cta: "Contact Sales",
 };
 
-// Basfunktioner som ingår i ALLA betalda/utvecklar-planer.
-// GDPR Erasure API är nu inkluderad här.
+// Basfunktioner som nu är gemensamma för alla betalda/utvecklar-planer
 const BASE_FEATURES = [
     "GDPR Data Processing Agreement (DPA)",
-    "GDPR Erasure API", // <--- FLYTTAD HIT (Nu i Professional och Business)
+    "GDPR Erasure API",
     "Merkle Tree Proofs (Data Integrity)",
     "API Key Rotation"
 ];
 
 
-// --- Sub-Components (Oändrade för design/logik) ---
+// --- Sub-Components ---
 
 const CheckoutForm = ({ plan, onBack }) => {
   const [clientSecret, setClientSecret] = useState('');
@@ -305,7 +304,7 @@ const PricingPageStripe = ({ setActiveTab }) => {
   
   const handleBack = () => setSelectedPlan(null);
 
-  // --- Plan Data Structure (ADJUSTED FOR NEW REQUIREMENTS) ---
+  // --- Plan Data Structure (FINAL ADJUSTMENTS) ---
   const plans = [
     {
       name: "Developer",
@@ -317,7 +316,7 @@ const PricingPageStripe = ({ setActiveTab }) => {
         "1,000 Events / month", 
         "7 Day Data Retention",
         "Community Support", 
-        ...BASE_FEATURES, // GDPR/Merkle/Key Rotation/Erasure
+        ...BASE_FEATURES, 
       ],
       cta: "Get Started Free",
       highlight: false,
@@ -336,7 +335,7 @@ const PricingPageStripe = ({ setActiveTab }) => {
         "30 Day Data Retention",
         "Unlimited Projects", 
         "Priority Email Support", 
-        ...BASE_FEATURES, // GDPR/Merkle/Key Rotation/Erasure
+        ...BASE_FEATURES, 
       ],
       cta: "Start Subscription",
       highlight: true,
@@ -352,9 +351,11 @@ const PricingPageStripe = ({ setActiveTab }) => {
       desc: "Scale and robust compliance for teams and pre-enterprise systems.",
       features: [
         "Unlimited Event Logs", 
+        "Unlimited Projects", // <--- NY: Obegränsade projekt
         "1 Year Data Retention", 
         "Dedicated Slack Channel", // Unique to Business
-        ...BASE_FEATURES, // GDPR/Merkle/Key Rotation/Erasure
+        ...BASE_FEATURES, 
+        "And many more relevant features..." // <--- NY: Generisk tilläggsfras
       ],
       cta: "Contact Sales", 
       highlight: false,
@@ -364,7 +365,7 @@ const PricingPageStripe = ({ setActiveTab }) => {
     }
   ];
   
-  // --- RENDERING LOGIC (Oändrad design) ---
+  // --- RENDERING LOGIC (Light Design) ---
 
   // 1. Show Return Page
   if (isReturnPage) {
