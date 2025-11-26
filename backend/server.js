@@ -1,4 +1,4 @@
-// server.js (Fullständig kod med Stripe-integration, CORS & CSP-fixar)
+// server.js (Fullständig kod med alla nödvändiga Stripe- och Säkerhetsfixar)
 
 import express from 'express';
 import cors from 'cors';
@@ -224,18 +224,25 @@ async function analyzeChainIntegrity(event) {
   };
 }
 
-// Enhanced Middleware - FIXAD CSP
+// Enhanced Middleware - CSP FIXAD (Deepseek's förslag integrerat)
 app.use(helmet({
   contentSecurityPolicy: isProduction ? {
     directives: {
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-      // FIX: Tillåt Stripe.js att laddas
-      scriptSrc: ["'self'", "'unsafe-inline'", "https://js.stripe.com"], 
+      
+      // FIX: Tillåt Stripe.js att laddas (scriptSrc och scriptSrcElem)
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://js.stripe.com"],
+      scriptSrcElem: ["'self'", "'unsafe-inline'", "https://js.stripe.com"], 
+      
+      // FIX: Tillåt Stripe IFRAMES (Kritiskt för Embedded Checkout)
+      frameSrc: ["'self'", "https://js.stripe.com", "https://hooks.stripe.com", "https://checkout.stripe.com"],
+      childSrc: ["'self'", "https://js.stripe.com"],
+      
+      // TILLÅT ANSLUTNINGAR
+      connectSrc: ["'self'", "https://auditor-veritas-mvp.onrender.com", "https://api.stripe.com"], 
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      imgSrc: ["'self'", "data:", "https:"],
-      // FIX: Tillåt anslutning till Stripe API
-      connectSrc: ["'self'", "https://auditor-veritas-mvp.onrender.com", "https://api.stripe.com"] 
+      imgSrc: ["'self'", "data:", "https:", "https://*.stripe.com"], // Tillåt Stripe-bilder
     },
   } : false,
   crossOriginEmbedderPolicy: false
@@ -305,6 +312,7 @@ app.post('/api/stripe/create-checkout-session', async (req, res) => {
   try {
     const priceId = STRIPE_PRICES[plan];
     
+    // Safety Check mot placeholders
     if (priceId.startsWith('price_PLACEHOLDER')) {
         console.error("CRITICAL ERROR: Price ID is still a placeholder.");
         throw new Error("Stripe Price ID placeholder not replaced.");
@@ -477,8 +485,8 @@ app.post('/api/events', authenticateApiKey, async (req, res) => {
     const previous_hash = lastEvent?.[0]?.data_hash || null;
     const hashData = { processor_id: processor.id, event_type, event_data, user_identifier, event_timestamp: timestamp, previous_hash };
     const data_hash = CryptoJS.SHA256(JSON.stringify(hashData)).toString();
-    const { data: newEvent, error } = await supabase.from('audit_events').insert([{ processor_id: processor.id, event_type, event_data, user_identifier, event_timestamp: timestamp, data_hash, previous_hash }]).select().single();
-    if (error) return res.status(500).json({ error: error.message });
+    const { data: newEvent } = await supabase.from('audit_events').insert([{ processor_id: processor.id, event_type, event_data, user_identifier, event_timestamp: timestamp, data_hash, previous_hash }]).select().single();
+    if (!newEvent) return res.status(500).json({ error: 'Failed to insert event' });
     const treeId = `processor_${processor.id}`;
     if (!merkleTrees.has(treeId)) merkleTrees.set(treeId, new MerkleTree());
     merkleTrees.get(treeId).addLeaf({ id: newEvent.id, event_type, event_data, timestamp, data_hash });
