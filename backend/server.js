@@ -241,7 +241,7 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false
 }));
 
-const NETLIFY_DOMAIN = 'https://dreamy-banoffee-1603b3.netlify.app';
+const NETLIFY_DOMAIN = 'https://auditorveritas.com';
 const RENDER_DOMAIN = 'https://auditor-veritas-mvp.onrender.com';
 const FRONTEND_URL = process.env.VITE_API_URL || NETLIFY_DOMAIN; // Hämta frontend-URL
 
