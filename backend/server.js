@@ -4,7 +4,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { createClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
-importYW CryptoJS from 'crypto-js';
+import CryptoJS from 'crypto-js';
 import Stripe from 'stripe';
 import { config } from 'dotenv';
 import { z } from 'zod';
@@ -151,7 +151,7 @@ const apiLimiter = rateLimit({
 });
 app.use(apiLimiter);
 
-// 1. Maskin-Auth (API Key)
+// 1. Maskin-Auth (API Key) - Används av Dashboard-verktygen (Search, Merkle, GDPR)
 const authenticateApiKey = async (req, res, next) => {
   const apiKey = req.headers['x-api-key'];
   if (!apiKey) return res.status(401).json({ error: 'API key required' });
@@ -175,7 +175,7 @@ const authenticateApiKey = async (req, res, next) => {
   }
 };
 
-// 2. Mänsklig-Auth (Supabase JWT)
+// 2. Mänsklig-Auth (Supabase JWT) - Används för Admin-uppgifter (Rotera nycklar, se dashboard stats)
 const authenticateUser = async (req, res, next) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1]; 
@@ -207,7 +207,7 @@ const authenticateUser = async (req, res, next) => {
 
 // --- ROUTES ---
 
-// 1. Event Ingestion
+// 1. Event Ingestion (Maskin - API Key)
 app.post('/api/events', authenticateApiKey, async (req, res) => {
     try {
         const payload = eventSubmissionSchema.parse(req.body);
@@ -249,7 +249,7 @@ app.post('/api/events', authenticateApiKey, async (req, res) => {
     }
 });
 
-// 2. Dashboard Data
+// 2. Dashboard Data (Människa - JWT)
 app.get('/api/dashboard', authenticateUser, async (req, res) => {
     if (!req.processor) {
         return res.status(404).json({ error: 'Processor account not found for this user. Please complete registration.' });
@@ -277,9 +277,9 @@ app.get('/api/dashboard', authenticateUser, async (req, res) => {
     }
 });
 
-// 3. Search
-app.get('/api/events/search', authenticateUser, async (req, res) => {
-    if (!req.processor) return res.status(403).json({ error: 'Access denied: No linked processor.' });
+// 3. Search (Maskin - API Key) 
+// ÄNDRAT TILL API KEY FÖR ATT MATCHA DASHBOARDENS BETEENDE
+app.get('/api/events/search', authenticateApiKey, async (req, res) => {
     try {
         const { query, limit = 20 } = req.query;
         let dbQuery = supabase
@@ -302,7 +302,7 @@ app.get('/api/events/search', authenticateUser, async (req, res) => {
     }
 });
 
-// 4. Key Rotation
+// 4. Key Rotation (Människa - JWT)
 app.post('/api/keys/rotate', authenticateUser, async (req, res) => {
     if (!req.processor) return res.status(403).json({ error: 'Access denied: No linked processor.' });
     try {
@@ -329,9 +329,9 @@ app.post('/api/keys/rotate', authenticateUser, async (req, res) => {
     }
 });
 
-// 5. Merkle Proof
-app.get('/api/merkle/proof/:eventId', authenticateUser, async (req, res) => {
-    if (!req.processor) return res.status(403).json({ error: 'Access denied: No linked processor.' });
+// 5. Merkle Proof (Maskin - API Key)
+// ÄNDRAT TILL API KEY FÖR ATT MATCHA DASHBOARDENS BETEENDE
+app.get('/api/merkle/proof/:eventId', authenticateApiKey, async (req, res) => {
     try {
         const pid = req.processor.id;
         const { data: event } = await supabase.from('audit_events').select('data_hash').eq('id', req.params.eventId).single();
@@ -356,7 +356,7 @@ app.get('/api/merkle/proof/:eventId', authenticateUser, async (req, res) => {
     }
 });
 
-// 6. Processor Registration
+// 6. Processor Registration (Människa - JWT)
 app.post('/api/processors', authenticateUser, async (req, res) => {
     if (!req.user) return res.status(401).json({ error: 'User must be authenticated to register a processor.' });
     if (req.processor) return res.status(409).json({ error: 'User already has a processor account.' });
@@ -406,10 +406,9 @@ app.post('/api/stripe/create-checkout-session', async (req, res) => {
     }
 });
 
-// 8. GDPR Erasure (FIX FÖR 404 ERROR)
-app.post('/api/gdpr/erase', authenticateUser, async (req, res) => {
-    if (!req.processor) return res.status(403).json({ error: 'Access denied: No linked processor.' });
-    
+// 8. GDPR Erasure (Maskin - API Key)
+// ÄNDRAT TILL API KEY FÖR ATT MATCHA DASHBOARDENS BETEENDE
+app.post('/api/gdpr/erase', authenticateApiKey, async (req, res) => {
     try {
         const { user_identifier_hash } = req.body;
         if (!user_identifier_hash) return res.status(400).json({ error: 'Missing identifier hash' });
@@ -426,9 +425,9 @@ app.post('/api/gdpr/erase', authenticateUser, async (req, res) => {
         
         if (error) throw error;
 
+        // Logga detta i admin logs (som är separat)
         await supabase.from('admin_audit_logs').insert([{
             processor_id: req.processor.id,
-            user_email: req.user.email,
             action: 'gdpr_erasure_executed',
             details: { count: data.length, target_hash_prefix: user_identifier_hash.substring(0,8) }
         }]);
