@@ -241,7 +241,9 @@ const Dashboard = ({ processor, stats, apiKey, onLogEvent, eventData, setEventDa
         </div>
         <div className="flex items-center gap-3">
              <button onClick={() => setShowGuide(true)} className="p-2 text-slate-400 hover:text-blue-600 transition-colors" title="Show Guide"><HelpCircle size={20}/></button>
-            <div className="hidden md:flex flex-col items-end mr-2"><span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">API Key</span><span className="text-xs font-mono text-slate-600 bg-slate-100 px-2 py-1 rounded border border-slate-200">{apiKey.slice(0, 16)}...</span></div>
+            <div className="hidden md:flex flex-col items-end mr-2"><span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">API Key</span><span className="text-xs font-mono text-slate-600 bg-slate-100 px-2 py-1 rounded border border-slate-200">
+    {apiKey ? apiKey.slice(0, 16) : '••••••••••••••••'}...
+</span></div>
             <button onClick={onLogout} className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-sm font-bold shadow-sm hover:bg-red-50 hover:text-red-600 hover:border-red-100 transition-all"><LogOut size={16} /> Sign Out</button>
         </div>
       </div>
