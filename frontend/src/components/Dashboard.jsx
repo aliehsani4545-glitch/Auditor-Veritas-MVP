@@ -3,11 +3,19 @@ import CryptoJS from 'crypto-js';
 import { Activity, Search, CheckCircle2, RefreshCw, Zap, Lock, LogOut, LayoutGrid, Trash2, ShieldAlert, Layers, Filter, HelpCircle, X, ChevronRight, ChevronLeft } from 'lucide-react';
 import MerkleProofViewer from './MerkleProofViewer'; 
 
-// --- API HELPER ---
+// --- API HELPER (Fixad för att hantera Token ELLER Key) ---
 const API_BASE_URL = 'https://auditor-veritas-mvp.onrender.com';
-const apiCall = async (endpoint, options = {}, apiKey = '') => {
-    const config = { headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, ...options.headers }, ...options };
+const apiCall = async (endpoint, options = {}, token = null, apiKey = null) => {
+    const headers = { 'Content-Type': 'application/json', ...options.headers };
+    
+    // Om token finns (Du är inloggad), använd den.
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    // Om API-nyckel finns (för simulering), använd den.
+    if (apiKey) headers['x-api-key'] = apiKey;
+
+    const config = { headers, ...options };
     if (options.body) config.body = JSON.stringify(options.body);
+    
     const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
     if (response.status === 204) return null;
     const data = await response.json();
@@ -121,8 +129,8 @@ const LiveActivityChart = ({ dataPoints = [] }) => {
   );
 };
 
-// ... [Keep ErasureForm Component as is] ...
-const ErasureForm = ({ apiKey }) => {
+// ... [UPDATED ErasureForm Component - PASS TOKEN] ...
+const ErasureForm = ({ token }) => {
     const [userId, setUserId] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [result, setResult] = useState(null);
@@ -133,7 +141,8 @@ const ErasureForm = ({ apiKey }) => {
         setResult(null);
         try {
             const hashedId = CryptoJS.SHA256(userId).toString();
-            const data = await apiCall('/api/gdpr/erase', { method: 'POST', body: { user_identifier_hash: hashedId } }, apiKey);
+            // Pass token here to use Human Auth
+            const data = await apiCall('/api/gdpr/erase', { method: 'POST', body: { user_identifier_hash: hashedId } }, token, null);
             setResult({ success: true, ...data });
         } catch (err) { setResult({ success: false, message: err.message }); } finally { setIsLoading(false); }
     };
@@ -152,8 +161,8 @@ const ErasureForm = ({ apiKey }) => {
     );
 };
 
-// ... [Keep EventSearchAndFilter Component as is] ...
-const EventSearchAndFilter = ({ apiKey }) => {
+// ... [UPDATED EventSearchAndFilter Component - PASS TOKEN] ...
+const EventSearchAndFilter = ({ token }) => {
     const [query, setQuery] = useState('');
     const [eventType, setEventType] = useState('');
     const [startDate, setStartDate] = useState('');
@@ -168,7 +177,8 @@ const EventSearchAndFilter = ({ apiKey }) => {
         setError(null);
         const params = new URLSearchParams({ limit: 20, page: page, query: query, event_type: eventType, start_date: startDate }).toString();
         try {
-            const data = await apiCall(`/api/events/search?${params}`, { method: 'GET' }, apiKey);
+            // Pass token here to use Human Auth
+            const data = await apiCall(`/api/events/search?${params}`, { method: 'GET' }, token, null);
             setSearchResults(data.events);
             setPagination(data.pagination);
         } catch (err) { setError(err.message || 'Search failed.'); setSearchResults([]); } finally { setIsLoading(false); }
@@ -200,7 +210,7 @@ const RecentLogsTable = ({ logs = [] }) => {
 };
 
 // --- MAIN DASHBOARD COMPONENT ---
-const Dashboard = ({ processor, stats, apiKey, onLogEvent, eventData, setEventData, isLoading, KeyRotation, recentLogs, chartData, onLogout }) => {
+const Dashboard = ({ processor, stats, apiKey, onLogEvent, eventData, setEventData, isLoading, KeyRotation, recentLogs, chartData, onLogout, token }) => {
   const eventsLimit = stats.eventsLimit || 100;
   const [activeTab, setActiveTab] = useState('logs');
   const [currentLogs, setCurrentLogs] = useState(recentLogs); 
@@ -241,9 +251,12 @@ const Dashboard = ({ processor, stats, apiKey, onLogEvent, eventData, setEventDa
         </div>
         <div className="flex items-center gap-3">
              <button onClick={() => setShowGuide(true)} className="p-2 text-slate-400 hover:text-blue-600 transition-colors" title="Show Guide"><HelpCircle size={20}/></button>
-            <div className="hidden md:flex flex-col items-end mr-2"><span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">API Key</span><span className="text-xs font-mono text-slate-600 bg-slate-100 px-2 py-1 rounded border border-slate-200">
-    {apiKey ? apiKey.slice(0, 16) : '••••••••••••••••'}...
-</span></div>
+            <div className="hidden md:flex flex-col items-end mr-2">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">API Key</span>
+                <span className="text-xs font-mono text-slate-600 bg-slate-100 px-2 py-1 rounded border border-slate-200">
+                    {apiKey ? apiKey.slice(0, 16) : '••••••••••••••••'}...
+                </span>
+            </div>
             <button onClick={onLogout} className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-sm font-bold shadow-sm hover:bg-red-50 hover:text-red-600 hover:border-red-100 transition-all"><LogOut size={16} /> Sign Out</button>
         </div>
       </div>
@@ -273,9 +286,11 @@ const Dashboard = ({ processor, stats, apiKey, onLogEvent, eventData, setEventDa
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2">
            {activeTab === 'logs' && <RecentLogsTable logs={currentLogs} />}
-           {activeTab === 'search' && <EventSearchAndFilter apiKey={apiKey} />}
-           {activeTab === 'verify' && <MerkleProofViewer apiKey={apiKey} />}
-           {activeTab === 'compliance' && <ErasureForm apiKey={apiKey} />}
+           {/* HÄR SKICKAR VI MED TOKEN SÅ ATT SÖKNING FUNGERAR UTAN API-NYCKEL */}
+           {activeTab === 'search' && <EventSearchAndFilter token={token} />}
+           {/* MERKLE BEHÖVER OCKSÅ TOKEN */}
+           {activeTab === 'verify' && <MerkleProofViewer token={token} />}
+           {activeTab === 'compliance' && <ErasureForm token={token} />}
         </div>
         <div className="space-y-6">
            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">

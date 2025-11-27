@@ -151,7 +151,9 @@ const apiLimiter = rateLimit({
 });
 app.use(apiLimiter);
 
-// 1. Maskin-Auth (API Key) - Används av Dashboard-verktygen (Search, Merkle, GDPR)
+// --- AUTHENTICATION HELPERS ---
+
+// 1. Maskin-Auth (API Key)
 const authenticateApiKey = async (req, res, next) => {
   const apiKey = req.headers['x-api-key'];
   if (!apiKey) return res.status(401).json({ error: 'API key required' });
@@ -175,7 +177,7 @@ const authenticateApiKey = async (req, res, next) => {
   }
 };
 
-// 2. Mänsklig-Auth (Supabase JWT) - Används för Admin-uppgifter (Rotera nycklar, se dashboard stats)
+// 2. Mänsklig-Auth (Supabase JWT)
 const authenticateUser = async (req, res, next) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1]; 
@@ -205,9 +207,29 @@ const authenticateUser = async (req, res, next) => {
     }
 };
 
+// 3. HYBRID AUTH (Detta är fixen!)
+// Accepterar antingen API-nyckel ELLER inloggad användare.
+const authenticateAny = async (req, res, next) => {
+    const apiKey = req.headers['x-api-key'];
+    const authHeader = req.headers['authorization'];
+
+    // Om API-nyckel finns, använd maskin-auth
+    if (apiKey) {
+        return authenticateApiKey(req, res, next);
+    }
+    
+    // Om Authorization header finns, använd mänsklig-auth
+    if (authHeader) {
+        return authenticateUser(req, res, next);
+    }
+
+    // Om inget finns
+    return res.status(401).json({ error: 'Authentication required (API Key or Login Token)' });
+};
+
 // --- ROUTES ---
 
-// 1. Event Ingestion (Maskin - API Key)
+// 1. Event Ingestion (Maskin - API Key only, för säkerhet)
 app.post('/api/events', authenticateApiKey, async (req, res) => {
     try {
         const payload = eventSubmissionSchema.parse(req.body);
@@ -277,9 +299,9 @@ app.get('/api/dashboard', authenticateUser, async (req, res) => {
     }
 });
 
-// 3. Search (Maskin - API Key) 
-// ÄNDRAT TILL API KEY FÖR ATT MATCHA DASHBOARDENS BETEENDE
-app.get('/api/events/search', authenticateApiKey, async (req, res) => {
+// 3. Search (HYBRID - Fixad för dig)
+app.get('/api/events/search', authenticateAny, async (req, res) => {
+    if (!req.processor) return res.status(403).json({ error: 'Access denied: No linked processor.' });
     try {
         const { query, limit = 20 } = req.query;
         let dbQuery = supabase
@@ -329,9 +351,9 @@ app.post('/api/keys/rotate', authenticateUser, async (req, res) => {
     }
 });
 
-// 5. Merkle Proof (Maskin - API Key)
-// ÄNDRAT TILL API KEY FÖR ATT MATCHA DASHBOARDENS BETEENDE
-app.get('/api/merkle/proof/:eventId', authenticateApiKey, async (req, res) => {
+// 5. Merkle Proof (HYBRID - Fixad för dig)
+app.get('/api/merkle/proof/:eventId', authenticateAny, async (req, res) => {
+    if (!req.processor) return res.status(403).json({ error: 'Access denied: No linked processor.' });
     try {
         const pid = req.processor.id;
         const { data: event } = await supabase.from('audit_events').select('data_hash').eq('id', req.params.eventId).single();
@@ -406,9 +428,10 @@ app.post('/api/stripe/create-checkout-session', async (req, res) => {
     }
 });
 
-// 8. GDPR Erasure (Maskin - API Key)
-// ÄNDRAT TILL API KEY FÖR ATT MATCHA DASHBOARDENS BETEENDE
-app.post('/api/gdpr/erase', authenticateApiKey, async (req, res) => {
+// 8. GDPR Erasure (HYBRID - Fixad för dig)
+app.post('/api/gdpr/erase', authenticateAny, async (req, res) => {
+    if (!req.processor) return res.status(403).json({ error: 'Access denied: No linked processor.' });
+    
     try {
         const { user_identifier_hash } = req.body;
         if (!user_identifier_hash) return res.status(400).json({ error: 'Missing identifier hash' });
@@ -425,9 +448,9 @@ app.post('/api/gdpr/erase', authenticateApiKey, async (req, res) => {
         
         if (error) throw error;
 
-        // Logga detta i admin logs (som är separat)
         await supabase.from('admin_audit_logs').insert([{
             processor_id: req.processor.id,
+            user_email: req.user?.email || 'api_key_system',
             action: 'gdpr_erasure_executed',
             details: { count: data.length, target_hash_prefix: user_identifier_hash.substring(0,8) }
         }]);
