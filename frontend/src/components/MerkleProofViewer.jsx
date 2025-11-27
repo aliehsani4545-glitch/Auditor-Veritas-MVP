@@ -1,114 +1,163 @@
 import React, { useState } from 'react';
-import { ShieldCheck, CheckCircle2, XCircle, Layers } from 'lucide-react';
+import { ShieldCheck, AlertCircle, RefreshCw, GitBranch, Layers, CheckCircle2 } from 'lucide-react';
+import { motion } from 'framer-motion';
 
-const MerkleProofViewer = ({ apiKey }) => {
-    const [eventId, setEventId] = useState('');
-    const [proofData, setProofData] = useState(null);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(null);
+// API HELPER (Samma som i Dashboard och App)
+const API_BASE_URL = 'https://auditor-veritas-mvp.onrender.com';
 
-    const handleVerify = async (e) => {
-        e.preventDefault();
-        if (!eventId) return;
-        
-        setLoading(true);
-        setError(null);
-        setProofData(null);
+const apiCall = async (endpoint, options = {}, token = null, apiKey = null) => {
+    const headers = { 'Content-Type': 'application/json', ...options.headers };
+    
+    // Auth Logic: Prioritera Token (Människa), fallback till API Key (Maskin)
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    if (apiKey) headers['x-api-key'] = apiKey;
 
-        try {
-            // Här anropar vi backenden. För att detta ska fungera via dashboarden 
-            // så använder vi den apiKey som skickas med, eller JWT om din backend kräver det.
-            const response = await fetch(`https://auditor-veritas-mvp.onrender.com/api/merkle/proof/${eventId}`, {
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`, // Om backend kräver Bearer token
-                    'x-api-key': apiKey // Som fallback om backend är inställd på key
-                }
-            });
-            
-            if (!response.ok) throw new Error('Verification failed. Invalid ID or Server Error.');
-            
-            const data = await response.json();
-            setProofData(data);
-        } catch (err) {
-            setError(err.message);
-        } finally {
-            setLoading(false);
-        }
-    };
+    const config = { headers, ...options };
+    if (options.body) config.body = JSON.stringify(options.body);
+    
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
+    if (response.status === 204) return null;
+    
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || `HTTP error! status: ${response.status}`);
+    return data;
+};
 
-    return (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-xl overflow-hidden">
-            <div className="p-5 border-b border-slate-100 bg-slate-50/50 flex items-center gap-2">
-                <ShieldCheck className="text-purple-600" size={20} />
-                <h3 className="font-bold text-slate-800 text-lg">Merkle Proof Verifier</h3>
-            </div>
-            
-            <div className="p-8">
-                <p className="text-slate-500 text-sm mb-6">
-                    Cryptographically verify the integrity of a specific audit event against your Processor's Root Hash.
-                </p>
+const MerkleProofViewer = ({ token, apiKey }) => {
+  const [eventId, setEventId] = useState('');
+  const [proofResult, setProofResult] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-                <div className="mb-6">
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Event ID (UUID)</label>
-                    <input 
-                        type="text" 
-                        value={eventId}
-                        onChange={(e) => setEventId(e.target.value)}
-                        placeholder="Paste Event UUID (e.g. 15ce9ec1...)"
-                        className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-mono text-sm text-slate-700 focus:ring-2 focus:ring-purple-500 outline-none"
-                    />
-                </div>
+  const handleVerify = async (e) => {
+    e.preventDefault();
+    if (!eventId) {
+      setError('Please provide an Event ID.');
+      return;
+    }
 
-                <button 
-                    onClick={handleVerify}
-                    // FIXEN: Vi låser bara knappen om ID saknas eller om det laddar,
-                    // vi bryr oss inte om apiKey i frontend-state för att undvika att den fastnar.
-                    disabled={!eventId || loading}
-                    className={`w-full py-4 rounded-xl font-bold text-sm uppercase tracking-wide transition-all shadow-lg flex justify-center items-center gap-2
-                        ${!eventId || loading 
-                            ? 'bg-slate-200 text-slate-400 cursor-not-allowed' 
-                            : 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:shadow-purple-500/25 hover:scale-[1.01]'
-                        }`}
-                >
-                    {loading ? 'Verifying on Chain...' : <><CheckCircle2 size={18}/> Verify Integrity</>}
-                </button>
+    setIsLoading(true);
+    setError(null);
+    setProofResult(null);
 
-                {error && (
-                    <div className="mt-6 p-4 bg-red-50 border border-red-100 rounded-xl flex items-center gap-3 text-red-700">
-                        <XCircle size={20} />
-                        <span className="text-sm font-medium">{error}</span>
-                    </div>
-                )}
+    try {
+      // HÄR ÄR FIXEN: Vi skickar med 'token' till apiCall
+      const data = await apiCall(`/api/merkle/proof/${eventId}`, { method: 'GET' }, token, apiKey);
+      setProofResult(data);
+    } catch (err) {
+      // Bättre felmeddelanden
+      if (err.message.includes('404')) {
+          setError('Event ID not found in your processor logs.');
+      } else if (err.message.includes('401') || err.message.includes('403')) {
+          setError('Access denied. Please refresh page.');
+      } else {
+          setError(`Verification Failed: ${err.message}`);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-                {proofData && (
-                    <div className="mt-8 animate-fade-in-up">
-                        <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-6 relative overflow-hidden">
-                            <div className="absolute top-0 right-0 p-4 opacity-10"><ShieldCheck size={100} className="text-emerald-500"/></div>
-                            <div className="relative z-10">
-                                <div className="flex items-center gap-2 text-emerald-700 font-bold mb-1">
-                                    <CheckCircle2 size={20} />
-                                    <span>Cryptographic Verification Successful</span>
-                                </div>
-                                <p className="text-emerald-600/80 text-xs mb-4">The event hash is mathematically included in the root.</p>
-                                
-                                <div className="space-y-2">
-                                    <div>
-                                        <div className="text-[10px] uppercase font-bold text-emerald-800/50">Merkle Root</div>
-                                        <div className="font-mono text-xs text-emerald-900 break-all bg-emerald-100/50 p-2 rounded">{proofData.merkleRoot}</div>
-                                    </div>
-                                    <div>
-                                        <div className="text-[10px] uppercase font-bold text-emerald-800/50">Leaf Hash (Event)</div>
-                                        <div className="font-mono text-xs text-emerald-900 break-all bg-emerald-100/50 p-2 rounded">{proofData.leafHash}</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
-            </div>
+  const renderProofStep = (step, index) => (
+    <motion.div 
+      key={index}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.1 }}
+      className="flex items-start gap-4 p-4 border-b border-slate-100 last:border-b-0 bg-white"
+    >
+      <div className="p-2 rounded-full bg-slate-100 text-slate-500 shrink-0 mt-0.5 relative">
+        <GitBranch size={16} />
+        <span className="absolute -top-1 -right-1 flex h-3 w-3 items-center justify-center rounded-full bg-blue-600 text-[8px] text-white font-bold">
+            {index + 1}
+        </span>
+      </div>
+      <div>
+        <p className="font-bold text-sm text-slate-800">Step {proofResult.proof.length - index}: Hashing with {step.position.toUpperCase()} Sibling</p>
+        <p className="font-mono text-xs text-slate-500 break-all mt-1">Sibling Hash: {step.hash.substring(0, 30)}...</p>
+      </div>
+    </motion.div>
+  );
+
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 shadow-xl overflow-hidden p-6 md:p-8 space-y-6">
+      <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+        <Layers className="text-purple-600" size={24} />
+        <h2 className="font-bold text-xl text-slate-900">Merkle Proof Verifier</h2>
+      </div>
+      
+      <p className="text-sm text-slate-600">
+        Cryptographically verify the integrity of a specific audit event against your Processor's Root Hash.
+      </p>
+
+      <form onSubmit={handleVerify} className="space-y-4">
+        <div>
+          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Event ID (UUID)</label>
+          <input
+            type="text"
+            placeholder="Paste Event ID from Search or Live Logs..."
+            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-sm font-mono focus:ring-2 focus:ring-blue-500/50 outline-none transition-all text-slate-700"
+            value={eventId}
+            onChange={(e) => setEventId(e.target.value)}
+            required
+          />
         </div>
-    );
+        <button
+          type="submit"
+          disabled={isLoading}
+          className="w-full bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-lg font-bold text-sm uppercase tracking-wide transition-all flex justify-center items-center gap-2 disabled:bg-slate-300 disabled:cursor-not-allowed"
+        >
+          {isLoading ? <RefreshCw className="animate-spin w-4 h-4" /> : <ShieldCheck size={18} />}
+          {isLoading ? 'Verifying...' : 'Verify Integrity'}
+        </button>
+        {error && (
+          <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-xs font-medium flex items-center gap-2">
+            <AlertCircle size={14} /> {error}
+          </div>
+        )}
+      </form>
+
+      {proofResult && (
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }} 
+          animate={{ opacity: 1, y: 0 }} 
+          className={`mt-6 border rounded-xl overflow-hidden shadow-lg ${proofResult.verified ? 'border-emerald-300' : 'border-red-300'}`}
+        >
+          {/* Summary Header */}
+          <div className={`p-5 flex justify-between items-center ${proofResult.verified ? 'bg-emerald-50' : 'bg-red-50'}`}>
+            <div className="flex items-center gap-3">
+              {proofResult.verified ? <CheckCircle2 className="text-emerald-600" size={24} /> : <AlertCircle className="text-red-600" size={24} />}
+              <span className="font-bold text-lg text-slate-800">
+                {proofResult.verified ? 'Verification SUCCESS' : 'INTEGRITY WARNING'}
+              </span>
+            </div>
+            <span className="text-xs text-slate-500 font-mono font-bold bg-white/50 px-2 py-1 rounded">Steps: {proofResult.proof.length}</span>
+          </div>
+
+          {/* Root Hash & Leaf Hash */}
+          <div className="p-5 space-y-3 bg-white">
+            <div className="flex justify-between items-center pb-2 border-b border-slate-50">
+              <span className="text-xs font-bold text-purple-600 uppercase">Merkle Root</span>
+              <span className="font-mono text-[10px] text-slate-800 break-all">{proofResult.merkleRoot.substring(0, 40)}...</span>
+            </div>
+            <div className="flex justify-between items-center pt-1">
+              <span className="text-xs font-bold text-blue-600 uppercase">Event Leaf Hash</span>
+              <span className="font-mono text-[10px] text-slate-800 break-all">{proofResult.leafHash.substring(0, 40)}...</span>
+            </div>
+          </div>
+
+          {/* Proof Path */}
+          <div className="bg-slate-50 p-0">
+            <h4 className="text-xs font-bold text-slate-600 uppercase p-4 border-b border-slate-100 flex items-center gap-2">
+                <Layers size={12}/> Proof Path
+            </h4>
+            {proofResult.proof.slice().reverse().map(renderProofStep)}
+          </div>
+
+        </motion.div>
+      )}
+    </div>
+  );
 };
 
 export default MerkleProofViewer;
