@@ -4,13 +4,13 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { createClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
-import CryptoJS from 'crypto-js';
+importYW CryptoJS from 'crypto-js';
 import Stripe from 'stripe';
 import { config } from 'dotenv';
 import { z } from 'zod';
-import stringify from 'fast-json-stable-stringify'; // För deterministisk hashing
-import winston from 'winston'; // För strukturerad loggning
-import morgan from 'morgan';   // För HTTP-loggning
+import stringify from 'fast-json-stable-stringify';
+import winston from 'winston';
+import morgan from 'morgan';
 
 if (process.env.NODE_ENV !== 'production') {
   config();
@@ -25,7 +25,7 @@ if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
   process.exit(1);
 }
 
-// Supabase Admin Client (Service Role - Kan kringgå RLS)
+// Supabase Admin Client
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY, {
   auth: {
     autoRefreshToken: false,
@@ -34,7 +34,7 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SER
 });
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_placeholder');
 
-// --- OBSERVABILITY (WINSTON) ---
+// --- OBSERVABILITY ---
 const logger = winston.createLogger({
   level: 'info',
   format: winston.format.combine(
@@ -49,7 +49,6 @@ const logger = winston.createLogger({
   ],
 });
 
-// Koppla Morgan (HTTP requests) till Winston
 app.use(morgan('combined', { stream: { write: message => logger.info(message.trim()) } }));
 
 // --- SCHEMAS ---
@@ -64,7 +63,7 @@ const processorRegistrationSchema = z.object({
   plan: z.enum(['starter', 'professional', 'enterprise']).default('starter')
 });
 
-// --- MERKLE ENGINE (STATELESS / DB-BACKED) ---
+// --- MERKLE ENGINE ---
 class MerkleTool {
   static hash(data) {
     if (!data) return '';
@@ -143,7 +142,7 @@ app.use(cors({
 
 app.use(express.json({ limit: '2mb' })); 
 
-// Rate Limiter (Per IP/API Key)
+// Rate Limiter
 const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 1000,
@@ -179,7 +178,7 @@ const authenticateApiKey = async (req, res, next) => {
 // 2. Mänsklig-Auth (Supabase JWT)
 const authenticateUser = async (req, res, next) => {
     const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1]; // "Bearer TOKEN"
+    const token = authHeader && authHeader.split(' ')[1]; 
 
     if (!token) return res.status(401).json({ error: 'Token required' });
 
@@ -188,15 +187,12 @@ const authenticateUser = async (req, res, next) => {
         if (error || !user) throw new Error('Invalid Token');
 
         req.user = user; 
-
-        // Försök hitta den länkade processorn
         const { data: processor } = await supabase
             .from('processors')
             .select('*')
             .eq('owner_id', user.id)
             .single();
         
-        // Sätt processorn om den finns, annars är req.processor null (vilket dashboarden måste hantera)
         if (processor) {
             req.processor = processor;
         }
@@ -211,14 +207,13 @@ const authenticateUser = async (req, res, next) => {
 
 // --- ROUTES ---
 
-// 1. Event Ingestion (Maskin-Endast)
+// 1. Event Ingestion
 app.post('/api/events', authenticateApiKey, async (req, res) => {
     try {
         const payload = eventSubmissionSchema.parse(req.body);
         const processor = req.processor;
         const timestamp = new Date().toISOString();
 
-        // Hämta bara den senaste hashen
         const { data: lastEvent } = await supabase
             .from('audit_events')
             .select('data_hash')
@@ -229,13 +224,7 @@ app.post('/api/events', authenticateApiKey, async (req, res) => {
         
         const previous_hash = lastEvent?.[0]?.data_hash || null;
 
-        const hashData = { 
-            processor_id: processor.id, 
-            ...payload, 
-            event_timestamp: timestamp, 
-            previous_hash 
-        };
-        
+        const hashData = { processor_id: processor.id, ...payload, event_timestamp: timestamp, previous_hash };
         const stableString = stringify(hashData);
         const data_hash = CryptoJS.SHA256(stableString).toString();
 
@@ -250,7 +239,6 @@ app.post('/api/events', authenticateApiKey, async (req, res) => {
         }]).select().single();
 
         if (error) throw error;
-        
         try { await supabase.rpc('increment_processor_usage', { pid: processor.id }); } catch (e) {}
 
         res.status(201).json({ success: true, eventId: newEvent.id, hash: data_hash });
@@ -261,14 +249,11 @@ app.post('/api/events', authenticateApiKey, async (req, res) => {
     }
 });
 
-// 2. Dashboard Data (Människa-Endast)
+// 2. Dashboard Data
 app.get('/api/dashboard', authenticateUser, async (req, res) => {
-    // Returnera 404 om användaren är inloggad men inte har en processor (hänvisar till registrering)
     if (!req.processor) {
-        // Skickar 404 för att trigga registrering/setup i frontend
         return res.status(404).json({ error: 'Processor account not found for this user. Please complete registration.' });
     }
-
     try {
         const pid = req.processor.id;
         const { count: totalCount } = await supabase.from('audit_events').select('*', { count: 'exact', head: true }).eq('processor_id', pid);
@@ -292,10 +277,9 @@ app.get('/api/dashboard', authenticateUser, async (req, res) => {
     }
 });
 
-// 3. Search (Människa-Endast)
+// 3. Search
 app.get('/api/events/search', authenticateUser, async (req, res) => {
     if (!req.processor) return res.status(403).json({ error: 'Access denied: No linked processor.' });
-    
     try {
         const { query, limit = 20 } = req.query;
         let dbQuery = supabase
@@ -318,7 +302,7 @@ app.get('/api/events/search', authenticateUser, async (req, res) => {
     }
 });
 
-// 4. Key Rotation (Människa-Endast + Audit Log)
+// 4. Key Rotation
 app.post('/api/keys/rotate', authenticateUser, async (req, res) => {
     if (!req.processor) return res.status(403).json({ error: 'Access denied: No linked processor.' });
     try {
@@ -329,7 +313,6 @@ app.post('/api/keys/rotate', authenticateUser, async (req, res) => {
             .update({ api_key_hash: newHash, last_key_rotation: new Date().toISOString() })
             .eq('id', req.processor.id);
 
-        // Audit Log
         await supabase.from('admin_audit_logs').insert([{
             processor_id: req.processor.id,
             user_email: req.user.email,
@@ -346,17 +329,14 @@ app.post('/api/keys/rotate', authenticateUser, async (req, res) => {
     }
 });
 
-// 5. Merkle Proof (Människa-Endast)
+// 5. Merkle Proof
 app.get('/api/merkle/proof/:eventId', authenticateUser, async (req, res) => {
     if (!req.processor) return res.status(403).json({ error: 'Access denied: No linked processor.' });
     try {
         const pid = req.processor.id;
-        
-        // 1. Hämta Event
         const { data: event } = await supabase.from('audit_events').select('data_hash').eq('id', req.params.eventId).single();
         if (!event) return res.status(404).json({ error: 'Event not found' });
 
-        // 2. Hämta ALLA hashes (Skalbarhetsflaskhalsen, men fungerar för MVP)
         const { data: allEvents } = await supabase
             .from('audit_events')
             .select('data_hash')
@@ -365,37 +345,24 @@ app.get('/api/merkle/proof/:eventId', authenticateUser, async (req, res) => {
             .order('id', { ascending: true }); 
 
         const leaves = allEvents.map(e => e.data_hash);
-        
-        // 3. Generera Proof
         const { proof, root } = MerkleTool.getProof(leaves, event.data_hash);
         
         if (!proof) return res.status(500).json({ error: 'Proof generation failed' });
 
-        res.json({
-            leafHash: event.data_hash,
-            merkleRoot: root,
-            proof,
-            verified: true 
-        });
-
+        res.json({ leafHash: event.data_hash, merkleRoot: root, proof, verified: true });
     } catch (err) {
         logger.error('Merkle Proof Error', err);
         res.status(500).json({ error: 'Proof failed' });
     }
 });
 
-// 6. SÄKER REGISTRERING (Människa-Endast - SKAPAR LÄNK TILL ANVÄNDARE)
+// 6. Processor Registration
 app.post('/api/processors', authenticateUser, async (req, res) => {
     if (!req.user) return res.status(401).json({ error: 'User must be authenticated to register a processor.' });
-
-    // Stoppa användare som redan har en processor
-    if (req.processor) {
-        return res.status(409).json({ error: 'User already has a processor account.' });
-    }
+    if (req.processor) return res.status(409).json({ error: 'User already has a processor account.' });
 
     try {
         const data = processorRegistrationSchema.parse(req.body);
-        
         const apiKey = `av_${uuidv4().replace(/-/g, '')}`;
         const apiKeyHash = CryptoJS.SHA256(apiKey).toString();
         
@@ -406,11 +373,10 @@ app.post('/api/processors', authenticateUser, async (req, res) => {
             api_key_hash: apiKeyHash,
             status: 'active',
             events_limit: data.plan === 'enterprise' ? 1000000 : 1000,
-            owner_id: req.user.id // KRITISK FIX: Länkar processorn till den autentiserade användaren
+            owner_id: req.user.id
         }]).select().single();
         
         if (error) throw error;
-        
         logger.info(`New Processor Registered: ${data.companyName} by ${req.user.email}`);
         res.status(201).json({ apiKey, message: "Account created successfully" });
     } catch (err) {
@@ -425,7 +391,6 @@ const STRIPE_PRICES = {
   professional: 'price_1SXpLc48POA4USE9M4nzLvKP', 
   enterprise: 'price_PLACEHOLDER_ENTERPRISE_ID'
 };
-
 app.post('/api/stripe/create-checkout-session', async (req, res) => {
     const { plan } = req.body;
     try {
@@ -441,6 +406,44 @@ app.post('/api/stripe/create-checkout-session', async (req, res) => {
     }
 });
 
+// 8. GDPR Erasure (FIX FÖR 404 ERROR)
+app.post('/api/gdpr/erase', authenticateUser, async (req, res) => {
+    if (!req.processor) return res.status(403).json({ error: 'Access denied: No linked processor.' });
+    
+    try {
+        const { user_identifier_hash } = req.body;
+        if (!user_identifier_hash) return res.status(400).json({ error: 'Missing identifier hash' });
+
+        const { data, error } = await supabase
+            .from('audit_events')
+            .update({ 
+                user_identifier: `ANONYMIZED_${uuidv4()}`,
+                event_data: { status: "erased", reason: "GDPR Article 17", timestamp: new Date().toISOString() } 
+            })
+            .eq('processor_id', req.processor.id)
+            .eq('user_identifier', user_identifier_hash)
+            .select();
+        
+        if (error) throw error;
+
+        await supabase.from('admin_audit_logs').insert([{
+            processor_id: req.processor.id,
+            user_email: req.user.email,
+            action: 'gdpr_erasure_executed',
+            details: { count: data.length, target_hash_prefix: user_identifier_hash.substring(0,8) }
+        }]);
+
+        res.json({ 
+            success: true, 
+            records_anonymized: data.length, 
+            erasure_token: `verify_${uuidv4()}` 
+        });
+
+    } catch (err) {
+        logger.error('GDPR Erasure Error', err);
+        res.status(500).json({ error: 'Erasure operation failed internally.' });
+    }
+});
 
 // Start
 app.listen(PORT, () => logger.info(`🚀 Enterprise Server running on port ${PORT}`));
