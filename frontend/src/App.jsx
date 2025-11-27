@@ -32,8 +32,8 @@ import DocsModal from './components/DocsModal';
 const API_BASE_URL = 'https://auditor-veritas-mvp.onrender.com';
 
 // VIKTIGT: Ersätt med dina Supabase publika nycklar!
-const SUPABASE_URL = 'https://din-url.supabase.co'; 
-const SUPABASE_ANON_KEY = 'din-anon-key';
+const SUPABASE_URL = 'https://ridpgvikvjreljwypbpj.supabase.co'; 
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJpZHBndmlrdmpyZWxqd3lwYnBqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM0MDU5MDksImV4cCI6MjA3ODk4MTkwOX0.qP9Okdx8uroKpkWjoUNLNC9WcRSPD6S6AV7RasCCPHg';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 

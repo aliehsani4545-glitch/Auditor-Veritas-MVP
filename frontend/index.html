@@ -2,7 +2,17 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; script-src * 'unsafe-inline' 'unsafe-eval'; connect-src * 'unsafe-inline'; img-src * data: blob: 'unsafe-inline'; frame-src *;">
+    
+    <meta http-equiv="Content-Security-Policy" content="
+      default-src 'self';
+      script-src 'self' 'unsafe-inline' https://js.stripe.com;
+      connect-src 'self' https://auditor-veritas-mvp.onrender.com https://DITT-RIKTIGA-ID.supabase.co wss://DITT-RIKTIGA-ID.supabase.co https://api.stripe.com https://checkout.stripe.com;
+      img-src 'self' data: https:;
+      frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://checkout.stripe.com;
+      style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+      font-src 'self' https://fonts.gstatic.com;
+    ">
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#1e40af">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -48,14 +58,18 @@
       
       <input type="text" name="compliance" />
     </form>
+    
     <div id="loading" class="loading-spinner">
       <div class="spinner"></div>
       <span>Loading Auditor Veritas...</span>
     </div>
     
     <div id="root"></div>
+    
     <script type="module" src="/src/main.jsx"></script>
     
+    <script src="https://js.stripe.com/v3/"></script>
+
     <script>
       window.addEventListener('load', function() {
         setTimeout(function() {
