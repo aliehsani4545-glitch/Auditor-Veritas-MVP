@@ -2,28 +2,28 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
-import { RefreshCw, CheckCircle2, AlertTriangle, X, Loader2, Check, ArrowRight, Zap, Shield } from 'lucide-react'; 
+import { RefreshCw, CheckCircle2, AlertTriangle, X, Loader2, Check, ArrowRight, Zap, Shield } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { apiCall } from '../App.jsx'; 
+import { apiCall } from '../App.jsx';
 
 // --- Configuration ---
 // ⚠️ REPLACE WITH YOUR PUBLISHABLE STRIPE KEY
-const stripePromise = loadStripe('pk_live_51SX7O148POA4USE9AVuM0jqgZrC2aMUGt3MaVvWmgBAF8OibgzGeVefsjTHpQCXH2RRRhUIwH1jx2tvfMAF8JQiY00bD4dj0xf'); 
+const stripePromise = loadStripe('pk_live_51SX7O148POA4USE9AVuM0jqgZrC2aMUGt3MaVvWmgBAF8OibgzGeVefsjTHpQCXH2RRRhUIwH1jx2tvfMAF8JQiY00bD4dj0xf');
 
 const DEDICATED_ENTERPRISE_PLAN = {
-    name: "Dedicated Enterprise",
-    price: "Custom",
-    desc: "For Fortune 500 & high-volume regulated industries. Includes dedicated SLA and on-premise options.",
-    features: ["Unlimited Events", "GDPR Erasure API", "Custom Data Retention", "Dedicated Support (24/7)", "On-Premise Deployment"],
-    cta: "Contact Sales",
+  name: "Dedicated Enterprise",
+  price: "Custom",
+  desc: "For Fortune 500 & high-volume regulated industries. Includes dedicated SLA and on-premise options.",
+  features: ["Unlimited Events", "GDPR Erasure API", "Custom Data Retention", "Dedicated Support (24/7)", "On-Premise Deployment"],
+  cta: "Contact Sales",
 };
 
 // Basfunktioner som nu är gemensamma för alla betalda/utvecklar-planer
 const BASE_FEATURES = [
-    "GDPR Data Processing Agreement (DPA)",
-    "GDPR Erasure API",
-    "Merkle Tree Proofs (Data Integrity)",
-    "API Key Rotation"
+  "GDPR Data Processing Agreement (DPA)",
+  "GDPR Erasure API",
+  "Merkle Tree Proofs (Data Integrity)",
+  "API Key Rotation"
 ];
 
 
@@ -67,7 +67,7 @@ const CheckoutForm = ({ plan, onBack }) => {
         
         const checkout = await stripe.initEmbeddedCheckout({
           clientSecret,
-          fetchClientSecret: async () => clientSecret, 
+          fetchClientSecret: async () => clientSecret,
         });
 
         checkout.mount('#checkout-container');
