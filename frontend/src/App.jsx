@@ -334,9 +334,10 @@ function App() {
 
     } catch (error) { 
       // Om 404 returneras, betyder det att användaren är inloggad men saknar processor
-      if(error.message.includes('404')) {
-        setProcessor(false); // Sätt till false för att trigga registrering
-      } else {
+      // Vi kollar efter "404" ELLER serverns specifika felmeddelande
+if(error.message.includes('404') || error.message.includes('Processor account not found')) {
+    setProcessor(false); // Detta visar "Create Processor" formuläret
+} else {
         alert(`Connection Failed: ${error.message}`); 
         setProcessor(null); 
       }
