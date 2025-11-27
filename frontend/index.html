@@ -4,14 +4,14 @@
     <meta charset="UTF-8" />
     
     <meta http-equiv="Content-Security-Policy" content="
-  default-src 'self';
-  script-src 'self' 'unsafe-inline' https://js.stripe.com;
-  connect-src 'self' https://auditor-veritas-mvp.onrender.com https://ridpgvikvjreljwypbpj.supabase.co wss://ridpgvikvjreljwypbpj.supabase.co https://api.stripe.com https://checkout.stripe.com;
-  img-src 'self' data: https:;
-  frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://checkout.stripe.com;
-  style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
-  font-src 'self' https://fonts.gstatic.com;
-">
+      default-src 'self';
+      script-src 'self' 'unsafe-inline' https://js.stripe.com;
+      connect-src 'self' https://auditor-veritas-mvp.onrender.com https://ridpgvikvjreljwypbpj.supabase.co wss://ridpgvikvjreljwypbpj.supabase.co https://api.stripe.com https://checkout.stripe.com;
+      img-src 'self' data: https:;
+      frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://checkout.stripe.com;
+      style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+      font-src 'self' https://fonts.gstatic.com;
+    ">
 
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#1e40af">
@@ -19,16 +19,19 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Auditor Veritas">
     <meta name="mobile-web-app-capable" content="yes">
+    
     <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
     <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
 
     <title>Auditor Veritas - GDPR Compliant Audit Trail</title>
+    
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
       body {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         min-height: 100vh;
+        /* Behåller val av touch/user-select av din ursprungliga kod */
         -webkit-touch-callout: none; -webkit-user-select: none; -khtml-user-select: none;
         -moz-user-select: none; -ms-user-select: none; user-select: none;
       }
@@ -49,13 +52,11 @@
       <input type="email" name="email" />
       <input type="text" name="company" />
       <input type="text" name="role" />
-      
       <input type="text" name="industry" />
       <input type="text" name="timeline" />
       <input type="text" name="volume" />
       <input type="text" name="region" />
       <input type="text" name="retention" />
-      
       <input type="text" name="compliance" />
     </form>
     
