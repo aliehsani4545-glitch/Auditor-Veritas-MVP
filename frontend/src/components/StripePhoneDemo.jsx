@@ -1,415 +1,239 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Shield, CheckCircle2, Terminal, Wifi, Activity, Copy, CreditCard, Globe, Lock, Server, Cpu, Database, Key } from 'lucide-react';
+// FIX: Lade till Activity i importen
+import { Shield, CheckCircle2, Lock, Server, Database, ArrowRight, Fingerprint, FileJson, Hash, Activity } from 'lucide-react'; 
+
+// --- SUB-COMPONENTS ---
+
+// Ett "Flytande Kort" som representerar externa system (likt Stripes diagram)
+const FloatingNode = ({ icon: Icon, title, subtitle, align = "left", active }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    className={`absolute top-1/2 -translate-y-1/2 ${align === "left" ? "left-0 md:-left-12" : "right-0 md:-right-12"} 
+      hidden md:flex items-center gap-3 p-4 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/10 shadow-2xl z-10 w-48`}
+  >
+    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${active ? 'bg-blue-500 text-white shadow-[0_0_15px_rgba(59,130,246,0.5)]' : 'bg-slate-800 text-slate-500'} transition-all duration-500`}>
+      <Icon size={20} />
+    </div>
+    <div>
+      <div className="text-xs font-bold text-slate-300 uppercase tracking-wider">{title}</div>
+      <div className="text-[10px] text-slate-500 font-mono">{subtitle}</div>
+    </div>
+  </motion.div>
+);
+
+// Animerad anslutningslinje
+const ConnectionLine = ({ active, align = "left" }) => (
+  <div className={`absolute top-1/2 -translate-y-1/2 ${align === "left" ? "left-[140px] w-[120px]" : "right-[140px] w-[120px]"} h-[2px] bg-slate-800 hidden md:block -z-10 overflow-hidden`}>
+    <motion.div 
+      className="w-full h-full bg-blue-500 shadow-[0_0_10px_#3b82f6]"
+      initial={{ x: align === "left" ? "-100%" : "100%" }}
+      animate={{ x: active ? "0%" : (align === "left" ? "-100%" : "100%") }}
+      transition={{ duration: 0.8, ease: "easeInOut" }}
+    />
+  </div>
+);
+
+const LogItem = ({ id, action, hash, status, delay }) => (
+  <motion.div 
+    initial={{ opacity: 0, y: 10 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ delay }}
+    className="flex items-center justify-between p-3 mb-2 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors"
+  >
+    <div className="flex items-center gap-3">
+      <div className={`p-1.5 rounded-lg ${status === 'secure' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-blue-500/20 text-blue-400'}`}>
+        {status === 'secure' ? <Lock size={12} /> : <Activity size={12} className="animate-pulse" />}
+      </div>
+      <div>
+        <div className="text-[11px] font-medium text-white">{action}</div>
+        <div className="text-[9px] text-slate-500 font-mono">{hash}</div>
+      </div>
+    </div>
+    {status === 'secure' && <CheckCircle2 size={14} className="text-emerald-500" />}
+  </motion.div>
+);
+
+// --- MAIN COMPONENT ---
 
 const StripePhoneDemo = ({ activeStep = 0 }) => {
-  const [bootPhase, setBootPhase] = useState(0);
-  const [scanProgress, setScanProgress] = useState(0);
+  const logRef = useRef(null);
+  
+  const [logs, setLogs] = useState([
+    { id: 1, action: "auth.login_success", hash: "0x8a...f1", status: "secure" },
+    { id: 2, action: "data.export_req", hash: "0x3c...b9", status: "secure" },
+  ]);
 
+  // Scroll to bottom when a new log arrives
   useEffect(() => {
-    setTimeout(() => setBootPhase(1), 800);
-    setTimeout(() => setBootPhase(2), 2500);
-  }, []);
+    if (logRef.current) {
+      logRef.current.scrollTop = logRef.current.scrollHeight;
+    }
+  }, [logs]);
 
-  // Scan animation for step 1
+  // Simulate incoming new log when step 1 is active
   useEffect(() => {
     if (activeStep === 1) {
-      const interval = setInterval(() => {
-        setScanProgress(prev => (prev >= 100 ? 0 : prev + 25));
-      }, 600);
-      return () => clearInterval(interval);
+        // Add a "Processing" log (if it doesn't exist)
+        if (!logs.find(l => l.id === 3)) {
+            setLogs(prev => [
+                { id: 3, action: "payment.authorized", hash: "hashing...", status: "processing" },
+                ...prev
+            ]);
+        }
+    } 
+    
+    if (activeStep === 2) {
+        // Change to "Secure" after a delay
+        const processingLog = logs.find(l => l.id === 3 && l.status === 'processing');
+        if (processingLog) {
+            setTimeout(() => {
+                setLogs(prev => prev.map(log => 
+                    log.id === 3 ? { ...log, hash: "0x9d...e2", status: "secure" } : log
+                ));
+            }, 800);
+        }
+    }
+    
+    // Reset logic for demo loops (when returning to intro step)
+    if (activeStep === 0) {
+        setLogs([
+            { id: 1, action: "auth.login_success", hash: "0x8a...f1", status: "secure" },
+            { id: 2, action: "data.export_req", hash: "0x3c...b9", status: "secure" },
+        ]);
     }
   }, [activeStep]);
 
   return (
-    <div className="relative w-full h-[600px] md:h-[750px] flex items-center justify-center perspective-[1200px] overflow-visible scale-[0.85] sm:scale-100 origin-center">
+    <div className="relative w-full h-[500px] md:h-[600px] flex items-center justify-center">
       
-      {/* Ultra Soft Ambient Glow */}
-      <div className="absolute inset-0 bg-gradient-to-br from-blue-500/8 via-purple-500/5 to-emerald-500/8 blur-[140px] rounded-full pointer-events-none"></div>
-      
-      {/* Subtle Floating Particles */}
-      <div className="absolute inset-0 pointer-events-none">
-        {[...Array(8)].map((_, i) => (
-          <motion.div
-            key={i}
-            className="absolute w-1 h-1 bg-blue-400/30 rounded-full"
-            initial={{ opacity: 0, scale: 0 }}
-            animate={{ 
-              opacity: [0, 0.6, 0],
-              scale: [0, 1, 0],
-              x: [0, (Math.random() - 0.5) * 100],
-              y: [0, (Math.random() - 0.5) * 100]
-            }}
-            transition={{ 
-              duration: 3 + Math.random() * 2,
-              delay: Math.random() * 2,
-              repeat: Infinity,
-              repeatType: "loop"
-            }}
-          />
-        ))}
-      </div>
+      {/* --- LEFT NODE: SOURCE (Server/App) --- */}
+      <FloatingNode 
+        icon={Server} 
+        title="Your App" 
+        subtitle="sending event..." 
+        align="left" 
+        active={activeStep >= 1} 
+      />
+      <ConnectionLine align="left" active={activeStep >= 1} />
 
-      {/* PHONE FRAME - Ultra Soft & Premium */}
+      {/* --- CENTER: THE PHONE --- */}
       <motion.div
-        initial={{ rotateX: 12, rotateY: -8, y: 60, opacity: 0, scale: 0.92 }}
-        animate={{ rotateX: 3, rotateY: -2, y: 0, opacity: 1, scale: 1 }}
-        transition={{ 
-          duration: 1.6, 
-          ease: [0.23, 1, 0.32, 1],
-          rotateX: { duration: 1.8, ease: "easeOut" },
-          rotateY: { duration: 1.8, ease: "easeOut" }
-        }}
-        className="relative z-20 bg-gradient-to-b from-slate-900 to-slate-950 rounded-[48px] shadow-[0_40px_80px_-12px_rgba(0,0,0,0.25),0_0_0_1px_rgba(255,255,255,0.08),inset_0_1px_0_rgba(255,255,255,0.1),inset_0_0_40px_rgba(0,0,0,0.3)] overflow-hidden w-[350px] h-[700px] border border-white/10 backdrop-blur-sm"
+        className="relative z-20 w-[280px] h-[540px] md:w-[300px] md:h-[580px] bg-[#0b0e14] rounded-[40px] border-[6px] border-[#1e293b] shadow-2xl overflow-hidden"
+        initial={{ y: 20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.8 }}
       >
-        
-        {/* Ultra Subtle Glass Reflection */}
-        <div className="absolute inset-0 bg-gradient-to-br from-white/[0.12] via-transparent to-white/[0.04] pointer-events-none z-50 rounded-[48px]"></div>
-
-        {/* Minimal Status Bar */}
-        <div className="absolute top-0 inset-x-0 h-10 bg-gradient-to-b from-slate-900/90 to-transparent z-40 flex justify-between items-center px-8 pt-3 backdrop-blur-md">
-          <div className="text-white text-[13px] font-medium">9:41</div>
-          <div className="flex items-center gap-[3px]">
-            <div className="w-[4px] h-[4px] rounded-full bg-white/60"></div>
-            <div className="w-[4px] h-[4px] rounded-full bg-white/60"></div>
-            <div className="w-[4px] h-[4px] rounded-full bg-white/60"></div>
-          </div>
+        {/* Notch & Status Bar */}
+        <div className="absolute top-0 inset-x-0 h-7 bg-black z-30 rounded-t-[32px] flex justify-center">
+            <div className="w-24 h-5 bg-[#1e293b] rounded-b-xl"></div>
         </div>
 
-        <div className="h-full w-full bg-gradient-to-b from-slate-950 to-slate-900 relative overflow-hidden flex flex-col pt-10">
+        {/* App Header */}
+        <div className="pt-10 px-5 pb-4 bg-gradient-to-b from-slate-900 to-[#0b0e14]">
+           <div className="flex justify-between items-center mb-4">
+               <div className="flex items-center gap-2">
+                   <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white">
+                       <Shield size={16} fill="currentColor" />
+                   </div>
+                   <span className="font-bold text-white text-sm tracking-tight">Auditor</span>
+               </div>
+               <div className="w-2 h-2 bg-emerald-500 rounded-full shadow-[0_0_8px_#10b981]"></div>
+           </div>
            
-           {/* PHASE 1: ORGANIC BOOT ANIMATION */}
-           <AnimatePresence>
-             {bootPhase < 2 && (
-               <motion.div 
-                 exit={{ opacity: 0, filter: 'blur(20px)', scale: 1.02 }}
-                 transition={{ duration: 0.8, ease: "easeOut" }}
-                 className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-gradient-to-br from-slate-950 to-slate-900"
-               >
-                  {/* Organic Loading Animation */}
-                  <motion.div
-                    initial={{ scale: 0, rotate: -180 }}
-                    animate={{ scale: 1, rotate: 0 }}
-                    transition={{ type: "spring", damping: 20, stiffness: 100 }}
-                    className="w-20 h-20 rounded-3xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-white/10 flex items-center justify-center mb-8 backdrop-blur-xl"
-                  >
-                    <Shield size={32} className="text-blue-400" />
-                  </motion.div>
-                  
-                  {/* Progressive Loading Bar */}
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: 160 }}
-                    transition={{ duration: 1.2, ease: "easeOut" }}
-                    className="h-1 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full mb-6 shadow-lg shadow-blue-500/25"
-                  />
-                  
-                  <motion.p
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.5 }}
-                    className="text-slate-400 text-sm font-medium tracking-wide"
-                  >
-                    Initializing Secure Protocol
-                  </motion.p>
-               </motion.div>
-             )}
-           </AnimatePresence>
-
-           {/* PHASE 2: SMOOTH UI INTERFACE */}
-           {bootPhase >= 2 && (
-             <motion.div 
-               initial={{ opacity: 0, y: 10 }}
-               animate={{ opacity: 1, y: 0 }}
-               transition={{ duration: 0.6, ease: "easeOut" }}
-               className="flex-1 px-6 pb-8 relative z-10 flex flex-col"
-             >
-                {/* App Header - Glass Morphism */}
-                <motion.div 
-                  initial={{ y: -15, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ delay: 0.2 }}
-                  className="flex justify-between items-center mb-6 pt-2"
-                >
-                   <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center backdrop-blur-xl shadow-sm">
-                         <Shield size={20} className="text-white" />
-                      </div>
-                      <div>
-                         <h3 className="text-white font-semibold text-[15px] tracking-tight">Veritas Enclave</h3>
-                         <p className="text-slate-400 text-[11px] font-medium">Secure Audit Protocol</p>
-                      </div>
-                   </div>
-                   <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_12px_#10b981] animate-pulse"></div>
-                      <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider bg-emerald-400/10 px-2 py-1 rounded-full border border-emerald-400/20">
-                         Live
-                      </span>
-                   </div>
-                </motion.div>
-
-                {/* Dynamic Content Area */}
-                <div className="flex-1 relative overflow-hidden">
+           {/* Dashboard Summary Card */}
+           <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-4 rounded-2xl border border-white/5 mb-2 relative overflow-hidden">
+               <div className="absolute top-0 right-0 p-3 opacity-20">
+                   <Fingerprint size={64} className="text-white" />
+               </div>
+               <div className="text-[10px] text-slate-400 uppercase tracking-wider mb-1">Secured Events</div>
+               <div className="text-2xl font-bold text-white mb-1">
                    <AnimatePresence mode="wait">
-                      
-                      {/* STEP 1: GLOBAL NETWORK VISUALIZATION */}
-                      {activeStep === 0 && (
-                        <motion.div 
-                          key="network"
-                          initial={{ opacity: 0, x: 20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          exit={{ opacity: 0, x: -20 }}
-                          transition={{ duration: 0.4, ease: "easeOut" }}
-                          className="h-full flex flex-col"
-                        >
-                           {/* Network Globe */}
-                           <motion.div 
-                             initial={{ scale: 0.9, opacity: 0 }}
-                             animate={{ scale: 1, opacity: 1 }}
-                             transition={{ delay: 0.1 }}
-                             className="h-48 rounded-3xl bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-white/5 mb-6 relative overflow-hidden flex items-center justify-center backdrop-blur-sm"
-                           >
-                              {/* Animated Network Lines */}
-                              <div className="absolute inset-0 opacity-30">
-                                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 border-2 border-blue-400/30 rounded-full animate-ping"></div>
-                              </div>
-                              
-                              <Globe size={56} className="text-slate-600" strokeWidth={1.5} />
-                              
-                              {/* Floating Nodes */}
-                              <motion.div 
-                                className="absolute w-3 h-3 bg-blue-400 rounded-full shadow-lg shadow-blue-400/25"
-                                animate={{ x: [0, 30, -20, 0], y: [0, -25, 15, 0], opacity: [0, 1, 0.8, 0] }}
-                                transition={{ duration: 4, repeat: Infinity }}
-                              />
-                              <motion.div 
-                                className="absolute w-2 h-2 bg-purple-400 rounded-full shadow-lg shadow-purple-400/25"
-                                animate={{ x: [0, -25, 20, 0], y: [0, 30, -15, 0], opacity: [0, 0.8, 1, 0] }}
-                                transition={{ duration: 3.5, repeat: Infinity, delay: 1 }}
-                              />
-
-                              <div className="absolute bottom-4 left-0 right-0 text-center">
-                                <div className="text-[10px] text-slate-400 font-mono tracking-wider bg-black/30 rounded-full px-3 py-1 inline-block border border-white/5">
-                                   SCANNING 12 NODES...
-                                </div>
-                              </div>
-                           </motion.div>
-                           
-                           {/* Connection Logs */}
-                           <div className="space-y-3">
-                              {[
-                                { id: 8921, protocol: "TLS 1.3", status: "verified", location: "Frankfurt" },
-                                { id: 8922, protocol: "TLS 1.3", status: "verified", location: "Singapore" },
-                                { id: 8923, protocol: "TLS 1.3", status: "encrypted", location: "Virginia" }
-                              ].map((item, i) => (
-                                <motion.div 
-                                  key={item.id}
-                                  initial={{ x: -10, opacity: 0 }}
-                                  animate={{ x: 0, opacity: 1 }}
-                                  transition={{ delay: 0.2 + i * 0.1 }}
-                                  className="p-4 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-between backdrop-blur-sm hover:bg-white/10 transition-all duration-300"
-                                >
-                                   <div className="flex items-center gap-4">
-                                      <div className="w-8 h-8 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
-                                         <Server size={14} className="text-blue-400" />
-                                      </div>
-                                      <div className="flex flex-col">
-                                         <span className="text-[12px] font-semibold text-white">Node #{item.id}</span>
-                                         <span className="text-[10px] text-slate-400">{item.protocol} • {item.location}</span>
-                                      </div>
-                                   </div>
-                                   <div className={`w-2 h-2 rounded-full ${item.status === 'verified' ? 'bg-emerald-400' : 'bg-blue-400'} shadow-lg ${item.status === 'verified' ? 'shadow-emerald-400/25' : 'shadow-blue-400/25'}`}></div>
-                                </motion.div>
-                              ))}
-                           </div>
-                        </motion.div>
-                      )}
-
-                      {/* STEP 2: BIOMETRIC AUTHENTICATION */}
-                      {activeStep === 1 && (
-                        <motion.div 
-                          key="auth"
-                          initial={{ opacity: 0, scale: 0.95 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          exit={{ opacity: 0, scale: 1.05 }}
-                          transition={{ duration: 0.4, ease: "easeOut" }}
-                          className="h-full flex flex-col justify-center items-center"
-                        >
-                           {/* Animated Auth Ring */}
-                           <div className="relative w-40 h-40 flex items-center justify-center mb-8">
-                              <motion.div
-                                className="absolute inset-0 rounded-full border-2 border-blue-500/30 border-t-blue-500"
-                                animate={{ rotate: 360 }}
-                                transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
-                              />
-                              <motion.div
-                                className="absolute inset-4 rounded-full border-2 border-purple-500/30 border-t-purple-500"
-                                animate={{ rotate: -360 }}
-                                transition={{ duration: 6, repeat: Infinity, ease: "linear" }}
-                              />
-                              
-                              <div className="w-24 h-24 bg-gradient-to-br from-blue-500/10 to-purple-500/10 rounded-2xl flex items-center justify-center backdrop-blur-xl border border-white/10">
-                                 <Key size={40} className="text-white" />
-                              </div>
-
-                              {/* Scanning Beam */}
-                              <motion.div
-                                className="absolute w-full h-1 bg-gradient-to-r from-transparent via-blue-400 to-transparent top-1/2 left-0"
-                                style={{ y: '-50%' }}
-                                animate={{ y: ['-50%', '100%', '-50%'] }}
-                                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                              />
-                           </div>
-
-                           <motion.h3 
-                             initial={{ y: 10, opacity: 0 }}
-                             animate={{ y: 0, opacity: 1 }}
-                             transition={{ delay: 0.2 }}
-                             className="text-xl font-bold text-white mb-3 text-center"
-                           >
-                             Identity Verification
-                           </motion.h3>
-
-                           <motion.p
-                             initial={{ y: 10, opacity: 0 }}
-                             animate={{ y: 0, opacity: 1 }}
-                             transition={{ delay: 0.3 }}
-                             className="text-slate-400 text-sm text-center max-w-[260px] leading-relaxed mb-8"
-                           >
-                             Biometric signature required to authorize cryptographic operation
-                           </motion.p>
-
-                           {/* Progress Indicator */}
-                           <div className="w-full max-w-[200px] bg-black/30 rounded-full h-1.5 mb-6 overflow-hidden">
-                              <motion.div
-                                className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full"
-                                initial={{ width: '0%' }}
-                                animate={{ width: `${scanProgress}%` }}
-                                transition={{ duration: 0.5 }}
-                              />
-                           </div>
-
-                           <motion.button 
-                             whileHover={{ scale: 1.02 }}
-                             whileTap={{ scale: 0.98 }}
-                             className="w-full max-w-[240px] py-4 rounded-2xl bg-gradient-to-r from-blue-500 to-blue-600 text-white font-semibold text-sm shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2 backdrop-blur-sm"
-                           >
-                              <Lock size={16} />
-                              Authorize Access
-                              <Activity size={16} />
-                           </motion.button>
-                        </motion.div>
-                      )}
-
-                      {/* STEP 3: SUCCESS CONFIRMATION */}
-                      {activeStep === 2 && (
-                        <motion.div 
-                          key="success"
-                          initial={{ opacity: 0, y: 30 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                          className="h-full flex flex-col pt-4"
-                        >
-                           {/* Success Card */}
-                           <div className="flex-1 bg-gradient-to-b from-emerald-500/10 via-slate-800/20 to-transparent rounded-[32px] p-1 border border-emerald-500/20 relative overflow-hidden shadow-2xl">
-                              
-                              <div className="bg-slate-900/80 h-full rounded-[28px] p-6 flex flex-col items-center relative z-10 backdrop-blur-sm">
-                                 
-                                 {/* Success Icon */}
-                                 <motion.div
-                                   initial={{ scale: 0, rotate: -180 }}
-                                   animate={{ scale: 1, rotate: 0 }}
-                                   transition={{ type: "spring", damping: 15, stiffness: 100 }}
-                                   className="w-20 h-20 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-6 backdrop-blur-sm"
-                                 >
-                                    <CheckCircle2 size={36} className="text-emerald-400" />
-                                 </motion.div>
-
-                                 <motion.h2 
-                                   initial={{ y: 10, opacity: 0 }}
-                                   animate={{ y: 0, opacity: 1 }}
-                                   transition={{ delay: 0.1 }}
-                                   className="text-2xl font-bold text-white mb-2"
-                                 >
-                                    Secured
-                                 </motion.h2>
-
-                                 <motion.p
-                                   initial={{ y: 10, opacity: 0 }}
-                                   animate={{ y: 0, opacity: 1 }}
-                                   transition={{ delay: 0.2 }}
-                                   className="text-slate-400 text-xs uppercase tracking-widest mb-8"
-                                 >
-                                    Block #921 Anchored
-                                 </motion.p>
-
-                                 {/* Hash Proof */}
-                                 <motion.div
-                                   initial={{ y: 20, opacity: 0 }}
-                                   animate={{ y: 0, opacity: 1 }}
-                                   transition={{ delay: 0.3 }}
-                                   className="w-full bg-white/5 rounded-xl p-4 border border-white/5 mb-4 backdrop-blur-sm"
-                                 >
-                                    <div className="flex justify-between items-center text-[10px] text-slate-400 mb-2 uppercase font-bold tracking-wider">
-                                       <span>Merkle Root</span>
-                                       <button className="hover:bg-white/5 p-1 rounded">
-                                          <Copy size={12} />
-                                       </button>
-                                    </div>
-                                    <div className="font-mono text-xs text-emerald-300 break-all leading-relaxed">
-                                       0x9f8a2b7c1d3e5f6a9b8c7d2e1f4a3b6c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3c9d
-                                    </div>
-                                 </motion.div>
-
-                                 {/* Transaction Info */}
-                                 <motion.div
-                                   initial={{ y: 20, opacity: 0 }}
-                                   animate={{ y: 0, opacity: 1 }}
-                                   transition={{ delay: 0.4 }}
-                                   className="w-full flex items-center gap-4 p-4 rounded-xl bg-blue-500/10 border border-blue-500/10 backdrop-blur-sm"
-                                 >
-                                    <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center border border-blue-500/20">
-                                       <Database size={20} className="text-blue-400" />
-                                    </div>
-                                    <div className="flex-1">
-                                       <div className="text-sm font-semibold text-white">Immutable Record</div>
-                                       <div className="text-[11px] text-blue-300">Verified & Distributed</div>
-                                    </div>
-                                 </motion.div>
-                              </div>
-                           </div>
-
-                           {/* Celebration Particles */}
-                           <div className="absolute inset-0 pointer-events-none">
-                              {[...Array(6)].map((_, i) => (
-                                <motion.div
-                                  key={i}
-                                  className="absolute w-1 h-1 bg-emerald-400 rounded-full"
-                                  initial={{ scale: 0, opacity: 0 }}
-                                  animate={{ 
-                                    scale: [0, 1, 0],
-                                    opacity: [0, 1, 0],
-                                    x: [0, (Math.random() - 0.5) * 80],
-                                    y: [0, (Math.random() - 0.5) * 80]
-                                  }}
-                                  transition={{ 
-                                    duration: 1.5,
-                                    delay: i * 0.2,
-                                    repeat: Infinity,
-                                    repeatDelay: 2
-                                  }}
-                                />
-                              ))}
-                           </div>
-                        </motion.div>
-                      )}
-
+                       <motion.span
+                         key={logs.filter(l => l.status === 'secure').length} // Track secure logs
+                         initial={{ opacity: 0, y: 10 }}
+                         animate={{ opacity: 1, y: 0 }}
+                       >
+                         {logs.filter(l => l.status === 'secure').length + 12840} {/* Base event count */}
+                       </motion.span>
                    </AnimatePresence>
-                </div>
-             </motion.div>
-           )}
+               </div>
+               <div className="text-[10px] text-emerald-400 flex items-center gap-1">
+                   <CheckCircle2 size={10} /> Immutable Ledger
+               </div>
+           </div>
         </div>
+
+        {/* Main Content: Activity Feed (STOPPAR SCROLL PÅ HELA SIDAN) */}
+        <div className="px-4 pb-4 relative h-[300px] overflow-hidden"> 
+            <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-3 pl-1">Real-time Audit Trail</div>
+            
+            {/* Log List Container med intern scroll */}
+            <div ref={logRef} className="space-y-2 h-[260px] overflow-y-auto pr-1">
+                <AnimatePresence>
+                    {/* Loggar visas i omvänd ordning (senaste överst) */}
+                    {logs.map((log, i) => (
+                        <LogItem key={log.id} {...log} delay={0.05} />
+                    )).reverse()}
+                </AnimatePresence>
+            </div>
+
+            {/* Processing Overlay (Visual effect when hashing) */}
+            <AnimatePresence>
+                {activeStep === 1 && (
+                    <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="absolute inset-x-4 bottom-4 bg-blue-600/90 backdrop-blur-md rounded-xl p-3 flex items-center justify-between shadow-lg z-20 border border-white/10"
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-white/20 rounded-lg animate-spin">
+                                <Hash size={14} className="text-white" />
+                            </div>
+                            <div>
+                                <div className="text-xs font-bold text-white">Encrypting...</div>
+                                <div className="text-[9px] text-blue-100">Generating Merkle Leaf</div>
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+            
+            {/* Scroll Fade Bottom */}
+            <div className="absolute bottom-0 inset-x-0 h-10 bg-gradient-to-t from-[#0b0e14] to-transparent pointer-events-none"></div>
+        </div>
+
+        {/* Bottom Nav */}
+        <div className="absolute bottom-0 inset-x-0 h-16 bg-[#0b0e14]/90 backdrop-blur-md border-t border-white/5 flex justify-around items-center px-6 z-30">
+            <div className="flex flex-col items-center gap-1 opacity-100">
+                <Activity size={18} className="text-blue-500" />
+                <div className="w-1 h-1 bg-blue-500 rounded-full mt-1"></div>
+            </div>
+            <div className="flex flex-col items-center gap-1 opacity-40">
+                <Database size={18} className="text-slate-400" />
+            </div>
+            <div className="flex flex-col items-center gap-1 opacity-40">
+                <FileJson size={18} className="text-slate-400" />
+            </div>
+        </div>
+
       </motion.div>
+
+      {/* --- RIGHT NODE: DESTINATION (Ledger) --- */}
+      <ConnectionLine align="right" active={activeStep >= 2} />
+      <FloatingNode 
+        icon={Database} 
+        title="Ledger" 
+        subtitle="Immutable Proof" 
+        align="right" 
+        active={activeStep >= 2} 
+      />
+
+      {/* Glow Effect behind phone */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[350px] h-[600px] bg-blue-500/10 blur-[80px] -z-10 rounded-full pointer-events-none"></div>
+
     </div>
   );
 };
