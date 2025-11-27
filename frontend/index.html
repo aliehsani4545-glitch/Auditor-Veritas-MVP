@@ -3,21 +3,6 @@
   <head>
     <meta charset="UTF-8" />
     
-    <meta http-equiv="Content-Security-Policy" content="
-  default-src 'self';
-  script-src 'self' 'unsafe-inline' https://js.stripe.com;
-  
-  /* DEN HÄR RADEN FIXAR PROBLEMET */
-  connect-src 'self' 
-    https://auditor-veritas-mvp.onrender.com 
-    https://ridpgvikvjreljwypbpj.supabase.co wss://ridpgvikvjreljwypbpj.supabase.co 
-    https://api.stripe.com https://checkout.stripe.com;
-  
-  img-src 'self' data: https:;
-  frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://checkout.stripe.com;
-  style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
-  font-src 'self' https://fonts.gstatic.com;
-">
 
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#1e40af">
@@ -37,7 +22,6 @@
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         min-height: 100vh;
-        /* Behåller val av touch/user-select av din ursprungliga kod */
         -webkit-touch-callout: none; -webkit-user-select: none; -khtml-user-select: none;
         -moz-user-select: none; -ms-user-select: none; user-select: none;
       }
