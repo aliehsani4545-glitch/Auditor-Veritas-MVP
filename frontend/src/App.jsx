@@ -394,7 +394,7 @@ function App() {
                  <div className="h-24 md:h-20 mb-10 flex items-start justify-center">
                     <p className="text-lg md:text-xl text-slate-300 max-w-2xl mx-auto leading-relaxed bg-black/30 backdrop-blur-sm p-4 rounded-xl border border-white/5 shadow-xl">
                       <span className="text-blue-500 font-mono mr-2">{'>'}</span>
-                      <TypewriterEffect text="The interactive standard for data integrity. Cryptographically verifiable audit logs that scale with your enterprise infrastructure." speed={30} delay={800} />
+                      <TypewriterEffect text=" The interactive standard for data integrity. Cryptographically verifiable audit logs that scale with your enterprise infrastructure." speed={30} delay={800} />
                     </p>
                  </div>
 
