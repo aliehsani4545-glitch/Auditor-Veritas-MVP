@@ -17,7 +17,6 @@ import DashboardPreview from './components/DashboardPreview';
 import CoreArchitecture from './components/CoreArchitecture'; 
 import IntegrityEngine from './components/IntegrityEngine';
 import UseCases from './components/UseCases';
-// InteractiveHeroBackground ersätter AnimatedBackground i Hero-sektionen
 import InteractiveHeroBackground from './components/InteractiveHeroBackground'; 
 import TypewriterEffect from './components/TypewriterEffect';
 import PrivacyPage from './components/PrivacyPage'; 
@@ -239,6 +238,7 @@ function App() {
   const [activeTab, setActiveTab] = useState('home');
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [session, setSession] = useState(null); 
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); // State för mobilmeny
   
   const [processor, setProcessor] = useState(null); 
   const [stats, setStats] = useState({ totalEvents: 0, monthlyEvents: 0 });
@@ -320,31 +320,65 @@ function App() {
         {showPrivacyModal && (<PrivacyPage isFooterView={true} onClose={() => setShowPrivacyModal(false)} initialTab={legalTab} />)}
       </AnimatePresence>
       
+      {/* NAVBAR */}
       <header className="fixed w-full top-0 z-50 bg-[#020617]/90 backdrop-blur-xl border-b border-white/5">
          <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
             <div className="flex items-center gap-2 cursor-pointer" onClick={() => setActiveTab('home')}>
                 <ShieldCheck className="text-blue-500" /> <span className="font-bold text-lg">Auditor Veritas</span>
             </div>
-            <nav className="flex gap-4 items-center">
-                <button onClick={() => setActiveTab('home')} className="text-slate-400 hover:text-white">Home</button>
-                <button onClick={() => setActiveTab('pricing')} className="text-slate-400 hover:text-white">Enterprise</button>
+            
+            {/* Desktop Nav */}
+            <nav className="hidden md:flex gap-4 items-center">
+                <button onClick={() => setActiveTab('home')} className="text-slate-400 hover:text-white text-sm font-medium">Home</button>
+                <button onClick={() => setActiveTab('pricing')} className="text-slate-400 hover:text-white text-sm font-medium">Enterprise</button>
                 {session ? (
-                    <button onClick={() => setActiveTab('dashboard')} className="bg-blue-600 px-4 py-2 rounded-lg font-bold text-white flex items-center gap-2"><LayoutGrid size={16}/> Dashboard</button>
+                    <button onClick={() => setActiveTab('dashboard')} className="bg-blue-600 px-4 py-2 rounded-lg font-bold text-white text-sm flex items-center gap-2 hover:bg-blue-500 transition-colors"><LayoutGrid size={16}/> Dashboard</button>
                 ) : (
-                    <button onClick={() => setActiveTab('dashboard')} className="text-slate-400 hover:text-white flex items-center gap-2"><Lock size={16}/> Login</button>
+                    <button onClick={() => setActiveTab('dashboard')} className="text-slate-400 hover:text-white flex items-center gap-2 text-sm font-medium"><Lock size={16}/> Login</button>
                 )}
             </nav>
+
+            {/* Mobile Menu Button */}
+            <button 
+                className="md:hidden p-2 text-slate-400 hover:text-white transition-colors"
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            >
+                {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+            </button>
          </div>
+
+         {/* Mobile Menu Dropdown */}
+         <AnimatePresence>
+            {isMobileMenuOpen && (
+                <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="md:hidden bg-[#020617] border-b border-white/10 overflow-hidden"
+                >
+                    <div className="px-6 py-6 flex flex-col gap-4">
+                        <button onClick={() => { setActiveTab('home'); setIsMobileMenuOpen(false); }} className="text-left text-lg font-medium text-slate-300 hover:text-white py-2">Home</button>
+                        <button onClick={() => { setActiveTab('pricing'); setIsMobileMenuOpen(false); }} className="text-left text-lg font-medium text-slate-300 hover:text-white py-2">Enterprise</button>
+                        
+                        <div className="h-px bg-white/10 my-2"></div>
+                        
+                        {session ? (
+                            <button onClick={() => { setActiveTab('dashboard'); setIsMobileMenuOpen(false); }} className="bg-blue-600 w-full py-3 rounded-xl font-bold text-white flex items-center justify-center gap-2"><LayoutGrid size={18}/> Go to Dashboard</button>
+                        ) : (
+                            <button onClick={() => { setActiveTab('dashboard'); setIsMobileMenuOpen(false); }} className="bg-white/10 w-full py-3 rounded-xl font-bold text-white flex items-center justify-center gap-2"><Lock size={18}/> Login</button>
+                        )}
+                    </div>
+                </motion.div>
+            )}
+         </AnimatePresence>
       </header>
       
       <main className="pt-20">
+        {/* ... Rest of your main content ... */}
         {activeTab === 'home' && (
           <div className="bg-[#020617] min-h-screen">
-            {/* NEW HERO SECTION WITH INTERACTIVE BACKGROUND */}
              <div className="relative min-h-[90vh] flex items-center justify-center overflow-hidden text-center z-10">
               <InteractiveHeroBackground />
-              
-              {/* Decorative spotlights */}
               <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-600/20 rounded-full blur-[128px] animate-pulse-glow pointer-events-none" />
               <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-indigo-600/20 rounded-full blur-[128px] animate-pulse-glow pointer-events-none" style={{ animationDelay: '2s' }} />
 
@@ -353,15 +387,14 @@ function App() {
                      <Sparkles className="w-3 h-3 animate-pulse" /><span>Version 2.0: Enterprise Ready</span>
                  </motion.div>
                  
-                 <motion.h1 initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.8, delay: 0.2 }} className="text-6xl md:text-8xl font-extrabold tracking-tight leading-[1.1] mb-8 drop-shadow-2xl">
+                 <motion.h1 initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.8, delay: 0.2 }} className="text-5xl md:text-8xl font-extrabold tracking-tight leading-[1.1] mb-8 drop-shadow-2xl">
                    Compliance <br/> <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-400 to-cyan-400 animate-text-shine bg-[length:200%_auto]">Engineered for Truth.</span>
                  </motion.h1>
                  
-                 {/* TYPEWRITER EFFECT CONTAINER */}
                  <div className="h-24 md:h-20 mb-10 flex items-start justify-center">
                     <p className="text-lg md:text-xl text-slate-300 max-w-2xl mx-auto leading-relaxed bg-black/30 backdrop-blur-sm p-4 rounded-xl border border-white/5 shadow-xl">
                       <span className="text-blue-500 font-mono mr-2">{'>'}</span>
-                      <TypewriterEffect text=" The interactive standard for data integrity. Cryptographically verifiable audit logs that scale with your enterprise infrastructure." speed={30} delay={800} />
+                      <TypewriterEffect text="The interactive standard for data integrity. Cryptographically verifiable audit logs that scale with your enterprise infrastructure." speed={30} delay={800} />
                     </p>
                  </div>
 
