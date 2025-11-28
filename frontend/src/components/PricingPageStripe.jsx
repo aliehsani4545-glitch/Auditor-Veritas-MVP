@@ -5,7 +5,7 @@ import { Check, Zap, Shield, Globe, ArrowRight, CreditCard, Sparkles, X, CheckCi
 // --- Configuration ---
 // ⚠️ REPLACE THESE WITH YOUR ACTUAL STRIPE PAYMENT LINKS
 const STRIPE_LINKS = {
-  starter: "https://buy.stripe.com/test_...", // Replace with your actual Starter plan link
+  starter: null, // Vi hanterar denna manuellt för att gå till login/dashboard
   professional: "https://buy.stripe.com/eVq3cob6M0iN8oc7dH9EI00", // Replace with your actual Professional plan link
   // Enterprise usually goes to a contact form, handled by the modal
 };
@@ -103,20 +103,20 @@ const PricingPageStripe = ({ setActiveTab }) => {
         return setShowEnterpriseModal(true); 
     }
 
-    // 2. Paid Plans -> Redirect to Stripe Payment Link
+    // 2. Free / Developer Plan -> Go to Login/Dashboard
+    if (planKey === 'starter') {
+        // Detta skickar användaren till "dashboard"-vyn i App.jsx.
+        // I App.jsx: Om ingen session finns, visas AuthScreen (Login/Signup).
+        setActiveTab('dashboard');
+        return;
+    }
+
+    // 3. Paid Plans -> Redirect to Stripe Payment Link
     if (STRIPE_LINKS[planKey]) {
         // Open the Stripe Hosted Checkout page in a new tab
         window.open(STRIPE_LINKS[planKey], '_blank');
     } else {
-        // Fallback or if it's the free plan, maybe just go to dashboard setup
-        if (planKey === 'starter') {
-             // Logic to create a free account directly could go here
-             // For now, let's assume it redirects to a setup or login if not logged in
-             // But based on your flow, maybe just alert or redirect to dashboard
-             setActiveTab('dashboard'); 
-        } else {
-             alert("Payment link not configured for this plan.");
-        }
+         alert("Payment link not configured for this plan. (See src/components/PricingPageStripe.jsx)");
     }
   };
 
