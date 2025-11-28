@@ -1,4 +1,4 @@
-// App.jsx
+// App.jsx (Fullständig kod med ScrollTrigger-fix)
 
 import React, { useState, useEffect } from 'react';
 import './App.css';
@@ -19,20 +19,23 @@ import AnimatedBackground from './components/AnimatedBackground';
 import PrivacyPage from './components/PrivacyPage'; 
 import CreateProcessor from './components/CreateProcessor'; 
 import Footer from './components/Footer';
-import PricingPage from './components/PricingPage'; 
+// import PricingPage from './components/PricingPage'; // <-- Gamla komponenten
 import CodeIntegration from './components/CodeIntegration'; 
 import Dashboard from './components/Dashboard'; 
-import IntegrityFocusPage from './components/IntegrityFocusPage'; // <-- NEW IMPORT
+import IntegrityFocusPage from './components/IntegrityFocusPage'; 
+
+// --- NY IMPORT AV STRIPE KOMPONENTEN ---
+import PricingPageStripe from './components/PricingPageStripe'; 
 
 // ICONS
-import { ShieldCheck, Lock, LogOut, Menu, X, Sparkles, RotateCw, RefreshCw, Copy, Eye, Cookie, Server } from 'lucide-react';
+import { ShieldCheck, Lock, LogOut, Menu, X, Sparkles, RotateCw, RefreshCw, Copy, Eye, Cookie, Server, AlertTriangle } from 'lucide-react';
 
 if (typeof window !== 'undefined') gsap.registerPlugin(ScrollTrigger);
 
 const API_BASE_URL = 'https://auditor-veritas-mvp.onrender.com';
 
-// --- API HELPER ---
-const apiCall = async (endpoint, options = {}, apiKey = '') => {
+// --- API HELPER (EXPORTED FÖR KOMPONENTER) ---
+export const apiCall = async (endpoint, options = {}, apiKey = '') => {
   const config = { headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, ...options.headers }, ...options };
   if (options.body) config.body = JSON.stringify(options.body);
   const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
@@ -58,10 +61,15 @@ const HeroTypewriter = ({ text, delay = 30 }) => {
   return <p className="text-base md:text-lg text-slate-400 max-w-2xl mx-auto min-h-[3rem] leading-relaxed">{currentText}<span className="inline-block w-0.5 h-4 ml-1 bg-[#00d4ff] align-middle animate-cursor-blink"></span></p>;
 };
 
-const KeyRotationComponent = ({ processor, currentKey, onKeyUpdate }) => {
+// --- KEY MANAGEMENT COMPONENT (UPDATED MED REVOKE) ---
+const KeyRotationComponent = ({ processor, currentKey, onKeyUpdate, onRevoke }) => {
   const [isRotating, setIsRotating] = useState(false);
+  const [isRevoking, setIsRevoking] = useState(false);
   const [showKey, setShowKey] = useState(false);
+  const [confirmRevoke, setConfirmRevoke] = useState(false);
+
   const copyToClipboard = () => { navigator.clipboard.writeText(currentKey); alert("Key copied!"); };
+
   const rotate = async () => {
     setIsRotating(true);
     try {
@@ -72,14 +80,56 @@ const KeyRotationComponent = ({ processor, currentKey, onKeyUpdate }) => {
     } catch (err) { alert(`Failed: ${err.message}`); } 
     finally { setIsRotating(false); }
   };
+  
+  const revoke = async () => {
+      setIsRevoking(true);
+      try {
+          // NY ENDPOINT: /api/keys/revoke
+          await apiCall('/api/keys/revoke', { method: 'POST' }, currentKey);
+          alert("Key Revoked. You will now be logged out.");
+          onRevoke(); // Triggers logout and state reset
+      } catch (err) {
+          alert(`Revocation Failed: ${err.message}`);
+          setIsRevoking(false);
+          setConfirmRevoke(false);
+      }
+  };
+
+
   return (
-    <div className="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-slate-200">
-      <div className="flex justify-between mb-4"><h3 className="font-bold flex items-center gap-2 text-slate-800 text-sm"><RotateCw className="w-4 h-4 text-purple-600"/> Key Rotation</h3><span className="bg-emerald-50 text-emerald-700 text-[10px] px-2 py-1 rounded font-bold uppercase">Active</span></div>
-      <div className="relative mb-4">
-        <div className="bg-slate-50 p-3 rounded-lg text-xs font-mono text-slate-600 break-all border border-slate-100 pr-16 min-h-[40px] flex items-center">{showKey ? currentKey : '••••••••••••••••••'}</div>
-        <div className="absolute right-2 top-1/2 -translate-x-1/2 flex gap-1"><button onClick={() => setShowKey(!showKey)} className="p-1.5 hover:bg-slate-200 rounded text-slate-500"><Eye size={14}/></button><button onClick={copyToClipboard} className="p-1.5 hover:bg-slate-200 rounded text-slate-500"><Copy size={14}/></button></div>
+    <div className="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4">
+      {/* Header */}
+      <div className="flex justify-between">
+          <h3 className="font-bold flex items-center gap-2 text-slate-800 text-sm"><RotateCw className="w-4 h-4 text-purple-600"/> API Key Management</h3>
+          <span className="bg-emerald-50 text-emerald-700 text-[10px] px-2 py-1 rounded font-bold uppercase">Active</span>
       </div>
-      <button onClick={rotate} disabled={isRotating} className="w-full bg-slate-900 text-white py-2.5 rounded-xl text-xs font-bold hover:bg-slate-800 flex justify-center items-center gap-2">{isRotating ? <RefreshCw className="animate-spin w-3 h-3"/> : 'Rotate Key Now'}</button>
+
+      {/* Key Display */}
+      <div className="relative">
+        <div className="bg-slate-50 p-3 rounded-lg text-xs font-mono text-slate-600 break-all border border-slate-100 pr-16 min-h-[40px] flex items-center">{showKey ? currentKey : '••••••••••••••••••'}</div>
+        <div className="absolute right-2 top-1/2 -translate-x-1/2 flex gap-1">
+            <button onClick={() => setShowKey(!showKey)} className="p-1.5 hover:bg-slate-200 rounded text-slate-500"><Eye size={14}/></button>
+            <button onClick={copyToClipboard} className="p-1.5 hover:bg-slate-200 rounded text-slate-500"><Copy size={14}/></button>
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="grid grid-cols-2 gap-3">
+          <button onClick={rotate} disabled={isRotating || confirmRevoke} className="bg-slate-900 text-white py-2.5 rounded-xl text-xs font-bold hover:bg-slate-800 flex justify-center items-center gap-2">
+              {isRotating ? <RefreshCw className="animate-spin w-3 h-3"/> : 'Rotate Key'}
+          </button>
+          
+          {!confirmRevoke ? (
+              <button onClick={() => setConfirmRevoke(true)} disabled={isRotating} className="bg-red-50 text-red-600 border border-red-100 py-2.5 rounded-xl text-xs font-bold hover:bg-red-100 flex justify-center items-center gap-2 disabled:opacity-50">
+                  <AlertTriangle size={14}/> Revoke Key
+              </button>
+          ) : (
+              <button onClick={revoke} disabled={isRevoking} className="bg-red-600 text-white py-2.5 rounded-xl text-xs font-bold hover:bg-red-700 flex justify-center items-center gap-2 animate-pulse">
+                  {isRevoking ? 'Revoking...' : 'Confirm Revoke?'}
+              </button>
+          )}
+      </div>
+      {confirmRevoke && <p className="text-[10px] text-red-500 text-center font-bold">⚠️ Varning: Återkallning är oåterkallelig och stoppar all API-åtkomst omedelbart.</p>}
     </div>
   );
 };
@@ -199,13 +249,21 @@ function App() {
     setShowFooterPrivacy(true);
   };
 
-  // --- SCROLL THEME LOGIC ---
+  // --- SCROLL THEME LOGIC (FIXAD FÖR VARNINGAR) ---
   useEffect(() => {
     window.scrollTo(0, 0);
 
-    // ONLY HOME TAB HAS THEME SWITCHING
-    if (activeTab !== 'home') { setTheme('theme-light'); return; }
+    // FIX: Only register ScrollTriggers if we are on the home tab
+    if (activeTab !== 'home') { 
+        setTheme('theme-light'); 
+        // Kill existing ScrollTriggers to clean up the DOM references (This prevents "Element not found" warnings)
+        ScrollTrigger.getAll().forEach(t => t.kill()); 
+        return; 
+    }
     
+    // Safety check to kill previous triggers before creating new ones (if re-running on home tab)
+    ScrollTrigger.getAll().forEach(t => t.kill());
+
     const sections = [
       { id: 'hero-section', theme: 'theme-dark' },       
       { id: 'demo-section', theme: 'theme-light' },
@@ -234,6 +292,7 @@ function App() {
   // NY FUNKTION: Hämta de senaste loggarna
   const fetchRecentLogs = async (currentApiKey) => {
     try {
+      // Obs: Begränsa antalet loggar för att undvika överdriven datahantering
       const logData = await apiCall('/api/events/search?limit=10', { method: 'GET' }, currentApiKey);
       setRecentLogs(logData.events);
       
@@ -262,7 +321,7 @@ function App() {
       localStorage.setItem('auditorApiKey', apiKey); 
       
       // Steg 2: Hämta de senaste loggarna
-      await fetchRecentLogs(apiKey); // <--- NYTT ANROP FÖR ATT ÅTGÄRDA FELET
+      await fetchRecentLogs(apiKey); 
       
     } catch (error) { 
       alert(`Connection Failed: ${error.message}`); 
@@ -279,6 +338,7 @@ function App() {
     setIsLoading(true); 
     try { 
       let hashedUser = eventData.user_identifier; 
+      // Använd SHA256 för att hasha användar-ID på klientsidan innan sändning till API
       if (eventData.user_identifier) hashedUser = CryptoJS.SHA256(eventData.user_identifier).toString(); 
       
       const eventDataParsed = JSON.parse(eventData.event_data); 
@@ -303,6 +363,13 @@ function App() {
     } finally { 
       setIsLoading(false); 
     } 
+  };
+  
+  const handleLogout = () => {
+      setProcessor(null); 
+      localStorage.removeItem('auditorApiKey'); 
+      setApiKey(''); 
+      setRecentLogs([]);
   };
 
   if (!privacyAccepted) return <PrivacyPage onAccept={handlePrivacyAccept} />;
@@ -394,7 +461,8 @@ function App() {
 
         {activeTab === 'pricing' && (
           <div id="pricing">
-             <PricingPage setActiveTab={setActiveTab} />
+             {/* ANVÄND DEN NYA STRIPE-INTEGRERADE PRICINGPAGE KOMPONENTEN */}
+             <PricingPageStripe setActiveTab={setActiveTab} />
           </div>
         )}
         
@@ -421,8 +489,8 @@ function App() {
                  isLoading={isLoading}
                  recentLogs={recentLogs} 
                  chartData={chartData}
-                 onLogout={() => { setProcessor(null); localStorage.removeItem('auditorApiKey'); setApiKey(''); setRecentLogs([]);}} // Rensa state vid utloggning
-                 KeyRotation={<KeyRotationComponent processor={processor} currentKey={apiKey} onKeyUpdate={k => {setApiKey(k); localStorage.setItem('auditorApiKey', k);}} />}
+                 onLogout={handleLogout} // Använd den nya hanteraren
+                 KeyRotation={<KeyRotationComponent processor={processor} currentKey={apiKey} onKeyUpdate={k => {setApiKey(k); localStorage.setItem('auditorApiKey', k);}} onRevoke={handleLogout} />} // Skicka med onRevoke
                />
              )}
           </div>
