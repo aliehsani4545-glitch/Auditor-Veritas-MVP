@@ -1,57 +1,131 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-// FIX: Lade till Activity i importen
-import { Shield, CheckCircle2, Lock, Server, Database, ArrowRight, Fingerprint, FileJson, Hash, Activity } from 'lucide-react'; 
+import { Shield, CheckCircle2, Lock, Server, Database, Activity, Fingerprint, Hash, Zap } from 'lucide-react'; 
 
 // --- SUB-COMPONENTS ---
 
-// Ett "Flytande Kort" som representerar externa system (likt Stripes diagram)
+// 1. Bakgrundspartiklar för atmosfär
+const ParticleField = () => (
+  <div className="absolute inset-0 overflow-hidden pointer-events-none">
+    {[...Array(8)].map((_, i) => (
+      <motion.div
+        key={i}
+        className="absolute bg-blue-500/10 rounded-full blur-xl"
+        style={{
+          width: Math.random() * 150 + 50,
+          height: Math.random() * 150 + 50,
+          top: Math.random() * 100 + '%',
+          left: Math.random() * 100 + '%',
+        }}
+        animate={{
+          y: [0, -40, 0],
+          x: [0, 20, 0],
+          opacity: [0.2, 0.5, 0.2],
+          scale: [1, 1.2, 1],
+        }}
+        transition={{
+          duration: Math.random() * 10 + 10,
+          repeat: Infinity,
+          ease: "easeInOut",
+        }}
+      />
+    ))}
+  </div>
+);
+
+// 2. High-end Glass Node
 const FloatingNode = ({ icon: Icon, title, subtitle, align = "left", active }) => (
   <motion.div
-    initial={{ opacity: 0, y: 20 }}
-    animate={{ opacity: 1, y: 0 }}
-    className={`absolute top-1/2 -translate-y-1/2 ${align === "left" ? "left-0 md:-left-12" : "right-0 md:-right-12"} 
-      hidden md:flex items-center gap-3 p-4 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/10 shadow-2xl z-10 w-48`}
+    initial={{ opacity: 0, scale: 0.9, x: align === 'left' ? -20 : 20 }}
+    animate={{ opacity: 1, scale: 1, x: 0 }}
+    className={`absolute top-1/2 -translate-y-1/2 ${align === "left" ? "left-4 md:-left-16" : "right-4 md:-right-16"} 
+      hidden md:flex flex-col items-center justify-center p-5 rounded-2xl 
+      bg-[#0f172a]/60 backdrop-blur-xl border border-white/10 shadow-2xl z-10 w-40 h-44
+      ${active ? 'shadow-[0_0_40px_-10px_rgba(59,130,246,0.4)] border-blue-500/30' : ''} transition-all duration-700`}
   >
-    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${active ? 'bg-blue-500 text-white shadow-[0_0_15px_rgba(59,130,246,0.5)]' : 'bg-slate-800 text-slate-500'} transition-all duration-500`}>
-      <Icon size={20} />
+    <div className={`relative w-16 h-16 rounded-full flex items-center justify-center mb-4 transition-all duration-500 ${active ? 'bg-blue-500/20' : 'bg-slate-800/50'}`}>
+        <Icon size={28} className={active ? "text-blue-400 drop-shadow-[0_0_10px_rgba(96,165,250,0.8)]" : "text-slate-500"} />
+        {active && (
+            <>
+                <motion.div 
+                    className="absolute inset-0 rounded-full border border-blue-400/50"
+                    animate={{ scale: [1, 1.4], opacity: [1, 0] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                />
+                <motion.div 
+                    className="absolute inset-0 rounded-full border border-cyan-400/30"
+                    animate={{ scale: [1, 1.2], opacity: [0.5, 0] }}
+                    transition={{ duration: 2, delay: 0.5, repeat: Infinity }}
+                />
+            </>
+        )}
     </div>
-    <div>
-      <div className="text-xs font-bold text-slate-300 uppercase tracking-wider">{title}</div>
-      <div className="text-[10px] text-slate-500 font-mono">{subtitle}</div>
+    <div className="text-center">
+      <div className={`text-xs font-bold uppercase tracking-wider mb-1 ${active ? "text-white text-shadow-sm" : "text-slate-500"}`}>{title}</div>
+      <div className="text-[10px] text-slate-400 font-mono">{subtitle}</div>
     </div>
   </motion.div>
 );
 
-// Animerad anslutningslinje
-const ConnectionLine = ({ active, align = "left" }) => (
-  <div className={`absolute top-1/2 -translate-y-1/2 ${align === "left" ? "left-[140px] w-[120px]" : "right-[140px] w-[120px]"} h-[2px] bg-slate-800 hidden md:block -z-10 overflow-hidden`}>
-    <motion.div 
-      className="w-full h-full bg-blue-500 shadow-[0_0_10px_#3b82f6]"
-      initial={{ x: align === "left" ? "-100%" : "100%" }}
-      animate={{ x: active ? "0%" : (align === "left" ? "-100%" : "100%") }}
-      transition={{ duration: 0.8, ease: "easeInOut" }}
-    />
+// 3. Data Stream (Animerade paket istället för bara en linje)
+const DataStream = ({ active, align = "left" }) => (
+  <div className={`absolute top-1/2 -translate-y-1/2 ${align === "left" ? "left-[90px] w-[200px]" : "right-[90px] w-[200px]"} h-[2px] hidden md:block -z-10 overflow-visible`}>
+    {/* Base Line - Svag */}
+    <div className="absolute inset-0 bg-slate-800/30 rounded-full" />
+    
+    {/* Moving Data Packets */}
+    <AnimatePresence>
+        {active && (
+            <>
+                {/* Snabb stråle */}
+                <motion.div 
+                    className="absolute top-1/2 -translate-y-1/2 h-[3px] bg-gradient-to-r from-transparent via-blue-400 to-transparent blur-[1px]"
+                    style={{ width: '40%' }}
+                    initial={{ left: align === "left" ? "-40%" : "140%", opacity: 0 }}
+                    animate={{ left: align === "left" ? "140%" : "-40%", opacity: [0, 1, 1, 0] }}
+                    transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+                />
+                {/* Partikel */}
+                <motion.div 
+                    className="absolute top-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-cyan-400 rounded-full shadow-[0_0_10px_#22d3ee]"
+                    initial={{ left: align === "left" ? "0%" : "100%" }}
+                    animate={{ left: align === "left" ? "100%" : "0%" }}
+                    transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+                />
+            </>
+        )}
+    </AnimatePresence>
   </div>
 );
 
+// 4. Log Item with "Terminal" feel
 const LogItem = ({ id, action, hash, status, delay }) => (
   <motion.div 
-    initial={{ opacity: 0, y: 10 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{ delay }}
-    className="flex items-center justify-between p-3 mb-2 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors"
+    layout
+    initial={{ opacity: 0, x: -10, scale: 0.95 }}
+    animate={{ opacity: 1, x: 0, scale: 1 }}
+    transition={{ delay, type: "spring", stiffness: 400, damping: 25 }}
+    className="group relative flex items-center justify-between p-3 mb-2 rounded-xl bg-[#0f172a]/80 border border-white/5 hover:border-white/20 transition-all overflow-hidden"
   >
-    <div className="flex items-center gap-3">
-      <div className={`p-1.5 rounded-lg ${status === 'secure' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-blue-500/20 text-blue-400'}`}>
-        {status === 'secure' ? <Lock size={12} /> : <Activity size={12} className="animate-pulse" />}
+    {/* Hover highlight */}
+    <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+    
+    <div className="flex items-center gap-3 relative z-10">
+      <div className={`p-2 rounded-lg ${status === 'secure' ? 'bg-emerald-500/10 text-emerald-400 shadow-[0_0_10px_-2px_rgba(16,185,129,0.3)]' : 'bg-blue-500/10 text-blue-400'}`}>
+        {status === 'secure' ? <Lock size={14} /> : <Activity size={14} className="animate-pulse" />}
       </div>
       <div>
-        <div className="text-[11px] font-medium text-white">{action}</div>
-        <div className="text-[9px] text-slate-500 font-mono">{hash}</div>
+        <div className="text-[12px] font-semibold text-slate-200 tracking-tight">{action}</div>
+        <div className="text-[10px] text-slate-500 font-mono flex items-center gap-1 mt-0.5">
+            <Hash size={10} className="text-slate-600" /> {hash}
+        </div>
       </div>
     </div>
-    {status === 'secure' && <CheckCircle2 size={14} className="text-emerald-500" />}
+    {status === 'secure' && (
+        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="relative z-10 p-1 bg-emerald-500/10 rounded-full">
+            <CheckCircle2 size={14} className="text-emerald-500" />
+        </motion.div>
+    )}
   </motion.div>
 );
 
@@ -61,168 +135,204 @@ const StripePhoneDemo = ({ activeStep = 0 }) => {
   const logRef = useRef(null);
   
   const [logs, setLogs] = useState([
-    { id: 1, action: "auth.login_success", hash: "0x8a...f1", status: "secure" },
-    { id: 2, action: "data.export_req", hash: "0x3c...b9", status: "secure" },
+    { id: 1, action: "auth.session_start", hash: "0x8a...f1", status: "secure" },
+    { id: 2, action: "user.data_access", hash: "0x3c...b9", status: "secure" },
   ]);
 
-  // Scroll to bottom when a new log arrives
+  // Auto-scroll
   useEffect(() => {
     if (logRef.current) {
       logRef.current.scrollTop = logRef.current.scrollHeight;
     }
   }, [logs]);
 
-  // Simulate incoming new log when step 1 is active
+  // Demo Logic
   useEffect(() => {
     if (activeStep === 1) {
-        // Add a "Processing" log (if it doesn't exist)
         if (!logs.find(l => l.id === 3)) {
             setLogs(prev => [
-                { id: 3, action: "payment.authorized", hash: "hashing...", status: "processing" },
+                { id: 3, action: "transaction.init", hash: "encrypting...", status: "processing" },
                 ...prev
             ]);
         }
     } 
     
     if (activeStep === 2) {
-        // Change to "Secure" after a delay
         const processingLog = logs.find(l => l.id === 3 && l.status === 'processing');
         if (processingLog) {
             setTimeout(() => {
                 setLogs(prev => prev.map(log => 
                     log.id === 3 ? { ...log, hash: "0x9d...e2", status: "secure" } : log
                 ));
-            }, 800);
+            }, 1200);
         }
     }
     
-    // Reset logic for demo loops (when returning to intro step)
     if (activeStep === 0) {
         setLogs([
-            { id: 1, action: "auth.login_success", hash: "0x8a...f1", status: "secure" },
-            { id: 2, action: "data.export_req", hash: "0x3c...b9", status: "secure" },
+            { id: 1, action: "auth.session_start", hash: "0x8a...f1", status: "secure" },
+            { id: 2, action: "user.data_access", hash: "0x3c...b9", status: "secure" },
         ]);
     }
   }, [activeStep]);
 
   return (
-    <div className="relative w-full h-[500px] md:h-[600px] flex items-center justify-center">
+    <div className="relative w-full h-[600px] md:h-[700px] flex items-center justify-center overflow-visible">
       
-      {/* --- LEFT NODE: SOURCE (Server/App) --- */}
+      <ParticleField />
+
+      {/* --- LEFT NODE (App) --- */}
       <FloatingNode 
         icon={Server} 
-        title="Your App" 
-        subtitle="sending event..." 
+        title="Application" 
+        subtitle="Source Origin" 
         align="left" 
         active={activeStep >= 1} 
       />
-      <ConnectionLine align="left" active={activeStep >= 1} />
+      <DataStream align="left" active={activeStep >= 1} />
 
       {/* --- CENTER: THE PHONE --- */}
       <motion.div
-        className="relative z-20 w-[280px] h-[540px] md:w-[300px] md:h-[580px] bg-[#0b0e14] rounded-[40px] border-[6px] border-[#1e293b] shadow-2xl overflow-hidden"
+        className="relative z-20 w-[320px] h-[620px] bg-[#020617] rounded-[50px] border-[8px] border-[#1e293b] shadow-2xl overflow-hidden"
+        style={{ boxShadow: '0 30px 60px -12px rgba(0, 0, 0, 0.8)' }}
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.8 }}
       >
-        {/* Notch & Status Bar */}
-        <div className="absolute top-0 inset-x-0 h-7 bg-black z-30 rounded-t-[32px] flex justify-center">
-            <div className="w-24 h-5 bg-[#1e293b] rounded-b-xl"></div>
+        {/* Screen Reflection/Glare */}
+        <div className="absolute top-0 right-0 w-full h-[60%] bg-gradient-to-b from-white/5 to-transparent pointer-events-none z-40 rounded-t-[40px]"></div>
+
+        {/* Dynamic Island / Notch */}
+        <div className="absolute top-4 inset-x-0 z-50 flex justify-center">
+            <motion.div 
+                className="bg-black rounded-full h-8 flex items-center justify-center px-4 gap-3 shadow-lg border border-white/5"
+                animate={{ width: activeStep === 1 ? 140 : 100 }}
+                transition={{ type: "spring", stiffness: 300, damping: 20 }}
+            >
+                {activeStep === 1 && <Activity size={14} className="text-emerald-400 animate-pulse" />}
+                <div className="w-16 h-1.5 bg-slate-800/50 rounded-full" />
+                {activeStep === 1 && <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-ping" />}
+            </motion.div>
         </div>
 
-        {/* App Header */}
-        <div className="pt-10 px-5 pb-4 bg-gradient-to-b from-slate-900 to-[#0b0e14]">
-           <div className="flex justify-between items-center mb-4">
-               <div className="flex items-center gap-2">
-                   <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white">
-                       <Shield size={16} fill="currentColor" />
-                   </div>
-                   <span className="font-bold text-white text-sm tracking-tight">Auditor</span>
-               </div>
-               <div className="w-2 h-2 bg-emerald-500 rounded-full shadow-[0_0_8px_#10b981]"></div>
-           </div>
-           
-           {/* Dashboard Summary Card */}
-           <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-4 rounded-2xl border border-white/5 mb-2 relative overflow-hidden">
-               <div className="absolute top-0 right-0 p-3 opacity-20">
-                   <Fingerprint size={64} className="text-white" />
-               </div>
-               <div className="text-[10px] text-slate-400 uppercase tracking-wider mb-1">Secured Events</div>
-               <div className="text-2xl font-bold text-white mb-1">
-                   <AnimatePresence mode="wait">
-                       <motion.span
-                         key={logs.filter(l => l.status === 'secure').length} // Track secure logs
-                         initial={{ opacity: 0, y: 10 }}
-                         animate={{ opacity: 1, y: 0 }}
-                       >
-                         {logs.filter(l => l.status === 'secure').length + 12840} {/* Base event count */}
-                       </motion.span>
-                   </AnimatePresence>
-               </div>
-               <div className="text-[10px] text-emerald-400 flex items-center gap-1">
-                   <CheckCircle2 size={10} /> Immutable Ledger
-               </div>
-           </div>
-        </div>
-
-        {/* Main Content: Activity Feed (STOPPAR SCROLL PÅ HELA SIDAN) */}
-        <div className="px-4 pb-4 relative h-[300px] overflow-hidden"> 
-            <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-3 pl-1">Real-time Audit Trail</div>
+        {/* --- SCREEN CONTENT --- */}
+        <div className="h-full w-full bg-[#020617] flex flex-col font-sans text-white relative">
             
-            {/* Log List Container med intern scroll */}
-            <div ref={logRef} className="space-y-2 h-[260px] overflow-y-auto pr-1">
-                <AnimatePresence>
-                    {/* Loggar visas i omvänd ordning (senaste överst) */}
-                    {logs.map((log, i) => (
-                        <LogItem key={log.id} {...log} delay={0.05} />
-                    )).reverse()}
-                </AnimatePresence>
+            {/* Header */}
+            <div className="pt-16 px-6 pb-6 bg-gradient-to-b from-[#0f172a] to-[#020617] border-b border-white/5">
+               <div className="flex justify-between items-center mb-8">
+                   <div className="flex items-center gap-3">
+                       <div className="w-10 h-10 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-900/30">
+                           <Shield size={20} fill="currentColor" />
+                       </div>
+                       <div>
+                           <div className="font-bold text-sm tracking-tight text-white">Veritas</div>
+                           <div className="text-[10px] text-slate-400 font-medium">Enterprise Console</div>
+                       </div>
+                   </div>
+                   <div className={`w-2.5 h-2.5 rounded-full shadow-[0_0_10px_currentColor] transition-colors duration-500 ${activeStep === 1 ? 'bg-amber-400 text-amber-400 animate-pulse' : 'bg-emerald-500 text-emerald-500'}`}></div>
+               </div>
+               
+               {/* Hero Card */}
+               <div className="relative group perspective">
+                   <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-2xl opacity-20 group-hover:opacity-40 transition duration-1000 blur-md"></div>
+                   <div className="relative bg-[#0f172a] p-5 rounded-2xl border border-white/10 overflow-hidden shadow-xl">
+                       {/* Background Grid Pattern */}
+                       <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
+                       
+                       <div className="relative z-10 flex justify-between items-end">
+                           <div>
+                               <div className="text-[10px] text-blue-400 uppercase font-bold tracking-wider mb-2 flex items-center gap-1">
+                                   <Lock size={10} /> Secured Events
+                               </div>
+                               <div className="text-4xl font-bold text-white tracking-tight flex items-baseline gap-1">
+                                   <AnimatePresence mode="popLayout">
+                                       <motion.span
+                                         key={logs.filter(l => l.status === 'secure').length}
+                                         initial={{ y: 10, opacity: 0 }}
+                                         animate={{ y: 0, opacity: 1 }}
+                                         className="inline-block bg-clip-text text-transparent bg-gradient-to-b from-white to-slate-400"
+                                       >
+                                         {logs.filter(l => l.status === 'secure').length + 842}
+                                       </motion.span>
+                                   </AnimatePresence>
+                               </div>
+                           </div>
+                           <Fingerprint size={40} className="text-slate-700 opacity-50" />
+                       </div>
+                   </div>
+               </div>
             </div>
 
-            {/* Processing Overlay (Visual effect when hashing) */}
+            {/* Log Feed */}
+            <div className="flex-1 px-4 py-4 relative overflow-hidden flex flex-col"> 
+                <div className="flex items-center justify-between px-2 mb-3">
+                    <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Live Ledger Feed</div>
+                    <div className="text-[9px] font-mono text-slate-600 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
+                        NET: ONLINE
+                    </div>
+                </div>
+                
+                <div className="relative flex-1">
+                    {/* Scan Line Effect */}
+                    <AnimatePresence>
+                        {activeStep === 1 && (
+                            <motion.div 
+                                className="absolute inset-x-0 h-[2px] bg-cyan-400 shadow-[0_0_20px_2px_rgba(34,211,238,0.6)] z-20 pointer-events-none"
+                                initial={{ top: 0, opacity: 0 }}
+                                animate={{ top: "100%", opacity: [0, 1, 1, 0] }}
+                                transition={{ duration: 1.8, repeat: Infinity, ease: "linear" }}
+                            />
+                        )}
+                    </AnimatePresence>
+
+                    {/* Scrollable List */}
+                    <div ref={logRef} className="h-[300px] overflow-y-auto space-y-1 pr-1 pb-16 scroll-smooth no-scrollbar mask-image-bottom">
+                        <AnimatePresence initial={false}>
+                            {logs.map((log) => (
+                                <LogItem key={log.id} {...log} delay={0.1} />
+                            ))}
+                        </AnimatePresence>
+                    </div>
+                    
+                    {/* Bottom Fade Gradient */}
+                    <div className="absolute bottom-0 inset-x-0 h-16 bg-gradient-to-t from-[#020617] via-[#020617]/80 to-transparent pointer-events-none z-20"></div>
+                </div>
+            </div>
+
+            {/* Bottom Processing Status */}
             <AnimatePresence>
                 {activeStep === 1 && (
                     <motion.div 
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="absolute inset-x-4 bottom-4 bg-blue-600/90 backdrop-blur-md rounded-xl p-3 flex items-center justify-between shadow-lg z-20 border border-white/10"
+                        initial={{ y: 40, opacity: 0, scale: 0.9 }}
+                        animate={{ y: 0, opacity: 1, scale: 1 }}
+                        exit={{ y: 40, opacity: 0, scale: 0.9 }}
+                        className="absolute bottom-8 inset-x-6 bg-[#1e293b]/80 backdrop-blur-xl p-3.5 rounded-2xl border border-blue-500/20 shadow-2xl z-30 flex items-center justify-between"
                     >
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-white/20 rounded-lg animate-spin">
-                                <Hash size={14} className="text-white" />
+                        <div className="flex items-center gap-3.5">
+                            <div className="relative">
+                                <div className="absolute inset-0 bg-blue-500 rounded-full animate-ping opacity-30"></div>
+                                <div className="relative p-2 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full text-white shadow-lg">
+                                    <Zap size={14} fill="currentColor"/>
+                                </div>
                             </div>
-                            <div>
-                                <div className="text-xs font-bold text-white">Encrypting...</div>
-                                <div className="text-[9px] text-blue-100">Generating Merkle Leaf</div>
+                            <div className="flex flex-col">
+                                <span className="text-xs font-bold text-white tracking-wide">Encrypting Node</span>
+                                <span className="text-[10px] text-blue-300 font-medium">Hashing Integrity...</span>
                             </div>
+                        </div>
+                        <div className="text-[10px] font-mono text-cyan-400 font-bold bg-cyan-950/30 px-2 py-1 rounded">
+                            PROCESSING
                         </div>
                     </motion.div>
                 )}
             </AnimatePresence>
-            
-            {/* Scroll Fade Bottom */}
-            <div className="absolute bottom-0 inset-x-0 h-10 bg-gradient-to-t from-[#0b0e14] to-transparent pointer-events-none"></div>
-        </div>
 
-        {/* Bottom Nav */}
-        <div className="absolute bottom-0 inset-x-0 h-16 bg-[#0b0e14]/90 backdrop-blur-md border-t border-white/5 flex justify-around items-center px-6 z-30">
-            <div className="flex flex-col items-center gap-1 opacity-100">
-                <Activity size={18} className="text-blue-500" />
-                <div className="w-1 h-1 bg-blue-500 rounded-full mt-1"></div>
-            </div>
-            <div className="flex flex-col items-center gap-1 opacity-40">
-                <Database size={18} className="text-slate-400" />
-            </div>
-            <div className="flex flex-col items-center gap-1 opacity-40">
-                <FileJson size={18} className="text-slate-400" />
-            </div>
         </div>
-
       </motion.div>
 
-      {/* --- RIGHT NODE: DESTINATION (Ledger) --- */}
-      <ConnectionLine align="right" active={activeStep >= 2} />
+      {/* --- RIGHT NODE (Ledger) --- */}
+      <DataStream align="right" active={activeStep >= 2} />
       <FloatingNode 
         icon={Database} 
         title="Ledger" 
@@ -231,8 +341,8 @@ const StripePhoneDemo = ({ activeStep = 0 }) => {
         active={activeStep >= 2} 
       />
 
-      {/* Glow Effect behind phone */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[350px] h-[600px] bg-blue-500/10 blur-[80px] -z-10 rounded-full pointer-events-none"></div>
+      {/* Background Glow behind the phone */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[700px] bg-blue-600/10 blur-[120px] -z-10 rounded-full pointer-events-none mix-blend-screen animate-pulse-slow"></div>
 
     </div>
   );

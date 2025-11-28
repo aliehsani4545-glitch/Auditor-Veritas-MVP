@@ -1,8 +1,6 @@
-// components/PricingPageStripe.jsx (FULLSTÄNDIG KOD MED ALLA JUSTERINGAR)
-
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react'; // Importera useEffect också om du använder det
 import { loadStripe } from '@stripe/stripe-js';
-import { RefreshCw, CheckCircle2, AlertTriangle, X, Loader2, Check, ArrowRight, Zap, Shield } from 'lucide-react';
+import { RefreshCw, CheckCircle2, AlertTriangle, X, Loader2, Check, ArrowRight, Zap, Shield, Globe, CreditCard, Sparkles } from 'lucide-react'; // Lägg till saknade ikoner
 import { motion, AnimatePresence } from 'framer-motion';
 import { apiCall } from '../App.jsx';
 
@@ -30,10 +28,10 @@ const BASE_FEATURES = [
 // --- Sub-Components ---
 
 const CheckoutForm = ({ plan, onBack }) => {
-  const [clientSecret, setClientSecret] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
+  // Vi behöver inte clientSecret i state längre när vi använder fetchClientSecret direkt i initEmbeddedCheckout
   const [isError, setIsError] = useState(false);
 
+  // Denna funktion anropas av Stripe när checkouten ska laddas
   const fetchClientSecret = useCallback(async () => {
     try {
       const response = await apiCall("/api/stripe/create-checkout-session", {
@@ -44,47 +42,32 @@ const CheckoutForm = ({ plan, onBack }) => {
     } catch (error) {
       console.error("Failed to fetch client secret:", error);
       setIsError(true);
-      throw error;
+      throw error; // Viktigt att kasta felet vidare så Stripe vet att det misslyckades
     }
   }, [plan]);
 
   useEffect(() => {
-    if (!stripePromise) return;
+    // Vi initierar Stripe Embedded Checkout direkt när komponenten mountas
+    const initializeStripe = async () => {
+      const stripe = await stripePromise;
+      
+      // HÄR ÄR FIXEN: Vi skickar BARA fetchClientSecret, inte clientSecret
+      const checkout = await stripe.initEmbeddedCheckout({
+        fetchClientSecret, 
+      });
 
-    fetchClientSecret()
-      .then(secret => {
-        setClientSecret(secret);
-        setIsLoading(false);
-      })
-      .catch(() => setIsLoading(false));
+      // Mounta checkouten
+      checkout.mount('#checkout-container');
+    };
 
+    initializeStripe();
+    
+    // Cleanup (valfritt men bra praxis om komponenten unmountas)
+    return () => {
+        // Om du hade sparat checkout-instansen kunde du gjort checkout.destroy() här
+    };
   }, [fetchClientSecret]);
 
-  useEffect(() => {
-    if (clientSecret) {
-      const initializeStripe = async () => {
-        const stripe = await stripePromise;
-        
-        const checkout = await stripe.initEmbeddedCheckout({
-          clientSecret,
-          fetchClientSecret: async () => clientSecret,
-        });
-
-        checkout.mount('#checkout-container');
-      };
-      initializeStripe();
-    }
-  }, [clientSecret]);
-
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center h-64 bg-slate-100 rounded-xl">
-        <Loader2 className="w-6 h-6 animate-spin text-blue-600 mr-3" />
-        <p className="text-slate-600">Loading secure checkout...</p>
-      </div>
-    );
-  }
-  
   if (isError) {
     return (
       <div className="text-center p-8 bg-red-100 rounded-xl border border-red-400">
@@ -100,8 +83,12 @@ const CheckoutForm = ({ plan, onBack }) => {
       <h2 className="text-2xl font-bold text-center mb-6 text-slate-900">
         Secure Payment for <span className="text-blue-600 capitalize">{plan}</span>
       </h2>
-      <div id="checkout-container">
-        {/* Stripe Embedded Checkout form mounts here */}
+      <div id="checkout-container" className="min-h-[400px]">
+        {/* Stripe Embedded Checkout form mounts here. Vi kan lägga en loader här som försvinner när Stripe tar över */}
+         <div className="flex justify-center items-center h-64 bg-slate-50 rounded-xl">
+            <Loader2 className="w-6 h-6 animate-spin text-blue-600 mr-3" />
+            <p className="text-slate-600">Loading secure checkout...</p>
+         </div>
       </div>
       <button onClick={onBack} className="w-full mt-6 text-sm py-3 font-medium text-slate-500 border border-slate-200 rounded-xl hover:bg-slate-100 transition-colors">
           ← Back to Pricing

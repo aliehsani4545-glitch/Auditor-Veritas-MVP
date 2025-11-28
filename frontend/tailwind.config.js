@@ -18,21 +18,21 @@ export default {
         }
       },
       animation: {
-        "beam": "beam 8s linear infinite",
+        "beam": "beam 1s linear", // Snabb ljuseffekt vid hover
         "pulse-glow": "pulse-glow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite",
         "draw": "draw 4s ease-in-out infinite",
         "text-gradient": "text-gradient 5s linear infinite",
         "cursor-blink": "cursor-blink 1s step-start infinite",
         
-        // --- NYA AVANCERADE ANIMATIONER FÖR UPPGRADERINGEN ---
+        // --- NYA AVANCERADE ANIMATIONER ---
         "spin-slow": "spin 12s linear infinite",
-        "text-shine": "text-shine 3s linear infinite", // Blixten i rubriken
+        "text-shine": "text-shine 3s linear infinite", // Skimrande text
         "blob": "blob 7s infinite", // Dansande bakgrunds-blobs
       },
       keyframes: {
         beam: {
-          "0%": { transform: "translateX(-100%) translateY(-100%)" },
-          "100%": { transform: "translateX(100%) translateY(100%)" },
+          "0%": { transform: "translateX(-100%) skewX(-15deg)" },
+          "100%": { transform: "translateX(100%) skewX(-15deg)" },
         },
         "pulse-glow": {
           "0%, 100%": { opacity: "0.5", transform: "scale(1)" },
@@ -60,7 +60,7 @@ export default {
         // --- NYA KEYFRAMES ---
         "text-shine": {
           "0%": { backgroundPosition: "0% 50%" },
-          "100%": { backgroundPosition: "200% 50%" } // Får ljuset att åka genom texten
+          "100%": { backgroundPosition: "200% 50%" } 
         },
         blob: {
           "0%": { transform: "translate(0px, 0px) scale(1)" },
