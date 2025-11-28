@@ -12,6 +12,7 @@ import stringify from 'fast-json-stable-stringify';
 import winston from 'winston';
 import morgan from 'morgan';
 
+// Ladda miljövariabler
 if (process.env.NODE_ENV !== 'production') {
   config();
 }
@@ -19,22 +20,23 @@ if (process.env.NODE_ENV !== 'production') {
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// --- CONFIGURATION CHECKS ---
+// --- 1. CONFIGURATION & SAFETY CHECKS ---
 if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
   console.error('❌ FATAL: Missing Supabase Credentials.');
   process.exit(1);
 }
 
-// Supabase Admin Client
+// Supabase Admin Client (Bypass RLS for backend operations)
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY, {
   auth: {
     autoRefreshToken: false,
     persistSession: false
   }
 });
+
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_placeholder');
 
-// --- OBSERVABILITY ---
+// --- 2. OBSERVABILITY (LOGGING) ---
 const logger = winston.createLogger({
   level: 'info',
   format: winston.format.combine(
@@ -51,7 +53,7 @@ const logger = winston.createLogger({
 
 app.use(morgan('combined', { stream: { write: message => logger.info(message.trim()) } }));
 
-// --- SCHEMAS ---
+// --- 3. INPUT VALIDATION SCHEMAS ---
 const eventSubmissionSchema = z.object({
   event_type: z.string().min(1).max(64).regex(/^[a-zA-Z0-9._-]+$/, "Alphanumeric/dots/dashes only"),
   user_identifier: z.string().min(1).max(256), 
@@ -63,7 +65,7 @@ const processorRegistrationSchema = z.object({
   plan: z.enum(['starter', 'professional', 'enterprise']).default('starter')
 });
 
-// --- MERKLE ENGINE ---
+// --- 4. MERKLE TREE ENGINE ---
 class MerkleTool {
   static hash(data) {
     if (!data) return '';
@@ -112,7 +114,7 @@ class MerkleTool {
   }
 }
 
-// --- MIDDLEWARE ---
+// --- 5. MIDDLEWARE & SECURITY ---
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
@@ -132,6 +134,7 @@ const ALLOWED_ORIGINS = [
     'http://localhost:5173',
     'http://localhost:3000'
 ];
+
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin || ALLOWED_ORIGINS.includes(origin)) callback(null, true);
@@ -142,7 +145,7 @@ app.use(cors({
 
 app.use(express.json({ limit: '2mb' })); 
 
-// Rate Limiter
+// Rate Limiting (DDoS Protection)
 const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 1000,
@@ -151,9 +154,10 @@ const apiLimiter = rateLimit({
 });
 app.use(apiLimiter);
 
-// --- AUTHENTICATION HELPERS ---
+// --- 6. AUTHENTICATION STRATEGIES ---
 
-// 1. Maskin-Auth (API Key)
+// Strategy A: Machine Auth (API Key)
+// Used for high-volume event ingestion
 const authenticateApiKey = async (req, res, next) => {
   const apiKey = req.headers['x-api-key'];
   if (!apiKey) return res.status(401).json({ error: 'API key required' });
@@ -177,7 +181,8 @@ const authenticateApiKey = async (req, res, next) => {
   }
 };
 
-// 2. Mänsklig-Auth (Supabase JWT)
+// Strategy B: Human Auth (Supabase JWT)
+// Used for admin dashboard actions
 const authenticateUser = async (req, res, next) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1]; 
@@ -207,35 +212,39 @@ const authenticateUser = async (req, res, next) => {
     }
 };
 
-// 3. HYBRID AUTH (Detta är fixen!)
-// Accepterar antingen API-nyckel ELLER inloggad användare.
+// Strategy C: Hybrid Auth (Machine OR Human)
+// Allows tools like Search & Verification to work in both Dashboard (Human) and API (Machine) contexts.
 const authenticateAny = async (req, res, next) => {
     const apiKey = req.headers['x-api-key'];
     const authHeader = req.headers['authorization'];
 
-    // Om API-nyckel finns, använd maskin-auth
+    // 1. Try Machine Auth
     if (apiKey) {
         return authenticateApiKey(req, res, next);
     }
     
-    // Om Authorization header finns, använd mänsklig-auth
+    // 2. Try Human Auth
     if (authHeader) {
         return authenticateUser(req, res, next);
     }
 
-    // Om inget finns
+    // 3. Fail
     return res.status(401).json({ error: 'Authentication required (API Key or Login Token)' });
 };
 
-// --- ROUTES ---
+// --- 7. API ENDPOINTS ---
 
-// 1. Event Ingestion (Maskin - API Key only, för säkerhet)
+/**
+ * 1. Event Ingestion (Machine Only)
+ * Writes to immutable log. Calculates Hash Chain.
+ */
 app.post('/api/events', authenticateApiKey, async (req, res) => {
     try {
         const payload = eventSubmissionSchema.parse(req.body);
         const processor = req.processor;
         const timestamp = new Date().toISOString();
 
+        // Fetch last hash for Blockchain linking
         const { data: lastEvent } = await supabase
             .from('audit_events')
             .select('data_hash')
@@ -246,10 +255,12 @@ app.post('/api/events', authenticateApiKey, async (req, res) => {
         
         const previous_hash = lastEvent?.[0]?.data_hash || null;
 
+        // Create cryptographic hash of payload + metadata + previous link
         const hashData = { processor_id: processor.id, ...payload, event_timestamp: timestamp, previous_hash };
         const stableString = stringify(hashData);
         const data_hash = CryptoJS.SHA256(stableString).toString();
 
+        // Write to DB
         const { data: newEvent, error } = await supabase.from('audit_events').insert([{
             processor_id: processor.id,
             event_type: payload.event_type,
@@ -261,6 +272,8 @@ app.post('/api/events', authenticateApiKey, async (req, res) => {
         }]).select().single();
 
         if (error) throw error;
+        
+        // Update stats async (fire and forget)
         try { await supabase.rpc('increment_processor_usage', { pid: processor.id }); } catch (e) {}
 
         res.status(201).json({ success: true, eventId: newEvent.id, hash: data_hash });
@@ -271,10 +284,13 @@ app.post('/api/events', authenticateApiKey, async (req, res) => {
     }
 });
 
-// 2. Dashboard Data (Människa - JWT)
+/**
+ * 2. Dashboard Data (Human Only)
+ * Returns stats and processor details.
+ */
 app.get('/api/dashboard', authenticateUser, async (req, res) => {
     if (!req.processor) {
-        return res.status(404).json({ error: 'Processor account not found for this user. Please complete registration.' });
+        return res.status(404).json({ error: 'Processor account not found for this user.' });
     }
     try {
         const pid = req.processor.id;
@@ -299,7 +315,9 @@ app.get('/api/dashboard', authenticateUser, async (req, res) => {
     }
 });
 
-// 3. Search (HYBRID - Fixad för dig)
+/**
+ * 3. Search Events (Hybrid)
+ */
 app.get('/api/events/search', authenticateAny, async (req, res) => {
     if (!req.processor) return res.status(403).json({ error: 'Access denied: No linked processor.' });
     try {
@@ -324,7 +342,9 @@ app.get('/api/events/search', authenticateAny, async (req, res) => {
     }
 });
 
-// 4. Key Rotation (Människa - JWT)
+/**
+ * 4. Key Rotation (Human Only)
+ */
 app.post('/api/keys/rotate', authenticateUser, async (req, res) => {
     if (!req.processor) return res.status(403).json({ error: 'Access denied: No linked processor.' });
     try {
@@ -335,6 +355,7 @@ app.post('/api/keys/rotate', authenticateUser, async (req, res) => {
             .update({ api_key_hash: newHash, last_key_rotation: new Date().toISOString() })
             .eq('id', req.processor.id);
 
+        // Audit the action of rotating keys
         await supabase.from('admin_audit_logs').insert([{
             processor_id: req.processor.id,
             user_email: req.user.email,
@@ -351,14 +372,26 @@ app.post('/api/keys/rotate', authenticateUser, async (req, res) => {
     }
 });
 
-// 5. Merkle Proof (HYBRID - Fixad för dig)
+/**
+ * 5. Merkle Proof Verification (Hybrid)
+ * OPTIMIZED: Fetches ONLY hashes to prevent memory overflow on large datasets.
+ */
 app.get('/api/merkle/proof/:eventId', authenticateAny, async (req, res) => {
     if (!req.processor) return res.status(403).json({ error: 'Access denied: No linked processor.' });
     try {
         const pid = req.processor.id;
-        const { data: event } = await supabase.from('audit_events').select('data_hash').eq('id', req.params.eventId).single();
+        
+        // 1. Get Target Event Hash
+        const { data: event } = await supabase
+            .from('audit_events')
+            .select('data_hash')
+            .eq('id', req.params.eventId)
+            .single();
+            
         if (!event) return res.status(404).json({ error: 'Event not found' });
 
+        // 2. Optimized Fetch: Only fetch 'data_hash' column. 
+        // This is crucial for scalability. We do NOT fetch the JSON body.
         const { data: allEvents } = await supabase
             .from('audit_events')
             .select('data_hash')
@@ -366,6 +399,7 @@ app.get('/api/merkle/proof/:eventId', authenticateAny, async (req, res) => {
             .order('event_timestamp', { ascending: true })
             .order('id', { ascending: true }); 
 
+        // 3. Build Tree in Memory (Lightweight because we only have 32-byte strings)
         const leaves = allEvents.map(e => e.data_hash);
         const { proof, root } = MerkleTool.getProof(leaves, event.data_hash);
         
@@ -378,10 +412,12 @@ app.get('/api/merkle/proof/:eventId', authenticateAny, async (req, res) => {
     }
 });
 
-// 6. Processor Registration (Människa - JWT)
+/**
+ * 6. Processor Registration (Human Only)
+ */
 app.post('/api/processors', authenticateUser, async (req, res) => {
-    if (!req.user) return res.status(401).json({ error: 'User must be authenticated to register a processor.' });
-    if (req.processor) return res.status(409).json({ error: 'User already has a processor account.' });
+    if (!req.user) return res.status(401).json({ error: 'User must be authenticated.' });
+    if (req.processor) return res.status(409).json({ error: 'User already has a processor.' });
 
     try {
         const data = processorRegistrationSchema.parse(req.body);
@@ -399,7 +435,7 @@ app.post('/api/processors', authenticateUser, async (req, res) => {
         }]).select().single();
         
         if (error) throw error;
-        logger.info(`New Processor Registered: ${data.companyName} by ${req.user.email}`);
+        logger.info(`New Processor Registered: ${data.companyName}`);
         res.status(201).json({ apiKey, message: "Account created successfully" });
     } catch (err) {
         if (err instanceof z.ZodError) return res.status(400).json({ error: err.errors });
@@ -408,7 +444,9 @@ app.post('/api/processors', authenticateUser, async (req, res) => {
     }
 });
 
-// 7. Stripe Checkout
+/**
+ * 7. Stripe Checkout
+ */
 const STRIPE_PRICES = {
   professional: 'price_1SXpLc48POA4USE9M4nzLvKP', 
   enterprise: 'price_PLACEHOLDER_ENTERPRISE_ID'
@@ -428,14 +466,19 @@ app.post('/api/stripe/create-checkout-session', async (req, res) => {
     }
 });
 
-// 8. GDPR Erasure (HYBRID - Fixad för dig)
+/**
+ * 8. GDPR Erasure (Hybrid)
+ * Performs Crypto-Shredding of user data.
+ */
 app.post('/api/gdpr/erase', authenticateAny, async (req, res) => {
-    if (!req.processor) return res.status(403).json({ error: 'Access denied: No linked processor.' });
+    if (!req.processor) return res.status(403).json({ error: 'Access denied.' });
     
     try {
         const { user_identifier_hash } = req.body;
         if (!user_identifier_hash) return res.status(400).json({ error: 'Missing identifier hash' });
 
+        // Crypto-Shredding: Overwrite ID with random token and clear data payload.
+        // Timestamps and Hashes remain to preserve Merkle Tree integrity.
         const { data, error } = await supabase
             .from('audit_events')
             .update({ 
@@ -448,9 +491,10 @@ app.post('/api/gdpr/erase', authenticateAny, async (req, res) => {
         
         if (error) throw error;
 
+        // Log the erasure action in the immutable admin log
         await supabase.from('admin_audit_logs').insert([{
             processor_id: req.processor.id,
-            user_email: req.user?.email || 'api_key_system',
+            user_email: req.user?.email || 'api_system',
             action: 'gdpr_erasure_executed',
             details: { count: data.length, target_hash_prefix: user_identifier_hash.substring(0,8) }
         }]);
@@ -467,5 +511,5 @@ app.post('/api/gdpr/erase', authenticateAny, async (req, res) => {
     }
 });
 
-// Start
+// Start Server
 app.listen(PORT, () => logger.info(`🚀 Enterprise Server running on port ${PORT}`));
