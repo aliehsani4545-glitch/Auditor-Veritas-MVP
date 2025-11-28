@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import MerkleProofViewer from './MerkleProofViewer'; 
 
-// --- API HELPER (Fixad för att hantera ZIP och fel) ---
+// --- API HELPER ---
 const API_BASE_URL = 'https://auditor-veritas-mvp.onrender.com';
 
 const apiCall = async (endpoint, options = {}, token = null, apiKey = null) => {
@@ -32,7 +32,7 @@ const apiCall = async (endpoint, options = {}, token = null, apiKey = null) => {
     }
 };
 
-// --- ONBOARDING GUIDE COMPONENT (Oförändrad) ---
+// --- ONBOARDING GUIDE COMPONENT ---
 const DashboardGuide = ({ isOpen, onClose }) => {
     const [step, setStep] = useState(0);
 
@@ -109,7 +109,7 @@ const DashboardGuide = ({ isOpen, onClose }) => {
     );
 };
 
-// --- COMPONENT: LIVE ACTIVITY CHART (Fixad för synlighet) ---
+// --- COMPONENT: LIVE ACTIVITY CHART ---
 const LiveActivityChart = ({ dataPoints = [] }) => {
   const displayPoints = dataPoints.length < 10 ? [...Array(10 - dataPoints.length).fill(0), ...dataPoints] : dataPoints;
   const maxVal = Math.max(...displayPoints, 10); 
@@ -121,24 +121,19 @@ const LiveActivityChart = ({ dataPoints = [] }) => {
   }).join(' L ');
 
   return (
-    // LADE TILL: bg-blue-50/20 bakgrund för synlighet
     <div className="relative h-40 w-full overflow-hidden rounded-lg mt-4 bg-blue-50/20">
       <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute bottom-0 left-0 right-0 h-full w-full">
         <defs>
             <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3" /> {/* Ökad opacity */}
+                <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3" />
                 <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
             </linearGradient>
         </defs>
-        
-        {/* LADE TILL EN ENKEL GRID FÖR SYNTHET */}
         <line x1="0" y1="50" x2="100" y2="50" stroke="#94a3b8" strokeOpacity="0.3" strokeWidth="0.5" />
         <line x1="0" y1="80" x2="100" y2="80" stroke="#94a3b8" strokeOpacity="0.3" strokeWidth="0.5" />
-
         {displayPoints.length > 1 && (
             <>
                 <path d={`M 0,100 L ${pathData} L 100,100 Z`} fill="url(#chartGrad)" />
-                {/* Ökad strokeWidth för att linjen ska synas */}
                 <path d={`M 0,100 L ${pathData}`} fill="none" stroke="#3b82f6" strokeWidth="2.5" vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" /> 
             </>
         )}
@@ -148,14 +143,14 @@ const LiveActivityChart = ({ dataPoints = [] }) => {
 };
 
 
-// --- COMPONENT: REAL GDPR ERASURE (Oförändrad) ---
+// --- COMPONENT: REAL GDPR ERASURE (ENGLISH) ---
 const ErasureForm = ({ token }) => {
     const [userId, setUserId] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [result, setResult] = useState(null);
     const handleErase = async (e) => {
         e.preventDefault();
-        if(!confirm("VARNING: Detta raderar krypteringsnyckeln permanent. Datan kan aldrig återställas. Är du säker?")) return;
+        if(!confirm("WARNING: This will permanently destroy the encryption key. Data will be mathematically unrecoverable. Are you sure?")) return;
         setIsLoading(true);
         setResult(null);
         try {
@@ -172,7 +167,7 @@ const ErasureForm = ({ token }) => {
                 <p className="text-xs text-slate-500 mb-4">Permanently pseudonymize a user's data by destroying the encryption key without breaking the audit chain's integrity.</p>
                 <form onSubmit={handleErase} className="space-y-4">
                     <div><label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5">User Identifier (Cleartext)</label><input type="text" placeholder="e.g. user@example.com" className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:border-red-500 outline-none transition-all placeholder:text-slate-300" value={userId} onChange={e => setUserId(e.target.value)} required /></div>
-                    <button type="submit" disabled={isLoading} className="w-full bg-red-600 hover:bg-700 text-white py-2.5 rounded-lg font-bold text-xs uppercase transition-all flex justify-center items-center gap-2">{isLoading ? <RefreshCw className="animate-spin w-3.5 h-3.5"/> : <><Trash2 size={14}/> Execute Shredding</>}</button>
+                    <button type="submit" disabled={isLoading} className="w-full bg-red-600 hover:bg-red-700 text-white py-2.5 rounded-lg font-bold text-xs uppercase transition-all flex justify-center items-center gap-2">{isLoading ? <RefreshCw className="animate-spin w-3.5 h-3.5"/> : <><Trash2 size={14}/> Execute Shredding</>}</button>
                 </form>
                 {result && <div className={`mt-4 p-3 rounded-lg text-xs border ${result.success ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}`}>{result.message}</div>}
             </div>
@@ -180,7 +175,7 @@ const ErasureForm = ({ token }) => {
     );
 };
 
-// --- COMPONENT: EVENT SEARCH AND FILTER (Oförändrad) ---
+// --- COMPONENT: EVENT SEARCH AND FILTER (ENGLISH) ---
 const EventSearchAndFilter = ({ token }) => {
     const [query, setQuery] = useState('');
     const [searchResults, setSearchResults] = useState([]);
@@ -211,7 +206,7 @@ const EventSearchAndFilter = ({ token }) => {
     );
 };
 
-// --- SUB-COMPONENT: LOGS TABLE (Oförändrad) ---
+// --- SUB-COMPONENT: LOGS TABLE (ENGLISH) ---
 const RecentLogsTable = ({ logs = [] }) => {
   if (logs.length === 0) return (<div className="p-12 text-center text-slate-500 text-xs">No events found.</div>);
   return (
@@ -219,7 +214,7 @@ const RecentLogsTable = ({ logs = [] }) => {
   );
 };
 
-// --- COMPONENT: AUDITOR EXPORT (REAL ZIP, Oförändrad) ---
+// --- COMPONENT: AUDITOR EXPORT (ENGLISH) ---
 const AuditorExport = ({ token }) => {
     const [isDownloading, setIsDownloading] = useState(false);
 
@@ -250,7 +245,7 @@ const AuditorExport = ({ token }) => {
             <div className="flex-1">
                 <h3 className="text-lg font-bold text-slate-900">Auditor Evidence Package</h3>
                 <p className="text-sm text-slate-500 mt-1">
-                    Ladda ner ett kryptografiskt bevispaket (ZIP). Innehåller hela den krypterade loggkedjan och verifieringsskript för externa revisorer.
+                    Download a comprehensive cryptographic proof package (ZIP). Contains the entire encrypted log chain and verification scripts for external auditors.
                 </p>
             </div>
             <button 
@@ -259,18 +254,16 @@ const AuditorExport = ({ token }) => {
                 className="bg-[#0a2540] hover:bg-[#1e293b] text-white px-6 py-3 rounded-lg font-bold text-sm shadow-lg flex items-center gap-2 transition-all whitespace-nowrap"
             >
                 {isDownloading ? <RefreshCw className="animate-spin" size={18}/> : <FileDown size={18}/>}
-                {isDownloading ? 'Genererar ZIP...' : 'Exportera Bevis'}
+                {isDownloading ? 'Generating ZIP...' : 'Export Evidence'}
             </button>
         </div>
     );
 };
 
-// --- COMPONENT: EVENT INJECTOR FORM (Ersätter Simulator) ---
+// --- COMPONENT: EVENT INJECTOR FORM (ENGLISH + MASKED KEY) ---
 const EventInjectorForm = ({ onLogEvent, eventData, setEventData }) => {
-    // Läser från localStorage för att persistera nyckeln
     const [localApiKey, setLocalApiKey] = useState(() => localStorage.getItem('av_sim_key') || '');
     
-    // Sparar nyckeln lokalt när fältet ändras
     const handleKeyChange = (e) => {
         const key = e.target.value;
         setLocalApiKey(key);
@@ -281,15 +274,15 @@ const EventInjectorForm = ({ onLogEvent, eventData, setEventData }) => {
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex items-center gap-2"><Zap className="text-amber-500" size={16} /><h3 className="font-bold text-slate-700 text-sm">Event Injector</h3></div>
             <div className="p-5">
-                <p className="text-xs text-slate-500 mb-4">Testa din infrastruktur genom att logga en äkta, krypterad händelse.</p>
+                <p className="text-xs text-slate-500 mb-4">Test your infrastructure by logging a real, encrypted event.</p>
                 <form onSubmit={onLogEvent} className="space-y-4">
                     
-                    {/* NYCKELFÄLTET (Hanterar persistens via state/localStorage) */}
+                    {/* KEY FIELD (MASKED) */}
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5">Active API Key (Persisterar lokalt)</label>
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5">Active API Key (Saved locally)</label>
                         <input 
-                            type="text" 
-                            placeholder="Klistra in roterad nyckel här..." 
+                            type="password" 
+                            placeholder="Paste rotated key here..." 
                             className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-lg text-sm font-mono focus:ring-1 focus:ring-blue-500/50 outline-none transition-all text-slate-700" 
                             value={localApiKey}
                             onChange={handleKeyChange}
@@ -297,7 +290,7 @@ const EventInjectorForm = ({ onLogEvent, eventData, setEventData }) => {
                         />
                     </div>
                     
-                    {/* ÖVRIGA FÄLT (Oförändrad) */}
+                    {/* OTHER FIELDS */}
                     <div><label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5">Event Type</label><input type="text" placeholder="user.login" className="w-full px-3 py-2 border rounded-lg text-sm" value={eventData.event_type} onChange={e => setEventData({...eventData, event_type: e.target.value})} required /></div>
                     <div><label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5">User ID</label><input type="text" placeholder="user@email.com" className="w-full px-3 py-2 border rounded-lg text-sm" value={eventData.user_identifier} onChange={e => setEventData({...eventData, user_identifier: e.target.value})} required /></div>
                     <div><label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5">JSON Payload</label><textarea placeholder='{"status": "success"}' className="w-full px-3 py-2 border rounded-lg font-mono text-xs h-24" value={eventData.event_data} onChange={e => setEventData({...eventData, event_data: e.target.value})} required /></div>
@@ -330,7 +323,7 @@ const Dashboard = ({ processor, stats, token, eventData, setEventData, onLogEven
       
       <DashboardGuide isOpen={showGuide} onClose={closeGuide} />
 
-      {/* Header Section (Oförändrad) */}
+      {/* Header Section */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-6 border-b border-slate-200 pb-6">
         <div>
           <div className="flex items-center gap-2 mb-2">
@@ -352,7 +345,6 @@ const Dashboard = ({ processor, stats, token, eventData, setEventData, onLogEven
                 <div className="text-xs text-slate-400 font-bold uppercase mb-1">Total Events</div>
                 <div className="text-4xl font-bold text-slate-900">{stats.totalEvents}</div>
             </div>
-            {/* INKLUDERAR FIXAD GRAF */}
             <LiveActivityChart dataPoints={chartData} />
         </div>
         <div className="space-y-6">
@@ -365,9 +357,7 @@ const Dashboard = ({ processor, stats, token, eventData, setEventData, onLogEven
         </div>
       </div>
       
-      {/* EVIDENCE PACKAGE EXPORT */}
       <AuditorExport token={token} />
-
 
       {/* Tabs */}
       <div className="flex gap-4 border-b border-slate-200 mb-6 overflow-x-auto">
@@ -386,7 +376,6 @@ const Dashboard = ({ processor, stats, token, eventData, setEventData, onLogEven
            {activeTab === 'compliance' && <ErasureForm token={token} />}
         </div>
         <div className="space-y-6">
-           {/* ERSATT SIMULATOR MED KORREKT INJECTOR */}
            <EventInjectorForm onLogEvent={onLogEvent} eventData={eventData} setEventData={setEventData} />
            
            <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 flex items-start gap-3"><div className="p-1.5 bg-blue-100 rounded-full shrink-0 text-blue-600"><Lock size={14} /></div><div><h4 className="text-xs font-bold text-blue-800 mb-1">Security Note</h4><p className="text-[10px] text-blue-600/80 leading-relaxed">Events logged here are signed with your API key and stored immutably. The system uses Crypto-Shredding for GDPR compliance.</p></div></div>
