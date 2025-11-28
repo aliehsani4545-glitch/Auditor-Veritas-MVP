@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+# Ange platsen för din Sitemap
+Sitemap: https://auditorveritas.com/sitemap.xml

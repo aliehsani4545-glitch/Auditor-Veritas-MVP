@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    
+    <meta name="theme-color" content="#020617">
+    <title>Auditor Veritas | Immutable Audit Logs & GDPR Compliance</title>
+    <meta name="description" content="Evidence-grade audit infrastructure for modern engineering teams. Secure, tamper-evident, and compliant by default.">
+    <meta name="keywords" content="audit logs, gdpr, compliance, security, immutable ledger, merkle tree, api">
+    <meta name="author" content="Auditor Veritas AB">
+    
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://auditorveritas.com/">
+    <meta property="og:title" content="Auditor Veritas | Compliance Engineered.">
+    <meta property="og:description" content="Replace fragile internal logs with an immutable chain of custody. Built for FinTech, HealthTech, and Governance.">
+    <meta property="og:image" content="/og-image.jpg">
+    
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Auditor Veritas | Compliance Engineered.">
+    <meta name="twitter:description" content="Replace fragile internal logs with an immutable chain of custody.">
+    <meta name="twitter:image" content="/og-image.jpg">
+
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Auditor Veritas">
+
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background-color: #020617; /* Svart bakgrund för att undvika vit blinkning vid laddning */
+        min-height: 100vh;
+        -webkit-touch-callout: none; -webkit-user-select: none; -khtml-user-select: none;
+        -moz-user-select: none; -ms-user-select: none; user-select: none;
+      }
+      .loading-spinner {
+        display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; color: #94a3b8; font-size: 0.9rem; letter-spacing: 0.05em;
+      }
+      .spinner {
+        border: 3px solid rgba(255, 255, 255, 0.1); border-radius: 50%; border-top: 3px solid #635bff;
+        width: 50px; height: 50px; animation: spin 1s linear infinite; margin-bottom: 20px;
+      }
+      @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+  </head>
+  <body>
+    
+    <form name="enterprise-inquiry" netlify netlify-honeypot="bot-field" hidden>
+      <input type="text" name="name" required />
+      <input type="email" name="email" required />
+      <input type="text" name="company" required />
+      <input type="text" name="role" />
+      <input type="text" name="industry" />
+      <input type="text" name="volume" />
+      <input type="text" name="region" />
+      <input type="text" name="timeline" />
+      <input type="text" name="retention" />
+      <input type="text" name="compliance_list" />
+    </form>
+    
+    <div id="loading" class="loading-spinner">
+      <div class="spinner"></div>
+      <span>Initializing Secure Environment...</span>
+    </div>
+    
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+    
+    <script>
+      // Hide loading screen when React is ready
+      window.addEventListener('load', function() {
+        setTimeout(function() {
+          const loading = document.getElementById('loading');
+          if (loading) {
+            loading.style.opacity = '0';
+            loading.style.transition = 'opacity 0.5s ease';
+            setTimeout(() => loading.style.display = 'none', 500);
+          }
+        }, 800);
+      });
+      
+      // Security: Prevent iframe embedding
+      document.addEventListener('DOMContentLoaded', function() {
+        if (window.location !== window.parent.location) window.top.location = window.location;
+      });
+    </script>
+  </body>
+</html>
