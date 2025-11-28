@@ -8,7 +8,7 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { 
   ShieldCheck, RotateCw, RefreshCw, Eye, Copy, AlertTriangle, 
   Menu, X, Sparkles, Server, Cookie, Lock, LogOut, User, LayoutGrid, 
-  CheckCircle2, Zap, ArrowRight, Download // Added Download icon
+  CheckCircle2, Zap, ArrowRight, Download 
 } from 'lucide-react';
 
 // --- COMPONENTS ---
@@ -113,22 +113,28 @@ const AuthScreen = ({ onLogin }) => {
     );
 };
 
-// --- KEY ROTATION COMPONENT (UPPDATERAD MED MODAL) ---
+// --- KEY ROTATION COMPONENT ---
 const KeyRotationComponent = ({ processor, token, onKeyUpdate, onRevoke }) => {
   const [isRotating, setIsRotating] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   
-  // State för den nya "Success Modalen"
   const [newKeyData, setNewKeyData] = useState(null); 
   const [copied, setCopied] = useState(false);
+  
+  // State för att visa den masked eller fulla nyckeln i den gamla rutan
+  const [keyToDisplay, setKeyToDisplay] = useState(null); 
+  const [showKey, setShowKey] = useState(false);
+
 
   const rotate = async () => {
     setIsRotating(true);
     try {
       const data = await apiCall('/api/keys/rotate', { method: 'POST' }, token);
-      onKeyUpdate(data.newApiKey);
       
-      // Istället för alert, sätter vi data så modalen öppnas
+      // VIKTIGT: Sätt nyckeln i local storage här för injektorn
+      localStorage.setItem('av_sim_key', data.newApiKey);
+      
+      onKeyUpdate(data.newApiKey);
       setNewKeyData(data.newApiKey);
       setShowConfirm(false);
     } catch (err) { alert(err.message); } 
@@ -150,10 +156,6 @@ const KeyRotationComponent = ({ processor, token, onKeyUpdate, onRevoke }) => {
     element.click();
   };
   
-  // State för att visa den masked eller fulla nyckeln i den gamla rutan
-  const [keyToDisplay, setKeyToDisplay] = useState(null); 
-  const [showKey, setShowKey] = useState(false);
-
 
   return (
     <>
@@ -198,7 +200,7 @@ const KeyRotationComponent = ({ processor, token, onKeyUpdate, onRevoke }) => {
         </div>
       </div>
 
-      {/* --- NEW KEY MODAL (Den snälla rutan) --- */}
+      {/* --- NEW KEY MODAL --- */}
       {newKeyData && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
             <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 border border-slate-200">
@@ -243,7 +245,7 @@ const KeyRotationComponent = ({ processor, token, onKeyUpdate, onRevoke }) => {
 };
 
 
-// --- CREATE PROCESSOR COMPONENT ---
+// --- CREATE PROCESSOR COMPONENT (Oförändrad) ---
 const CreateProcessor = ({ token, onProcessorCreated, email }) => {
     const [companyName, setCompanyName] = useState('');
     const [plan, setPlan] = useState('starter');
@@ -307,13 +309,13 @@ function App() {
   const [activeTab, setActiveTab] = useState('home');
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [session, setSession] = useState(null); 
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); // State för mobilmeny
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); 
   
   const [processor, setProcessor] = useState(null); 
   const [stats, setStats] = useState({ totalEvents: 0, monthlyEvents: 0 });
   const [recentLogs, setRecentLogs] = useState([]);
   const [chartData, setChartData] = useState([]);
-  const [simulationApiKey, setSimulationApiKey] = useState(''); 
+  const [simulationApiKey, setSimulationApiKey] = useState(localStorage.getItem('av_sim_key') || ''); // Läser från local storage vid start
   const [eventData, setEventData] = useState({ event_type: 'user_login', event_data: '{}', user_identifier: 'user123' });
   
   const [showSecurity, setShowSecurity] = useState(false);
@@ -341,8 +343,10 @@ function App() {
       setStats(data.stats);
       const logs = await apiCall('/api/events/search?limit=15', { method: 'GET' }, session.access_token);
       setRecentLogs(logs.events || []);
+      
+      // Fix: Tvinga fram synliga slumpvärden om events finns
       if (data.stats.totalEvents > 0) {
-           setChartData([...Array(10)].map(() => Math.floor(Math.random() * 50) + 10)); 
+           setChartData([...Array(10)].map(() => Math.floor(Math.random() * 50) + 30)); // Ökad baslinje för synlighet
       } else {
            setChartData([0,0,0,0,0,0,0,0,0,0]);
       }
@@ -360,17 +364,25 @@ function App() {
       if (activeTab === 'dashboard' && session) { fetchDashboard(); }
   }, [activeTab, session]);
   
+  // FIX: Läs nyckeln från local storage för att lösa "rotera varje gång" problemet.
   const handleLogEvent = async (e) => { 
     e.preventDefault(); 
-    if(!simulationApiKey) return alert("API Key is required for the simulation. Rotate a key and copy it first.");
+    const activeApiKey = localStorage.getItem('av_sim_key');
+    
+    if(!activeApiKey) return alert("API Key saknas. Rotera en nyckel och klistra in den i Event Injector-fältet.");
+
     try { 
         const hashedID = eventData.user_identifier ? CryptoJS.SHA256(eventData.user_identifier).toString() : "anonymous";
         const payload = { event_type: eventData.event_type, user_identifier: hashedID, event_data: JSON.parse(eventData.event_data) };
-        await apiCall('/api/events', { method: 'POST', body: payload }, null, simulationApiKey); 
-        alert('Event Logged securely.'); 
+        
+        await apiCall('/api/events', { method: 'POST', body: payload }, null, activeApiKey); 
+        
+        alert('Händelse loggad säkert.'); 
         fetchDashboard(); 
         setEventData({ event_type: 'user_login', event_data: '{}', user_identifier: 'user123' }); 
-    } catch (error) { alert(`Error: ${error.message}`); }
+    } catch (error) { 
+        alert(`Fel vid loggning: ${error.message}. Kontrollera att din API-nyckel är korrekt.`); 
+    }
   };
   
   const handleLogout = async () => {
@@ -443,7 +455,6 @@ function App() {
       </header>
       
       <main className="pt-20">
-        {/* ... Rest of your main content ... */}
         {activeTab === 'home' && (
           <div className="bg-[#020617] min-h-screen">
              <div className="relative min-h-[90vh] flex items-center justify-center overflow-hidden text-center z-10">

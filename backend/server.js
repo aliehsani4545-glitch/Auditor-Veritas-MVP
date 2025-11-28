@@ -11,7 +11,7 @@ import { z } from 'zod';
 import stringify from 'fast-json-stable-stringify';
 import winston from 'winston';
 import morgan from 'morgan';
-import archiver from 'archiver'; // KRÄVS: npm install archiver
+import archiver from 'archiver'; // MÅSTE VARA INSTALLERAD OCH I package.json
 
 // Ladda miljövariabler
 if (process.env.NODE_ENV !== 'production') {
@@ -24,7 +24,6 @@ const PORT = process.env.PORT || 3001;
 // --- 1. SÄKERHET & CONFIG ---
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
-// HÄMTAR DIN MASTER KEY FRÅN MILJÖVARIABLER
 const MASTER_KEY = process.env.MASTER_ENCRYPTION_KEY; 
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY || !MASTER_KEY) {
@@ -48,7 +47,6 @@ const logger = winston.createLogger({
 app.use(morgan('combined', { stream: { write: message => logger.info(message.trim()) } }));
 app.use(helmet());
 
-// CORS Config
 const ALLOWED_ORIGINS = [
     'https://auditorveritas.com',
     'https://dreamy-banoffee-1603b3.netlify.app',
@@ -93,8 +91,6 @@ const eventSubmissionSchema = z.object({
 });
 
 // --- 5. AUTHENTICATION ---
-// (Behåller din autentiseringslogik men rensad för överskådlighet)
-
 const authenticateApiKey = async (req, res, next) => {
   const apiKey = req.headers['x-api-key'];
   if (!apiKey) return res.status(401).json({ error: 'API key required' });
@@ -143,15 +139,15 @@ app.post('/api/events', authenticateApiKey, async (req, res) => {
         const { event_type, user_identifier, event_data } = eventSubmissionSchema.parse(req.body);
         const processor = req.processor;
         const timestamp = new Date().toISOString();
-        const userHash = CryptoJS.SHA256(user_identifier).toString(); // Deterministiskt ID
+        const userHash = CryptoJS.SHA256(user_identifier).toString();
 
         // A. Hämta/Skapa AES-nyckel för användaren
         let { data: keyRow } = await supabase.from('encryption_keys').select('encrypted_key').eq('user_identifier_hash', userHash).single();
         
         let userKey;
         if (!keyRow) {
-            userKey = uuidv4() + "-" + uuidv4(); // Unik nyckel
-            const encryptedUserKey = encryptData(userKey, MASTER_KEY); // Spara säkert med Master Key
+            userKey = uuidv4() + "-" + uuidv4(); 
+            const encryptedUserKey = encryptData(userKey, MASTER_KEY);
             await supabase.from('encryption_keys').insert([{ user_identifier_hash: userHash, encrypted_key: encryptedUserKey }]);
         } else {
             userKey = decryptData(keyRow.encrypted_key, MASTER_KEY);
@@ -178,13 +174,12 @@ app.post('/api/events', authenticateApiKey, async (req, res) => {
             processor_id: processor.id,
             event_type,
             user_identifier: userHash,
-            event_data: { encrypted: encryptedPayload }, // Endast krypterat sparas
+            event_data: { encrypted: encryptedPayload },
             event_timestamp: timestamp,
             data_hash,
             previous_hash
         }]).select().single();
 
-        // Uppdatera kvota
         try { await supabase.rpc('increment_processor_usage', { pid: processor.id }); } catch (e) {}
 
         res.status(201).json({ success: true, eventId: data.id, hash: data_hash });
@@ -205,7 +200,6 @@ app.post('/api/gdpr/erase', authenticateAny, async (req, res) => {
         const { user_identifier_hash } = req.body;
         if (!user_identifier_hash) return res.status(400).json({ error: 'Missing hash' });
 
-        // RADERA NYCKELN = Oåterkallelig radering av data
         const { error } = await supabase.from('encryption_keys')
             .delete()
             .eq('user_identifier_hash', user_identifier_hash);
@@ -219,7 +213,7 @@ app.post('/api/gdpr/erase', authenticateAny, async (req, res) => {
             details: { target: user_identifier_hash }
         }]);
 
-        res.json({ success: true, message: "Key destroyed. Data permanently unrecoverable." });
+        res.json({ success: true, message: "Encryption key destroyed. Data permanently unrecoverable." });
     } catch (err) {
         res.status(500).json({ error: 'Erasure failed' });
     }
@@ -239,7 +233,6 @@ app.get('/api/export/evidence', authenticateUser, async (req, res) => {
 
         archive.pipe(res);
 
-        // Hämta loggar (Exempel: senaste 5000)
         const { data: logs } = await supabase
             .from('audit_events')
             .select('id, event_timestamp, event_type, data_hash, previous_hash, event_data, user_identifier')
@@ -247,10 +240,8 @@ app.get('/api/export/evidence', authenticateUser, async (req, res) => {
             .order('event_timestamp', { ascending: true })
             .limit(5000);
 
-        // 1. Rådata
         archive.append(JSON.stringify(logs, null, 2), { name: 'encrypted_ledger.json' });
 
-        // 2. Verifieringsscript
         const verifyScript = `
         const fs = require('fs');
         const logs = JSON.parse(fs.readFileSync('./encrypted_ledger.json'));
@@ -273,11 +264,7 @@ app.get('/api/export/evidence', authenticateUser, async (req, res) => {
     }
 });
 
-// --- BEHÅLLNA STANDARD ENDPOINTS (Dashboard, Search, Key Rotation, Processors) ---
-// (Dessa är oförändrade från din ursprungliga fil men nödvändiga för att dashboarden ska funka)
-
 app.get('/api/dashboard', authenticateUser, async (req, res) => {
-    // ... (Samma logik som förut: returnera stats)
     if (!req.processor) return res.status(404).json({ error: 'Processor not found' });
     const { count } = await supabase.from('audit_events').select('*', { count: 'exact', head: true }).eq('processor_id', req.processor.id);
     res.json({
@@ -287,7 +274,6 @@ app.get('/api/dashboard', authenticateUser, async (req, res) => {
 });
 
 app.get('/api/events/search', authenticateAny, async (req, res) => {
-    // ... (Samma söklogik)
     if (!req.processor) return res.status(403).json({ error: 'Access denied' });
     const { query, limit = 20 } = req.query;
     let dbQuery = supabase.from('audit_events').select('*').eq('processor_id', req.processor.id).order('event_timestamp', { ascending: false }).limit(parseInt(limit));
@@ -297,7 +283,6 @@ app.get('/api/events/search', authenticateAny, async (req, res) => {
 });
 
 app.post('/api/keys/rotate', authenticateUser, async (req, res) => {
-    // ... (Key rotation logik)
     if (!req.processor) return res.status(403).json({ error: 'Access denied' });
     const newApiKey = `av_${uuidv4().replace(/-/g, '')}`;
     const newHash = CryptoJS.SHA256(newApiKey).toString();
@@ -306,7 +291,6 @@ app.post('/api/keys/rotate', authenticateUser, async (req, res) => {
 });
 
 app.post('/api/processors', authenticateUser, async (req, res) => {
-    // ... (Skapa processor logik)
     const { companyName, plan } = req.body;
     if (req.processor) return res.status(409).json({ error: 'Exists' });
     const apiKey = `av_${uuidv4().replace(/-/g, '')}`;
@@ -317,9 +301,7 @@ app.post('/api/processors', authenticateUser, async (req, res) => {
     res.status(201).json({ apiKey });
 });
 
-// Merkle Proof Endpoint (Förenklad för kontext)
 app.get('/api/merkle/proof/:eventId', authenticateAny, async (req, res) => {
-    // För MVP: Hämta hashar och bygg träd i minnet (optimera i prod)
     if (!req.processor) return res.status(403).json({ error: 'Access denied' });
     const { data: event } = await supabase.from('audit_events').select('data_hash').eq('id', req.params.eventId).single();
     if(!event) return res.status(404).json({error: 'Not found'});
