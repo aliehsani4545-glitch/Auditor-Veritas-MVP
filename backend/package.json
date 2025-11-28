@@ -11,6 +11,7 @@
     "production": "NODE_ENV=production node server.js"
   },
   "dependencies": {
+"archiver": "^7.0.1",
     "@supabase/supabase-js": "^2.38.0",
     "cors": "^2.8.5",
     "crypto-js": "^4.2.0",
