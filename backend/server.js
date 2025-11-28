@@ -13,7 +13,7 @@ import winston from 'winston';
 import morgan from 'morgan';
 import archiver from 'archiver'; 
 
-// Ladda miljövariabler
+// Load environment variables
 if (process.env.NODE_ENV !== 'production') {
   config();
 }
@@ -34,6 +34,8 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY || !MASTER_KEY) {
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false }
 });
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_placeholder');
 
 // --- 2. LOGGING & MIDDLEWARE ---
 const logger = winston.createLogger({
@@ -84,26 +86,21 @@ const sha256 = (data) => CryptoJS.SHA256(data).toString();
 // --- 4. DATABASE-BACKED MERKLE ENGINE (THE "ACCUMULATOR") ---
 class DBMerkleService {
     
-    // Anropas vid varje nytt event för att uppdatera trädet inkrementellt
     static async appendLeaf(leafHash, leafIndex) {
-        // 1. Spara lövet i noder-tabellen (Level 0)
         await supabase.from('merkle_nodes').upsert({
             level: 0,
             node_index: leafIndex,
             hash: leafHash
         });
 
-        // 2. Rekursivt uppdatera föräldrar (Path to Root)
         let currentLevel = 0;
         let currentIndex = leafIndex;
         let currentHash = leafHash;
 
         while (true) {
-            // Är vi höger eller vänster barn?
             const isRightNode = currentIndex % 2 === 1;
             const siblingIndex = isRightNode ? currentIndex - 1 : currentIndex + 1;
             
-            // Hämta syskonet från DB
             const { data: siblingNode } = await supabase
                 .from('merkle_nodes')
                 .select('hash')
@@ -111,13 +108,7 @@ class DBMerkleService {
                 .eq('node_index', siblingIndex)
                 .single();
 
-            // Om syskonet inte finns än (vi väntar på nästa event), stanna här.
-            // Detta är en "Append-Only" logik. Trädet är komplett upp till där par finns.
             if (!siblingNode && !isRightNode) {
-                // Vi är ett ensamt vänsterbarn. Vi blir den tillfälliga roten för denna gren.
-                // Vi uppdaterar föräldern med oss själva (eller väntar).
-                // För enkelhetens skull i denna MVP sparar vi "path up" med duplicering om syskon saknas,
-                // eller så väntar vi. Låt oss duplicera för att alltid ha en rot (standard Merkle).
                 const parentHash = sha256(currentHash + currentHash);
                 const parentIndex = Math.floor(currentIndex / 2);
                 
@@ -131,11 +122,9 @@ class DBMerkleService {
                 currentIndex = parentIndex;
                 currentHash = parentHash;
                 
-                // Säkerhetsspärr för oändlig loop (max 32 nivåer ~ 4 miljarder events)
                 if (currentLevel > 32) break;
                 continue;
             } else if (siblingNode) {
-                // Syskon finns! Hasha ihop dem.
                 const leftHash = isRightNode ? siblingNode.hash : currentHash;
                 const rightHash = isRightNode ? currentHash : siblingNode.hash;
                 const parentHash = sha256(leftHash + rightHash);
@@ -151,19 +140,16 @@ class DBMerkleService {
                 currentIndex = parentIndex;
                 currentHash = parentHash;
             } else {
-                // Vi är ett högerbarn men vänster saknas? (Ska teoretiskt inte hända i append-only)
                 break;
             }
         }
     }
 
-    // Genererar bevis genom att hämta specifika noder (O(log n))
     static async getProof(leafIndex, totalLeaves) {
         const proof = [];
         let currentLevel = 0;
         let currentIndex = leafIndex;
 
-        // Beräkna trädets höjd ungefär
         const maxLevel = Math.ceil(Math.log2(totalLeaves + 1)) + 1; 
 
         for (let i = 0; i < maxLevel; i++) {
@@ -182,18 +168,12 @@ class DBMerkleService {
                     position: isRightNode ? 'left' : 'right',
                     hash: sibling.hash
                 });
-            } else {
-                // Inget syskon i DB? Då duplicerar vi oss själva i beviset (samma logik som vid bygge)
-                // Eller så har vi nått toppen.
-                // För visualiseringens skull kan vi lägga till "self" om det behövs, 
-                // men oftast betyder detta att vi är på en "edge".
             }
 
             currentIndex = Math.floor(currentIndex / 2);
             currentLevel++;
         }
         
-        // Hämta Roten (högsta noden vi hittar)
         const { data: rootNode } = await supabase
             .from('merkle_nodes')
             .select('hash')
@@ -205,23 +185,64 @@ class DBMerkleService {
     }
 }
 
-// --- 5. ROUTES ---
+// --- 5. VALIDATION SCHEMAS ---
+const eventSubmissionSchema = z.object({
+  event_type: z.string().min(1).max(64),
+  user_identifier: z.string().min(1).max(256), 
+  event_data: z.record(z.any()),
+});
+
+// --- 6. AUTHENTICATION MIDDLEWARE (MOVED TO TOP TO PREVENT REFERENCE ERROR) ---
+const authenticateApiKey = async (req, res, next) => {
+  const apiKey = req.headers['x-api-key'];
+  if (!apiKey) return res.status(401).json({ error: 'API key required' });
+
+  try {
+    const apiKeyHash = sha256(apiKey);
+    const { data: processor } = await supabase.from('processors').select('*').eq('api_key_hash', apiKeyHash).single();
+
+    if (!processor || processor.status === 'revoked') {
+        return res.status(401).json({ error: 'Invalid API key' });
+    }
+    req.processor = processor;
+    req.authType = 'machine';
+    next();
+  } catch (err) { res.status(500).json({ error: 'Auth Error' }); }
+};
+
+const authenticateUser = async (req, res, next) => {
+    const token = req.headers['authorization']?.split(' ')[1]; 
+    if (!token) return res.status(401).json({ error: 'Token required' });
+
+    try {
+        const { data: { user } } = await supabase.auth.getUser(token);
+        if (!user) throw new Error('Invalid Token');
+        req.user = user; 
+        const { data: processor } = await supabase.from('processors').select('*').eq('owner_id', user.id).single();
+        if (processor) req.processor = processor;
+        req.authType = 'human';
+        next();
+    } catch (err) { res.status(401).json({ error: 'Auth failed' }); }
+};
+
+const authenticateAny = async (req, res, next) => {
+    if (req.headers['x-api-key']) return authenticateApiKey(req, res, next);
+    if (req.headers['authorization']) return authenticateUser(req, res, next);
+    return res.status(401).json({ error: 'Auth required' });
+};
+
+// --- 7. ROUTES ---
 
 // Ingestion Endpoint
 app.post('/api/events', authenticateApiKey, async (req, res) => {
     try {
-        const { event_type, user_identifier, event_data } = z.object({
-            event_type: z.string().min(1).max(64),
-            user_identifier: z.string().min(1).max(256), 
-            event_data: z.record(z.any()),
-        }).parse(req.body);
-
+        const { event_type, user_identifier, event_data } = eventSubmissionSchema.parse(req.body);
         const processor = req.processor;
         const timestamp = new Date().toISOString();
         const userHash = sha256(user_identifier);
 
-        // Hämta/Skapa Krypteringsnyckel
         let { data: keyRow } = await supabase.from('encryption_keys').select('encrypted_key').eq('user_identifier_hash', userHash).single();
+        
         let userKey;
         if (!keyRow) {
             userKey = uuidv4() + "-" + uuidv4(); 
@@ -230,24 +251,22 @@ app.post('/api/events', authenticateApiKey, async (req, res) => {
         } else {
             userKey = decryptData(keyRow.encrypted_key, MASTER_KEY);
         }
+
         if (!userKey) throw new Error("Encryption key failure");
 
         const encryptedPayload = encryptData(event_data, userKey);
 
-        // Hämta förra hash för kedjan
         const { data: lastEvent } = await supabase.from('audit_events')
             .select('data_hash')
             .eq('processor_id', processor.id)
-            .order('leaf_index', { ascending: false }) // Använd nya indexet
+            .order('leaf_index', { ascending: false })
             .limit(1);
         
         const previous_hash = lastEvent?.[0]?.data_hash || null;
         
-        // Hasha data
         const hashData = { processor_id: processor.id, event_type, userHash, encryptedPayload, timestamp, previous_hash };
         const data_hash = sha256(stringify(hashData));
 
-        // Spara eventet
         const { data: savedEvent } = await supabase.from('audit_events').insert([{
             processor_id: processor.id,
             event_type,
@@ -258,8 +277,6 @@ app.post('/api/events', authenticateApiKey, async (req, res) => {
             previous_hash
         }]).select('id, leaf_index').single();
 
-        // --- MERKLE UPDATE (THE REAL DEAL) ---
-        // Uppdatera ackumulator-tabellen asynkront (eller await om strikt konsistens krävs)
         if (savedEvent && savedEvent.leaf_index !== null) {
             await DBMerkleService.appendLeaf(data_hash, savedEvent.leaf_index);
         }
@@ -274,49 +291,31 @@ app.post('/api/events', authenticateApiKey, async (req, res) => {
     }
 });
 
-// Merkle Proof Endpoint (DB Backed)
-app.get('/api/merkle/proof/:eventId', authenticateAny, async (req, res) => {
-    if (!req.processor) return res.status(403).json({ error: 'Access denied' });
-    
-    // 1. Hämta eventet och dess leaf_index
-    const { data: targetEvent } = await supabase
-        .from('audit_events')
-        .select('data_hash, leaf_index')
-        .eq('id', req.params.eventId)
-        .single();
-
-    if(!targetEvent) return res.status(404).json({error: 'Event not found'});
-
-    // 2. Hämta totalt antal löv för att veta trädets struktur
-    const { count } = await supabase
-        .from('audit_events')
-        .select('*', { count: 'exact', head: true })
-        .eq('processor_id', req.processor.id);
-
-    // 3. Generera bevis via DB-tjänsten
-    const { proof, root } = await DBMerkleService.getProof(targetEvent.leaf_index, count);
-
-    res.json({ 
-        leafHash: targetEvent.data_hash, 
-        merkleRoot: root, 
-        proof: proof, 
-        verified: true 
-    });
-});
-
 // GDPR Endpoint
 app.post('/api/gdpr/erase', authenticateAny, async (req, res) => {
     if (!req.processor) return res.status(403).json({ error: 'Access denied.' });
+    
     try {
         const { user_identifier_hash } = req.body;
         if (!user_identifier_hash) return res.status(400).json({ error: 'Missing hash' });
-        const { error } = await supabase.from('encryption_keys').delete().eq('user_identifier_hash', user_identifier_hash);
+
+        const { error } = await supabase.from('encryption_keys')
+            .delete()
+            .eq('user_identifier_hash', user_identifier_hash);
+        
         if (error) throw error;
+
         await supabase.from('admin_audit_logs').insert([{
-            processor_id: req.processor.id, user_email: req.user?.email || 'api_system', action: 'CRYPTO_SHRED_EXECUTED', details: { target: user_identifier_hash }
+            processor_id: req.processor.id,
+            user_email: req.user?.email || 'api_system',
+            action: 'CRYPTO_SHRED_EXECUTED',
+            details: { target: user_identifier_hash }
         }]);
+
         res.json({ success: true, message: "Encryption key destroyed. Data permanently unrecoverable." });
-    } catch (err) { res.status(500).json({ error: 'Erasure failed' }); }
+    } catch (err) {
+        res.status(500).json({ error: 'Erasure failed' });
+    }
 });
 
 // Export Endpoint
@@ -331,7 +330,6 @@ app.get('/api/export/evidence', authenticateUser, async (req, res) => {
         const { data: logs } = await supabase.from('audit_events').select('*').eq('processor_id', req.processor.id).order('leaf_index', { ascending: true }).limit(5000);
         archive.append(JSON.stringify(logs, null, 2), { name: 'encrypted_ledger.json' });
         
-        // Inkludera även Merkle Nodes i exporten för full transparens
         const { data: nodes } = await supabase.from('merkle_nodes').select('*').limit(1000);
         archive.append(JSON.stringify(nodes, null, 2), { name: 'merkle_tree_structure.json' });
 
@@ -340,38 +338,34 @@ app.get('/api/export/evidence', authenticateUser, async (req, res) => {
     } catch (err) { res.status(500).end(); }
 });
 
-// Dashboard & Helpers
-const authenticateApiKey = async (req, res, next) => {
-  const apiKey = req.headers['x-api-key'];
-  if (!apiKey) return res.status(401).json({ error: 'API key required' });
-  try {
-    const apiKeyHash = sha256(apiKey);
-    const { data: processor } = await supabase.from('processors').select('*').eq('api_key_hash', apiKeyHash).single();
-    if (!processor || processor.status === 'revoked') return res.status(401).json({ error: 'Invalid API key' });
-    req.processor = processor;
-    next();
-  } catch (err) { res.status(500).json({ error: 'Auth Error' }); }
-};
+// Merkle Proof Endpoint
+app.get('/api/merkle/proof/:eventId', authenticateAny, async (req, res) => {
+    if (!req.processor) return res.status(403).json({ error: 'Access denied' });
+    
+    const { data: targetEvent } = await supabase
+        .from('audit_events')
+        .select('data_hash, leaf_index')
+        .eq('id', req.params.eventId)
+        .single();
 
-const authenticateUser = async (req, res, next) => {
-    const token = req.headers['authorization']?.split(' ')[1]; 
-    if (!token) return res.status(401).json({ error: 'Token required' });
-    try {
-        const { data: { user } } = await supabase.auth.getUser(token);
-        if (!user) throw new Error('Invalid Token');
-        req.user = user; 
-        const { data: processor } = await supabase.from('processors').select('*').eq('owner_id', user.id).single();
-        if (processor) req.processor = processor;
-        next();
-    } catch (err) { res.status(401).json({ error: 'Auth failed' }); }
-};
+    if(!targetEvent) return res.status(404).json({error: 'Event not found'});
 
-const authenticateAny = async (req, res, next) => {
-    if (req.headers['x-api-key']) return authenticateApiKey(req, res, next);
-    if (req.headers['authorization']) return authenticateUser(req, res, next);
-    return res.status(401).json({ error: 'Auth required' });
-};
+    const { count } = await supabase
+        .from('audit_events')
+        .select('*', { count: 'exact', head: true })
+        .eq('processor_id', req.processor.id);
 
+    const { proof, root } = await DBMerkleService.getProof(targetEvent.leaf_index, count);
+
+    res.json({ 
+        leafHash: targetEvent.data_hash, 
+        merkleRoot: root, 
+        proof: proof, 
+        verified: true 
+    });
+});
+
+// Dashboard Helper Endpoints
 app.get('/api/dashboard', authenticateUser, async (req, res) => {
     if (!req.processor) return res.status(404).json({ error: 'Processor not found' });
     const { count } = await supabase.from('audit_events').select('*', { count: 'exact', head: true }).eq('processor_id', req.processor.id);
