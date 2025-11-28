@@ -310,7 +310,7 @@ const EventInjectorForm = ({ onLogEvent, eventData, setEventData }) => {
 };
 
 // --- MAIN DASHBOARD COMPONENT ---
-const Dashboard = ({ processor, stats, token, eventData, setEventData, onLogEvent, KeyRotation, recentLogs, chartData }) => {
+const Dashboard = ({ processor, stats, token, eventData, setEventData, onLogEvent, KeyRotation, recentLogs, chartData, onLogout }) => {
   const eventsLimit = stats.eventsLimit || 100;
   const [activeTab, setActiveTab] = useState('logs');
   const [showGuide, setShowGuide] = useState(false);
