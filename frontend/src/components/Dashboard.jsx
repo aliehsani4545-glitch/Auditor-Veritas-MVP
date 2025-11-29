@@ -167,6 +167,9 @@ const KeyRotationComponent = ({ processor, token, onKeyUpdate, onRevoke }) => {
     }
   };
 
+
+
+
   // Steg 2: Skicka kod och rotera
   const verifyAndRotate = async (e) => {
     e.preventDefault();
