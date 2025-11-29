@@ -7,12 +7,12 @@ import { v4 as uuidv4 } from 'uuid';
 import CryptoJS from 'crypto-js';
 import Stripe from 'stripe';
 import { config } from 'dotenv';
-
+import { Resend } from 'resend'; // IMPORTERA RESEND
 import { z } from 'zod';
 import stringify from 'fast-json-stable-stringify';
 import winston from 'winston';
 import morgan from 'morgan';
-import archiver from 'archiver'; 
+import archiver from 'archiver';
 
 // Load environment variables
 if (process.env.NODE_ENV !== 'production') {
@@ -25,10 +25,11 @@ const PORT = process.env.PORT || 3001;
 // --- 1. CONFIGURATION ---
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
-const MASTER_KEY = process.env.MASTER_ENCRYPTION_KEY; 
+const MASTER_KEY = process.env.MASTER_ENCRYPTION_KEY;
+const RESEND_API_KEY = process.env.RESEND_API_KEY; // HÄMTA NYCKELN
 
-if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY || !MASTER_KEY) {
-  console.error('❌ FATAL: Missing Credentials.');
+if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY || !MASTER_KEY || !RESEND_API_KEY) {
+  console.error('❌ FATAL: Missing Credentials (SUPABASE, MASTER_KEY, or RESEND_API_KEY).');
   process.exit(1);
 }
 
@@ -37,6 +38,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
 });
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_placeholder');
+const resend = new Resend(RESEND_API_KEY); // INITIERA RESEND
 
 // --- 2. LOGGING & MIDDLEWARE ---
 const logger = winston.createLogger({
@@ -84,9 +86,8 @@ const decryptData = (ciphertext, key) => {
 };
 const sha256 = (data) => CryptoJS.SHA256(data).toString();
 
-// --- 4. DATABASE-BACKED MERKLE ENGINE (THE "ACCUMULATOR") ---
+// --- 4. DATABASE-BACKED MERKLE ENGINE ---
 class DBMerkleService {
-    
     static async appendLeaf(leafHash, leafIndex) {
         await supabase.from('merkle_nodes').upsert({
             level: 0,
@@ -193,7 +194,7 @@ const eventSubmissionSchema = z.object({
   event_data: z.record(z.any()),
 });
 
-// --- 6. AUTHENTICATION MIDDLEWARE (MOVED TO TOP TO PREVENT REFERENCE ERROR) ---
+// --- 6. AUTHENTICATION MIDDLEWARE ---
 const authenticateApiKey = async (req, res, next) => {
   const apiKey = req.headers['x-api-key'];
   if (!apiKey) return res.status(401).json({ error: 'API key required' });
@@ -233,6 +234,107 @@ const authenticateAny = async (req, res, next) => {
 };
 
 // --- 7. ROUTES ---
+
+// --- NEW: STEP 1 - REQUEST ROTATION ---
+app.post('/api/keys/request-rotation', authenticateUser, async (req, res) => {
+    if (!req.processor) return res.status(403).json({ error: 'Access denied' });
+
+    try {
+        // 1. Generera en 6-siffrig kod
+        const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 minuter
+
+        // 2. Spara i databasen
+        const { error: dbError } = await supabase
+            .from('processors')
+            .update({ 
+                verification_code: verificationCode, 
+                verification_expires: expiresAt 
+            })
+            .eq('id', req.processor.id);
+
+        if (dbError) throw dbError;
+
+        // 3. Skicka mail via Resend
+        // OBS: Om du inte verifierat din domän MÅSTE 'from' vara 'onboarding@resend.dev'
+        const { data, error } = await resend.emails.send({
+            from: 'Auditor Veritas Security <onboarding@resend.dev>', 
+            to: [req.user.email],
+            subject: 'Verifieringskod: Rotera API-nyckel',
+            html: `
+                <div style="font-family: sans-serif; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+                    <h2 style="color: #0f172a;">Säkerhetsvarning</h2>
+                    <p style="color: #475569;">Du har begärt att rotera API-nyckeln för <strong>${req.processor.company_name}</strong>.</p>
+                    <p>Din verifieringskod är:</p>
+                    <div style="background: #f1f5f9; padding: 15px; border-radius: 8px; text-align: center; margin: 20px 0;">
+                        <span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #334155;">${verificationCode}</span>
+                    </div>
+                    <p style="color: #64748b; font-size: 12px;">Koden är giltig i 10 minuter. Om du inte begärde detta, kontakta oss omedelbart.</p>
+                </div>
+            `
+        });
+
+        if (error) {
+            console.error('Resend Error:', error);
+            return res.status(500).json({ error: 'Kunde inte skicka mail via Resend.' });
+        }
+
+        res.json({ message: 'Verifieringskod skickad', email: req.user.email });
+
+    } catch (err) {
+        logger.error('Request Rotation Error', err);
+        res.status(500).json({ error: 'Internt fel vid verifiering.' });
+    }
+});
+
+// --- NEW: STEP 2 - CONFIRM ROTATION ---
+app.post('/api/keys/rotate', authenticateUser, async (req, res) => {
+    if (!req.processor) return res.status(403).json({ error: 'Access denied' });
+    
+    const { code } = req.body;
+    if (!code) return res.status(400).json({ error: 'Verifieringskod saknas' });
+
+    try {
+        // Hämta färsk data från DB för att kolla koden
+        const { data: proc, error: fetchError } = await supabase
+            .from('processors')
+            .select('verification_code, verification_expires')
+            .eq('id', req.processor.id)
+            .single();
+
+        if (fetchError || !proc) return res.status(404).json({ error: 'Processor not found' });
+
+        // Validera koden
+        if (!proc.verification_code || proc.verification_code !== code) {
+            return res.status(400).json({ error: 'Felaktig verifieringskod.' });
+        }
+
+        if (new Date() > new Date(proc.verification_expires)) {
+            return res.status(400).json({ error: 'Koden har gått ut. Begär en ny.' });
+        }
+
+        // Genomför rotering
+        const newApiKey = `av_${uuidv4().replace(/-/g, '')}`;
+        const newHash = sha256(newApiKey);
+
+        // Uppdatera nyckel OCH rensa verifieringskoden (för säkerhet)
+        await supabase.from('processors').update({ 
+            api_key_hash: newHash,
+            verification_code: null, // Rensa
+            verification_expires: null 
+        }).eq('id', req.processor.id);
+        
+        // Logga säkerhetshändelse
+        logger.info(`Key rotated securely for processor ${req.processor.id} by ${req.user.email}`);
+
+        res.json({ message: 'Success', newApiKey });
+
+    } catch (err) {
+        logger.error('Rotation Error', err);
+        res.status(500).json({ error: 'Kunde inte rotera nyckeln.' });
+    }
+});
+
 
 // Ingestion Endpoint
 app.post('/api/events', authenticateApiKey, async (req, res) => {
@@ -383,14 +485,6 @@ app.get('/api/events/search', authenticateAny, async (req, res) => {
     if (query) dbQuery = dbQuery.or(`event_type.ilike.%${query}%, user_identifier.ilike.%${query}%`);
     const { data } = await dbQuery;
     res.json({ events: data || [] });
-});
-
-app.post('/api/keys/rotate', authenticateUser, async (req, res) => {
-    if (!req.processor) return res.status(403).json({ error: 'Access denied' });
-    const newApiKey = `av_${uuidv4().replace(/-/g, '')}`;
-    const newHash = sha256(newApiKey);
-    await supabase.from('processors').update({ api_key_hash: newHash }).eq('id', req.processor.id);
-    res.json({ message: 'Success', newApiKey });
 });
 
 app.post('/api/processors', authenticateUser, async (req, res) => {
