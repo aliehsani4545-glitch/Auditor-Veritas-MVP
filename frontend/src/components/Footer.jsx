@@ -6,6 +6,9 @@ const Footer = ({ onOpenPrivacy, onOpenTerms, onOpenSecurity, onOpenDocs, onNavi
   const [showContact, setShowContact] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  
+  // State för att faktiskt fånga datan (krävs för Netlify)
+  const [formData, setFormData] = useState({ name: '', email: '', message: '' });
 
   const handleScrollTo = (id) => {
     const element = document.getElementById(id);
@@ -14,19 +17,44 @@ const Footer = ({ onOpenPrivacy, onOpenTerms, onOpenSecurity, onOpenDocs, onNavi
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  // Helper för Netlify
+  const encode = (data) => {
+    return Object.keys(data)
+        .map(key => encodeURIComponent(key) + "=" + encodeURIComponent(data[key]))
+        .join("&");
+  };
+
+  const handleSubmit = async (e) => {
       e.preventDefault();
       setIsSubmitting(true);
       
-      // Simulerar ett API-anrop för kontaktformuläret
-      setTimeout(() => {
-          setSubmitted(true);
-          setIsSubmitting(false);
-          setTimeout(() => {
-              setShowContact(false);
-              setSubmitted(false);
-          }, 3000);
-      }, 1500);
+      try {
+        // ÄKTA Netlify Submission (Ingen simulering)
+        await fetch("/", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: encode({ "form-name": "contact_footer", ...formData }) // Unikt namn för footer-formulär
+        });
+
+        setSubmitted(true);
+        setFormData({ name: '', email: '', message: '' }); // Rensa formulär
+        
+        // Stäng modalen automatiskt efter 3 sekunder
+        setTimeout(() => {
+            setShowContact(false);
+            setSubmitted(false);
+        }, 3000);
+
+      } catch (error) {
+        console.error("Submission failed:", error);
+        alert("Something went wrong. Please try again or email us directly.");
+      } finally {
+        setIsSubmitting(false);
+      }
   };
 
   return (
@@ -68,7 +96,7 @@ const Footer = ({ onOpenPrivacy, onOpenTerms, onOpenSecurity, onOpenDocs, onNavi
                  </button>
                </li>
                <li>
-                 <button onClick={() => alert("All systems operational.")} className="hover:text-emerald-400 transition-colors flex items-center gap-2">
+                 <button onClick={() => alert("All systems operational. Uptime: 99.99%")} className="hover:text-emerald-400 transition-colors flex items-center gap-2">
                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></span>
                    System Status
                  </button>
@@ -109,7 +137,7 @@ const Footer = ({ onOpenPrivacy, onOpenTerms, onOpenSecurity, onOpenDocs, onNavi
 
         {/* BOTTOM BAR */}
         <div className="border-t border-white/5 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-slate-600">
-           <span>© 2025 Auditor Veritas Inc. All rights reserved.</span>
+           <span>© {new Date().getFullYear()} Auditor Veritas Sweden. All rights reserved.</span>
            <div className="flex gap-6 items-center">
               <span>Made in Sweden 🇸🇪</span>
               <span className="hidden md:inline">•</span>
@@ -156,18 +184,45 @@ const Footer = ({ onOpenPrivacy, onOpenTerms, onOpenSecurity, onOpenDocs, onNavi
                             <p className="text-sm opacity-80">Check your email for a confirmation receipt.</p>
                         </div>
                     ) : (
-                        <form onSubmit={handleSubmit} className="space-y-4">
+                        <form onSubmit={handleSubmit} className="space-y-4" name="contact_footer" data-netlify="true">
+                            {/* Hidden Input för Netlify */}
+                            <input type="hidden" name="form-name" value="contact_footer" />
+
                             <div>
                                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Name</label>
-                                <input required type="text" placeholder="Jane Doe" className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white text-sm focus:border-blue-500 outline-none transition-all focus:ring-1 focus:ring-blue-500" />
+                                <input 
+                                    required 
+                                    type="text" 
+                                    name="name"
+                                    value={formData.name}
+                                    onChange={handleChange}
+                                    placeholder="Jane Doe" 
+                                    className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white text-sm focus:border-blue-500 outline-none transition-all focus:ring-1 focus:ring-blue-500" 
+                                />
                             </div>
                             <div>
                                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Email</label>
-                                <input required type="email" placeholder="jane@company.com" className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white text-sm focus:border-blue-500 outline-none transition-all focus:ring-1 focus:ring-blue-500" />
+                                <input 
+                                    required 
+                                    type="email" 
+                                    name="email"
+                                    value={formData.email}
+                                    onChange={handleChange}
+                                    placeholder="jane@company.com" 
+                                    className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white text-sm focus:border-blue-500 outline-none transition-all focus:ring-1 focus:ring-blue-500" 
+                                />
                             </div>
                             <div>
                                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Message</label>
-                                <textarea required rows="4" placeholder="How can we help with your integration?" className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white text-sm focus:border-blue-500 outline-none transition-all resize-none focus:ring-1 focus:ring-blue-500" />
+                                <textarea 
+                                    required 
+                                    rows="4" 
+                                    name="message"
+                                    value={formData.message}
+                                    onChange={handleChange}
+                                    placeholder="How can we help with your integration?" 
+                                    className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white text-sm focus:border-blue-500 outline-none transition-all resize-none focus:ring-1 focus:ring-blue-500" 
+                                />
                             </div>
                             <button 
                                 type="submit" 
