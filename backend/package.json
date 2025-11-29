@@ -11,8 +11,8 @@
     "production": "NODE_ENV=production node server.js"
   },
   "dependencies": {
-"archiver": "^7.0.1",
     "@supabase/supabase-js": "^2.38.0",
+    "archiver": "^7.0.1",
     "cors": "^2.8.5",
     "crypto-js": "^4.2.0",
     "dotenv": "^17.2.3",
@@ -22,6 +22,7 @@
     "helmet": "^7.2.0",
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.1",
+    "resend": "^6.5.2",
     "stripe": "^20.0.0",
     "uuid": "^9.0.1",
     "winston": "^3.18.3",
