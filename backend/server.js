@@ -258,7 +258,15 @@ app.post('/api/keys/request-rotation', authenticateUser, async (req, res) => {
         // 3. Skicka mail via Resend
         // OBS: Om du inte verifierat din domän MÅSTE 'from' vara 'onboarding@resend.dev'
         const { data, error } = await resend.emails.send({
-            from: 'Auditor Veritas Security <onboarding@resend.dev>', 
+            // server.js
+// ...
+// Gammal kod (Sandbox):
+// from: 'onboarding@resend.dev',
+
+// NY KOD (När domänen är grön):
+from: 'security@auditorveritas.com', // Använd en adress du äger på din domän
+// ...
+ 
             to: [req.user.email],
             subject: 'Verifieringskod: Rotera API-nyckel',
             html: `
