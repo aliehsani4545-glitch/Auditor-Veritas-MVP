@@ -142,6 +142,65 @@ const LiveActivityChart = ({ dataPoints = [] }) => {
   );
 };
 
+// --- NY KOMPONENT: KEY ROTATION TIMER (FUNGERANDE) ---
+const KeyRotationTimer = ({ lastRotationDate }) => {
+    // Om datum saknas (t.ex. vid första inloggningen), visa N/A
+    if (!lastRotationDate) {
+        return (
+            <div className="p-4 rounded-xl shadow-sm border bg-slate-50 text-slate-700 border-slate-100 flex items-center gap-3">
+                <ShieldAlert size={16} className="text-slate-500"/>
+                <div className="flex-1">
+                    <h4 className="font-bold text-sm">Key Rotation Status</h4>
+                    <p className="text-xs">No rotation recorded. Execute rotation immediately.</p>
+                </div>
+            </div>
+        );
+    }
+
+    const today = new Date();
+    const lastRotated = new Date(lastRotationDate);
+
+    // Beräkna skillnaden i dagar
+    const diffTime = Math.abs(today - lastRotated);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    const rotationLimit = 90;
+    const daysLeft = rotationLimit - diffDays;
+
+    let statusText = 'Good Standing';
+    let statusClass = 'bg-blue-50 text-blue-700 border-blue-100';
+    let icon = <CheckCircle2 size={16} />;
+    
+    if (diffDays >= 75 && diffDays < 90) {
+        statusText = 'Rotation Recommended';
+        statusClass = 'bg-amber-50 text-amber-700 border-amber-100';
+        icon = <AlertTriangle size={16} />;
+    } else if (diffDays >= 90) {
+        statusText = 'Rotation DUE';
+        statusClass = 'bg-red-50 text-red-700 border-red-100 animate-pulse';
+        icon = <ShieldAlert size={16} />;
+    }
+
+    return (
+        <div className={`p-4 rounded-xl shadow-sm border ${statusClass} flex items-center justify-between`}>
+            <div className="flex items-center gap-3">
+                {icon}
+                <div>
+                    <h4 className="font-bold text-sm">{statusText}</h4>
+                    <p className="text-xs">
+                        {diffDays} days since last rotation. (Last: {lastRotated.toLocaleDateString()})
+                    </p>
+                </div>
+            </div>
+            <div className="text-right">
+                <div className={`font-bold text-xl ${diffDays >= 75 ? 'text-red-600' : ''}`}>{daysLeft < 0 ? 'OVERDUE' : daysLeft}</div>
+                <div className="text-[10px] uppercase font-bold mt-[-2px] tracking-wider">Days Left</div>
+            </div>
+        </div>
+    );
+};
+
+
 // --- COMPONENT: KEY ROTATION WITH 2FA ---
 const KeyRotationComponent = ({ processor, token, onKeyUpdate, onRevoke }) => {
   const [step, setStep] = useState('idle'); // 'idle', 'verify', 'complete'
@@ -181,8 +240,9 @@ const KeyRotationComponent = ({ processor, token, onKeyUpdate, onRevoke }) => {
             body: { code: verificationCode } 
         }, token);
         
+        // Uppdatera lagrad nyckel och skicka signal om uppdatering till förälder (Dashboard)
         localStorage.setItem('av_sim_key', data.newApiKey);
-        onKeyUpdate(data.newApiKey);
+        onKeyUpdate(data.newApiKey); 
         setNewKeyData(data.newApiKey);
         setStep('complete');
         setVerificationCode('');
@@ -446,7 +506,7 @@ const EventInjectorForm = ({ onLogEvent, eventData, setEventData }) => {
     );
 };
 
-// --- MAIN DASHBOARD COMPONENT ---
+// --- MAIN DASHBOARD COMPONENT (UPPDATERAD) ---
 const Dashboard = ({ processor, stats, token, eventData, setEventData, onLogEvent, KeyRotation, recentLogs, chartData, onLogout }) => {
   const eventsLimit = stats.eventsLimit || 100;
   const [activeTab, setActiveTab] = useState('logs');
@@ -497,6 +557,10 @@ const Dashboard = ({ processor, stats, token, eventData, setEventData, onLogEven
                 <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden mb-2"><div className={`h-full transition-all duration-1000 ${stats.monthlyEvents / eventsLimit * 100 > 90 ? 'bg-red-500' : 'bg-blue-500'}`} style={{ width: `${Math.min((stats.monthlyEvents / eventsLimit * 100), 100)}%` }}></div></div>
                 <p className="text-xs text-slate-400">Resets in 28 days</p>
             </div>
+            
+            {/* NYCKELROTATIONSTIMER SOM ANVÄNDER RIKTIGT DATUM */}
+            <KeyRotationTimer lastRotationDate={processor.lastRotationDate} />
+
             {KeyRotation}
         </div>
       </div>

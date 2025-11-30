@@ -7,7 +7,7 @@ import { v4 as uuidv4 } from 'uuid';
 import CryptoJS from 'crypto-js';
 import Stripe from 'stripe';
 import { config } from 'dotenv';
-import { Resend } from 'resend'; // IMPORTERA RESEND
+import { Resend } from 'resend'; 
 import { z } from 'zod';
 import stringify from 'fast-json-stable-stringify';
 import winston from 'winston';
@@ -26,7 +26,7 @@ const PORT = process.env.PORT || 3001;
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 const MASTER_KEY = process.env.MASTER_ENCRYPTION_KEY;
-const RESEND_API_KEY = process.env.RESEND_API_KEY; // HÄMTA NYCKELN
+const RESEND_API_KEY = process.env.RESEND_API_KEY; 
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY || !MASTER_KEY || !RESEND_API_KEY) {
   console.error('❌ FATAL: Missing Credentials (SUPABASE, MASTER_KEY, or RESEND_API_KEY).');
@@ -38,7 +38,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
 });
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_placeholder');
-const resend = new Resend(RESEND_API_KEY); // INITIERA RESEND
+const resend = new Resend(RESEND_API_KEY); 
 
 // --- 2. LOGGING & MIDDLEWARE ---
 const logger = winston.createLogger({
@@ -64,7 +64,6 @@ app.use(cors({
   },
   credentials: true
 }));
-
 
 
 app.use(express.json({ limit: '2mb' })); 
@@ -237,7 +236,7 @@ const authenticateAny = async (req, res, next) => {
 
 // --- 7. ROUTES ---
 
-// --- NEW: STEP 1 - REQUEST ROTATION ---
+// --- STEP 1 - REQUEST ROTATION ---
 app.post('/api/keys/request-rotation', authenticateUser, async (req, res) => {
     if (!req.processor) return res.status(403).json({ error: 'Access denied' });
 
@@ -258,17 +257,8 @@ app.post('/api/keys/request-rotation', authenticateUser, async (req, res) => {
         if (dbError) throw dbError;
 
         // 3. Skicka mail via Resend
-        // OBS: Om du inte verifierat din domän MÅSTE 'from' vara 'onboarding@resend.dev'
         const { data, error } = await resend.emails.send({
-            // server.js
-// ...
-// Gammal kod (Sandbox):
-// from: 'onboarding@resend.dev',
-
-// NY KOD (När domänen är grön):
-from: 'security@auditorveritas.com', // Använd en adress du äger på din domän
-// ...
- 
+            from: 'security@auditorveritas.com', 
             to: [req.user.email],
             subject: 'Verifieringskod: Rotera API-nyckel',
             html: `
@@ -297,7 +287,7 @@ from: 'security@auditorveritas.com', // Använd en adress du äger på din domä
     }
 });
 
-// --- NEW: STEP 2 - CONFIRM ROTATION ---
+// --- STEP 2 - CONFIRM ROTATION (UPPDATERAD) ---
 app.post('/api/keys/rotate', authenticateUser, async (req, res) => {
     if (!req.processor) return res.status(403).json({ error: 'Access denied' });
     
@@ -326,12 +316,14 @@ app.post('/api/keys/rotate', authenticateUser, async (req, res) => {
         // Genomför rotering
         const newApiKey = `av_${uuidv4().replace(/-/g, '')}`;
         const newHash = sha256(newApiKey);
+        const rotationDate = new Date().toISOString(); // <-- HÄR SPARAS DATUMET
 
         // Uppdatera nyckel OCH rensa verifieringskoden (för säkerhet)
         await supabase.from('processors').update({ 
             api_key_hash: newHash,
             verification_code: null, // Rensa
-            verification_expires: null 
+            verification_expires: null,
+            last_rotation_date: rotationDate // <-- NYTT FÄLT
         }).eq('id', req.processor.id);
         
         // Logga säkerhetshändelse
@@ -478,13 +470,29 @@ app.get('/api/merkle/proof/:eventId', authenticateAny, async (req, res) => {
     });
 });
 
-// Dashboard Helper Endpoints
+// Dashboard Helper Endpoints (UPPDATERAD)
 app.get('/api/dashboard', authenticateUser, async (req, res) => {
     if (!req.processor) return res.status(404).json({ error: 'Processor not found' });
+    
+    // Hämta färsk data, inklusive det nya fältet
+    const { data: processorData } = await supabase.from('processors').select('id, company_name, events_limit, plan, monthly_events_used, last_rotation_date').eq('id', req.processor.id).single();
+    if (!processorData) return res.status(404).json({ error: 'Processor data not found' });
+    
     const { count } = await supabase.from('audit_events').select('*', { count: 'exact', head: true }).eq('processor_id', req.processor.id);
+    
     res.json({
-        processor: { id: req.processor.id, companyName: req.processor.company_name, eventsLimit: req.processor.events_limit, plan: req.processor.plan },
-        stats: { totalEvents: count || 0, monthlyEvents: req.processor.monthly_events_used || 0, eventsLimit: req.processor.events_limit }
+        processor: { 
+            id: processorData.id, 
+            companyName: processorData.company_name, 
+            eventsLimit: processorData.events_limit, 
+            plan: processorData.plan,
+            lastRotationDate: processorData.last_rotation_date // <-- NYTT FÄLT
+        },
+        stats: { 
+            totalEvents: count || 0, 
+            monthlyEvents: processorData.monthly_events_used || 0, 
+            eventsLimit: processorData.events_limit 
+        }
     });
 });
 
