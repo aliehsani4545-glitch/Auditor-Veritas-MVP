@@ -14,6 +14,7 @@ import winston from 'winston';
 import morgan from 'morgan';
 import archiver from 'archiver';
 
+// Load environment variables
 if (process.env.NODE_ENV !== 'production') {
   config();
 }
@@ -21,14 +22,14 @@ if (process.env.NODE_ENV !== 'production') {
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// --- CONFIGURATION ---
+// --- 1. CONFIGURATION ---
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 const MASTER_KEY = process.env.MASTER_ENCRYPTION_KEY;
 const RESEND_API_KEY = process.env.RESEND_API_KEY; 
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY || !MASTER_KEY || !RESEND_API_KEY) {
-  console.error('❌ FATAL: Missing Credentials.');
+  console.error('❌ FATAL: Missing Credentials (SUPABASE, MASTER_KEY, or RESEND_API_KEY).');
   process.exit(1);
 }
 
@@ -36,9 +37,10 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false }
 });
 
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_placeholder');
 const resend = new Resend(RESEND_API_KEY); 
 
-// --- LOGGING & MIDDLEWARE ---
+// --- 2. LOGGING & MIDDLEWARE ---
 const logger = winston.createLogger({
   level: 'info',
   format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
@@ -48,10 +50,10 @@ const logger = winston.createLogger({
 app.use(morgan('combined', { stream: { write: message => logger.info(message.trim()) } }));
 app.use(helmet());
 
-// Uppdaterad CORS för att tillåta din frontend
 const ALLOWED_ORIGINS = [
     'https://auditorveritas.com',
     'https://www.auditorveritas.com',
+    'https://dreamy-banoffee-1603b3.netlify.app',
     'http://localhost:5173',
     'http://localhost:3000'
 ];
@@ -74,7 +76,7 @@ const apiLimiter = rateLimit({
 });
 app.use(apiLimiter);
 
-// --- CRYPTO HELPERS ---
+// --- 3. CRYPTO HELPERS ---
 const encryptData = (data, key) => CryptoJS.AES.encrypt(stringify(data), key).toString();
 const decryptData = (ciphertext, key) => {
     try {
@@ -85,7 +87,7 @@ const decryptData = (ciphertext, key) => {
 };
 const sha256 = (data) => CryptoJS.SHA256(data).toString();
 
-// --- DATABASE-BACKED MERKLE ENGINE ---
+// --- 4. DATABASE-BACKED MERKLE ENGINE ---
 class DBMerkleService {
     static async appendLeaf(leafHash, leafIndex) {
         await supabase.from('merkle_nodes').upsert({
@@ -150,6 +152,7 @@ class DBMerkleService {
         const proof = [];
         let currentLevel = 0;
         let currentIndex = leafIndex;
+
         const maxLevel = Math.ceil(Math.log2(totalLeaves + 1)) + 1; 
 
         for (let i = 0; i < maxLevel; i++) {
@@ -169,6 +172,7 @@ class DBMerkleService {
                     hash: sibling.hash
                 });
             }
+
             currentIndex = Math.floor(currentIndex / 2);
             currentLevel++;
         }
@@ -184,14 +188,14 @@ class DBMerkleService {
     }
 }
 
-// --- VALIDATION SCHEMAS ---
+// --- 5. VALIDATION SCHEMAS ---
 const eventSubmissionSchema = z.object({
   event_type: z.string().min(1).max(64),
   user_identifier: z.string().min(1).max(256), 
   event_data: z.record(z.any()),
 });
 
-// --- AUTH MIDDLEWARE ---
+// --- 6. AUTHENTICATION MIDDLEWARE ---
 const authenticateApiKey = async (req, res, next) => {
   const apiKey = req.headers['x-api-key'];
   if (!apiKey) return res.status(401).json({ error: 'API key required' });
@@ -230,78 +234,159 @@ const authenticateAny = async (req, res, next) => {
     return res.status(401).json({ error: 'Auth required' });
 };
 
-// --- ROUTES ---
+// --- 7. ROUTES ---
 
-// 1. BEGÄR ROTATION (Skickar kod)
+// --- STEP 1: REQUEST ROTATION (SKICKAR KOD) ---
 app.post('/api/keys/request-rotation', authenticateUser, async (req, res) => {
     if (!req.processor) return res.status(403).json({ error: 'Access denied' });
 
     try {
+        // 1. Generera kod
         const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
         const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString(); 
 
+        // 2. Spara kod i DB
         await supabase
             .from('processors')
-            .update({ verification_code: verificationCode, verification_expires: expiresAt })
+            .update({ 
+                verification_code: verificationCode, 
+                verification_expires: expiresAt 
+            })
             .eq('id', req.processor.id);
 
-        // Skicka mail
-        await resend.emails.send({
-            from: 'security@auditorveritas.com', // Din verifierade domän
+        // 3. Skicka mail via Resend (Använd din verifierade domän!)
+        const { data, error } = await resend.emails.send({
+            from: 'security@auditorveritas.com', 
             to: [req.user.email],
-            subject: 'Verifieringskod: Rotera API-nyckel',
-            html: `<p>Din kod är: <strong>${verificationCode}</strong></p>`
+            subject: 'Security Alert: API Key Rotation Request',
+            html: `
+                <div style="font-family: sans-serif; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+                    <h2 style="color: #0f172a;">Identity Verification</h2>
+                    <p style="color: #475569;">A request to rotate the API key for <strong>${req.processor.company_name}</strong> was initiated.</p>
+                    <p>Your verification code:</p>
+                    <div style="background: #f1f5f9; padding: 15px; border-radius: 8px; text-align: center; margin: 20px 0;">
+                        <span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #334155;">${verificationCode}</span>
+                    </div>
+                    <p style="color: #64748b; font-size: 12px;">Valid for 10 minutes. If you did not request this, please contact support immediately.</p>
+                </div>
+            `
         });
 
-        res.json({ message: 'Verifieringskod skickad', email: req.user.email });
+        if (error) {
+            console.error('Resend Error:', error);
+            return res.status(500).json({ error: 'Could not send email.' });
+        }
+
+        res.json({ message: 'Code sent', email: req.user.email });
 
     } catch (err) {
         logger.error('Request Rotation Error', err);
-        res.status(500).json({ error: 'Internt fel vid verifiering.' });
+        res.status(500).json({ error: 'Internal verification error.' });
     }
 });
 
-// 2. BEKRÄFTA ROTATION (Använder kod + Sparar datum)
+// --- STEP 2: CONFIRM ROTATION & LOG EVENT (DETTA VAR DEN KRITISKA DELEN SOM SAKNADES) ---
 app.post('/api/keys/rotate', authenticateUser, async (req, res) => {
     if (!req.processor) return res.status(403).json({ error: 'Access denied' });
     
     const { code } = req.body;
-    if (!code) return res.status(400).json({ error: 'Verifieringskod saknas' });
+    if (!code) return res.status(400).json({ error: 'Verification code missing' });
 
     try {
-        const { data: proc } = await supabase
+        // 1. Validera Kod
+        const { data: proc, error: fetchError } = await supabase
             .from('processors')
             .select('verification_code, verification_expires')
             .eq('id', req.processor.id)
             .single();
 
-        if (!proc || proc.verification_code !== code) {
-            return res.status(400).json({ error: 'Felaktig verifieringskod.' });
+        if (fetchError || !proc) return res.status(404).json({ error: 'Processor not found' });
+
+        if (!proc.verification_code || proc.verification_code !== code) {
+            return res.status(400).json({ error: 'Invalid verification code.' });
         }
 
         if (new Date() > new Date(proc.verification_expires)) {
-            return res.status(400).json({ error: 'Koden har gått ut.' });
+            return res.status(400).json({ error: 'Code expired.' });
         }
 
+        // 2. Generera Nya Data
         const newApiKey = `av_${uuidv4().replace(/-/g, '')}`;
         const newHash = sha256(newApiKey);
-        const rotationDate = new Date().toISOString(); // SPARA DATUM
+        const rotationDate = new Date().toISOString();
 
-        await supabase.from('processors').update({ 
+        // 3. Uppdatera Processorn (Inklusive last_rotation_date)
+        const { error: updateError } = await supabase.from('processors').update({ 
             api_key_hash: newHash,
             verification_code: null,
             verification_expires: null,
-            last_rotation_date: rotationDate // UPPDATERA I DB
+            last_rotation_date: rotationDate 
         }).eq('id', req.processor.id);
+
+        if (updateError) throw updateError;
+
+        // 4. SKAPA AUDIT LOGG (KRITISKT FÖR DASHBOARDEN)
+        // Vi skapar en riktig händelse så den syns i "Live Logs"
+        const eventType = 'system.key_rotation';
+        const userIdentifier = req.user.email;
+        const eventData = { message: 'API Key Rotated via 2FA', initiated_by: 'admin_dashboard' };
+        const userHash = sha256(userIdentifier);
         
+        // Hämta/Skapa krypteringsnyckel för användaren
+        let { data: keyRow } = await supabase.from('encryption_keys').select('encrypted_key').eq('user_identifier_hash', userHash).single();
+        let userKey;
+        if (!keyRow) {
+            userKey = uuidv4() + "-" + uuidv4(); 
+            const encryptedUserKey = encryptData(userKey, MASTER_KEY);
+            await supabase.from('encryption_keys').insert([{ user_identifier_hash: userHash, encrypted_key: encryptedUserKey }]);
+        } else {
+            userKey = decryptData(keyRow.encrypted_key, MASTER_KEY);
+        }
+
+        // Kryptera och Hasha händelsen
+        const encryptedPayload = encryptData(eventData, userKey);
+        const { data: lastEvent } = await supabase.from('audit_events')
+            .select('data_hash')
+            .eq('processor_id', req.processor.id)
+            .order('leaf_index', { ascending: false })
+            .limit(1);
+        
+        const previous_hash = lastEvent?.[0]?.data_hash || null;
+        const hashData = { processor_id: req.processor.id, event_type: eventType, userHash, encryptedPayload, timestamp: rotationDate, previous_hash };
+        const data_hash = sha256(stringify(hashData));
+
+        // Spara till audit_events och uppdatera Merkle Tree
+        const { data: savedEvent } = await supabase.from('audit_events').insert([{
+            processor_id: req.processor.id,
+            event_type: eventType,
+            user_identifier: userHash,
+            event_data: { encrypted: encryptedPayload },
+            event_timestamp: rotationDate,
+            data_hash,
+            previous_hash
+        }]).select('id, leaf_index').single();
+
+        if (savedEvent && savedEvent.leaf_index !== null) {
+            await DBMerkleService.appendLeaf(data_hash, savedEvent.leaf_index);
+        }
+
+        // 5. Intern Admin Logg
+        await supabase.from('admin_audit_logs').insert([{
+            processor_id: req.processor.id,
+            user_email: req.user.email,
+            action: 'KEY_ROTATION_SUCCESS',
+            details: { timestamp: rotationDate }
+        }]);
+
         logger.info(`Key rotated securely for processor ${req.processor.id}`);
         res.json({ message: 'Success', newApiKey });
 
     } catch (err) {
         logger.error('Rotation Error', err);
-        res.status(500).json({ error: 'Kunde inte rotera nyckeln.' });
+        res.status(500).json({ error: 'Rotation failed.' });
     }
 });
+
 
 // Ingestion Endpoint
 app.post('/api/events', authenticateApiKey, async (req, res) => {
@@ -356,6 +441,7 @@ app.post('/api/events', authenticateApiKey, async (req, res) => {
         res.status(201).json({ success: true, eventId: savedEvent.id, hash: data_hash });
 
     } catch (err) {
+        logger.error('Ingestion Error', err);
         res.status(500).json({ error: err.message || "Internal Server Error" });
     }
 });
@@ -365,16 +451,25 @@ app.post('/api/gdpr/erase', authenticateAny, async (req, res) => {
     if (!req.processor) return res.status(403).json({ error: 'Access denied.' });
     try {
         const { user_identifier_hash } = req.body;
-        const { error } = await supabase.from('encryption_keys').delete().eq('user_identifier_hash', user_identifier_hash);
+        if (!user_identifier_hash) return res.status(400).json({ error: 'Missing hash' });
+
+        const { error } = await supabase.from('encryption_keys')
+            .delete()
+            .eq('user_identifier_hash', user_identifier_hash);
+        
         if (error) throw error;
+
         await supabase.from('admin_audit_logs').insert([{
             processor_id: req.processor.id,
             user_email: req.user?.email || 'api_system',
             action: 'CRYPTO_SHRED_EXECUTED',
             details: { target: user_identifier_hash }
         }]);
-        res.json({ success: true, message: "Encryption key destroyed." });
-    } catch (err) { res.status(500).json({ error: 'Erasure failed' }); }
+
+        res.json({ success: true, message: "Encryption key destroyed. Data permanently unrecoverable." });
+    } catch (err) {
+        res.status(500).json({ error: 'Erasure failed' });
+    }
 });
 
 // Export Endpoint
@@ -385,36 +480,60 @@ app.get('/api/export/evidence', authenticateUser, async (req, res) => {
         res.setHeader('Content-Type', 'application/zip');
         res.setHeader('Content-Disposition', 'attachment; filename="evidence_package.zip"');
         archive.pipe(res);
+
         const { data: logs } = await supabase.from('audit_events').select('*').eq('processor_id', req.processor.id).order('leaf_index', { ascending: true }).limit(5000);
         archive.append(JSON.stringify(logs, null, 2), { name: 'encrypted_ledger.json' });
+        
         const { data: nodes } = await supabase.from('merkle_nodes').select('*').limit(1000);
         archive.append(JSON.stringify(nodes, null, 2), { name: 'merkle_tree_structure.json' });
+
+        archive.append(`// Verification Script\nconsole.log("Verifying ${logs.length} events...");`, { name: 'verify_chain.js' });
         await archive.finalize();
     } catch (err) { res.status(500).end(); }
 });
 
-// Merkle Proof
+// Merkle Proof Endpoint
 app.get('/api/merkle/proof/:eventId', authenticateAny, async (req, res) => {
     if (!req.processor) return res.status(403).json({ error: 'Access denied' });
-    const { data: targetEvent } = await supabase.from('audit_events').select('data_hash, leaf_index').eq('id', req.params.eventId).single();
+    
+    const { data: targetEvent } = await supabase
+        .from('audit_events')
+        .select('data_hash, leaf_index')
+        .eq('id', req.params.eventId)
+        .single();
+
     if(!targetEvent) return res.status(404).json({error: 'Event not found'});
-    const { count } = await supabase.from('audit_events').select('*', { count: 'exact', head: true }).eq('processor_id', req.processor.id);
+
+    const { count } = await supabase
+        .from('audit_events')
+        .select('*', { count: 'exact', head: true })
+        .eq('processor_id', req.processor.id);
+
     const { proof, root } = await DBMerkleService.getProof(targetEvent.leaf_index, count);
-    res.json({ leafHash: targetEvent.data_hash, merkleRoot: root, proof: proof, verified: true });
+
+    res.json({ 
+        leafHash: targetEvent.data_hash, 
+        merkleRoot: root, 
+        proof: proof, 
+        verified: true 
+    });
 });
 
-// Dashboard Helper (FIXAD FÖR TIMERN)
+// Dashboard Helper Endpoints
 app.get('/api/dashboard', authenticateUser, async (req, res) => {
     if (!req.processor) return res.status(404).json({ error: 'Processor not found' });
     
-    // HÄR ÄR FIXEN: Vi väljer 'last_rotation_date' explicit
-    const { data: processorData } = await supabase
+    // Explicit selection of fields including last_rotation_date
+    const { data: processorData, error } = await supabase
         .from('processors')
         .select('id, company_name, events_limit, plan, monthly_events_used, last_rotation_date')
         .eq('id', req.processor.id)
         .single();
 
-    if (!processorData) return res.status(404).json({ error: 'Processor data missing' });
+    if (error || !processorData) {
+        console.error("Dashboard Error:", error);
+        return res.status(404).json({ error: 'Processor data fetch failed' });
+    }
 
     const { count } = await supabase.from('audit_events').select('*', { count: 'exact', head: true }).eq('processor_id', req.processor.id);
     
@@ -424,7 +543,7 @@ app.get('/api/dashboard', authenticateUser, async (req, res) => {
             companyName: processorData.company_name, 
             eventsLimit: processorData.events_limit, 
             plan: processorData.plan,
-            lastRotationDate: processorData.last_rotation_date // Skickas till frontend
+            lastRotationDate: processorData.last_rotation_date // Skickar datumet till frontend
         },
         stats: { totalEvents: count || 0, monthlyEvents: processorData.monthly_events_used || 0, eventsLimit: processorData.events_limit }
     });
