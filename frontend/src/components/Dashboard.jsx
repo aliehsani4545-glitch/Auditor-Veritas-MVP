@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import CryptoJS from 'crypto-js';
 import { 
   Activity, Search, CheckCircle2, RefreshCw, Zap, Lock, LogOut, LayoutGrid, 
-  Trash2, ShieldAlert, Layers, Filter, HelpCircle, X, FileDown, FileCheck, RotateCw, Copy, Eye, Download, AlertTriangle
+  Trash2, ShieldAlert, Layers, Filter, HelpCircle, X, FileDown, FileCheck, AlertTriangle
 } from 'lucide-react';
 import MerkleProofViewer from './MerkleProofViewer'; 
 
@@ -142,9 +142,8 @@ const LiveActivityChart = ({ dataPoints = [] }) => {
   );
 };
 
-// --- NY KOMPONENT: KEY ROTATION TIMER (FUNGERANDE) ---
+// --- NY KOMPONENT: KEY ROTATION TIMER ---
 const KeyRotationTimer = ({ lastRotationDate }) => {
-    // Om datum saknas (t.ex. vid första inloggningen), visa N/A
     if (!lastRotationDate) {
         return (
             <div className="p-4 rounded-xl shadow-sm border bg-slate-50 text-slate-700 border-slate-100 flex items-center gap-3">
@@ -159,8 +158,6 @@ const KeyRotationTimer = ({ lastRotationDate }) => {
 
     const today = new Date();
     const lastRotated = new Date(lastRotationDate);
-
-    // Beräkna skillnaden i dagar
     const diffTime = Math.abs(today - lastRotated);
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     
@@ -199,153 +196,6 @@ const KeyRotationTimer = ({ lastRotationDate }) => {
         </div>
     );
 };
-
-
-// --- COMPONENT: KEY ROTATION WITH 2FA ---
-const KeyRotationComponent = ({ processor, token, onKeyUpdate, onRevoke }) => {
-  const [step, setStep] = useState('idle'); // 'idle', 'verify', 'complete'
-  const [verificationCode, setVerificationCode] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [newKeyData, setNewKeyData] = useState(null); 
-  const [copied, setCopied] = useState(false);
-  const [keyToDisplay, setKeyToDisplay] = useState(null); 
-  const [showKey, setShowKey] = useState(false);
-
-  // Steg 1: Begär kod
-  const requestRotation = async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-        await apiCall('/api/keys/request-rotation', { method: 'POST' }, token);
-        setStep('verify');
-    } catch (err) {
-        setError(err.message);
-    } finally {
-        setIsLoading(false);
-    }
-  };
-
-
-
-
-  // Steg 2: Skicka kod och rotera
-  const verifyAndRotate = async (e) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError(null);
-    try {
-        const data = await apiCall('/api/keys/rotate', { 
-            method: 'POST', 
-            body: { code: verificationCode } 
-        }, token);
-        
-        // Uppdatera lagrad nyckel och skicka signal om uppdatering till förälder (Dashboard)
-        localStorage.setItem('av_sim_key', data.newApiKey);
-        onKeyUpdate(data.newApiKey); 
-        setNewKeyData(data.newApiKey);
-        setStep('complete');
-        setVerificationCode('');
-    } catch (err) {
-        setError(err.message);
-    } finally {
-        setIsLoading(false);
-    }
-  };
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(newKeyData);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const handleDownload = () => {
-    const element = document.createElement("a");
-    const file = new Blob([`AUDITOR_VERITAS_KEY=${newKeyData}\n# Keep this safe!`], {type: 'text/plain'});
-    element.href = URL.createObjectURL(file);
-    element.download = "auditor-veritas-key.env";
-    document.body.appendChild(element);
-    element.click();
-  };
-
-  return (
-    <>
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4">
-        <div className="flex justify-between items-center">
-            <h3 className="font-bold flex items-center gap-2 text-slate-800 text-sm">
-                <RotateCw className="w-4 h-4 text-purple-600"/> Credential Management
-            </h3>
-            <span className="bg-emerald-50 text-emerald-700 text-[10px] px-2 py-1 rounded font-bold uppercase">Active</span>
-        </div>
-
-        <div className="relative">
-            <div className="bg-slate-50 p-3 rounded-lg text-xs font-mono text-slate-600 break-all border border-slate-100 pr-16 min-h-[40px] flex items-center">
-                {keyToDisplay ? (showKey ? keyToDisplay : '••••••••••••••••••••••••••••••' + keyToDisplay.slice(-4)) : 'API Key is hidden. Rotate to see a new one.'}
-            </div>
-            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1">
-                <button onClick={() => setShowKey(!showKey)} disabled={!keyToDisplay} className="p-1.5 hover:bg-slate-200 rounded text-slate-500 disabled:opacity-50"><Eye size={14}/></button>
-                <button onClick={() => navigator.clipboard.writeText(keyToDisplay)} disabled={!keyToDisplay} className="p-1.5 hover:bg-slate-200 rounded text-slate-500 disabled:opacity-50"><Copy size={14}/></button>
-            </div>
-        </div>
-
-        {error && <div className="text-xs text-red-600 bg-red-50 p-2 rounded border border-red-100">{error}</div>}
-
-        <div className="grid grid-cols-1 gap-3">
-            {step === 'idle' || step === 'complete' ? (
-                <div className="grid grid-cols-2 gap-3">
-                    <button onClick={requestRotation} disabled={isLoading} className="bg-slate-900 text-white py-2.5 rounded-xl text-xs font-bold hover:bg-slate-800 transition-all flex justify-center items-center">
-                        {isLoading ? <RefreshCw className="animate-spin w-3 h-3"/> : 'Rotate Key'}
-                    </button>
-                    <button onClick={onRevoke} className="bg-white border border-red-100 text-red-600 py-2.5 rounded-xl text-xs font-bold hover:bg-red-50 flex justify-center items-center gap-2">
-                        <AlertTriangle size={14}/> Revoke
-                    </button>
-                </div>
-            ) : (
-                <form onSubmit={verifyAndRotate} className="bg-blue-50/50 p-3 rounded-xl border border-blue-100 animate-fade-in">
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-2">Check email for verification code</label>
-                    <div className="flex gap-2">
-                        <input 
-                            type="text" 
-                            placeholder="123456" 
-                            className="flex-1 px-3 py-2 bg-white border border-slate-300 rounded-lg text-center text-sm tracking-widest font-bold"
-                            value={verificationCode}
-                            onChange={(e) => setVerificationCode(e.target.value)}
-                            maxLength={6}
-                            autoFocus
-                        />
-                        <button type="submit" disabled={isLoading || verificationCode.length < 6} className="px-4 py-2 bg-blue-600 text-white rounded-lg font-bold text-xs disabled:opacity-50 disabled:bg-slate-400 transition-all">
-                            {isLoading ? <RefreshCw className="animate-spin w-3 h-3"/> : 'Verify'}
-                        </button>
-                    </div>
-                    <button type="button" onClick={() => {setStep('idle'); setError(null);}} className="text-[10px] text-slate-400 mt-2 hover:text-slate-600 underline">Cancel</button>
-                </form>
-            )}
-        </div>
-      </div>
-      
-      {newKeyData && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 border border-slate-200">
-                <div className="text-center mb-6">
-                    <div className="w-12 h-12 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-3"><CheckCircle2 size={24} /></div>
-                    <h3 className="text-xl font-bold text-slate-900">Success!</h3>
-                    <p className="text-sm text-slate-500 mt-1">Old key invalidated. Update your .env files.</p>
-                </div>
-                <div className="bg-slate-900 rounded-xl p-4 mb-6 relative group">
-                    <code className="text-emerald-400 font-mono text-sm break-all">{newKeyData}</code>
-                </div>
-                <div className="grid grid-cols-2 gap-3 mb-4">
-                    <button onClick={handleCopy} className="flex items-center justify-center gap-2 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-sm transition-colors">{copied ? <CheckCircle2 size={16}/> : <Copy size={16}/>}{copied ? 'Copied!' : 'Copy'}</button>
-                    <button onClick={handleDownload} className="flex items-center justify-center gap-2 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-sm transition-colors"><Download size={16}/> Save File</button>
-                </div>
-                <button onClick={() => { setNewKeyData(null); setKeyToDisplay(newKeyData); setStep('idle'); }} className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm shadow-lg shadow-blue-500/20">I have saved this key safely</button>
-            </div>
-        </div>
-      )}
-    </>
-  );
-};
-
 
 // --- COMPONENT: REAL GDPR ERASURE (ENGLISH) ---
 const ErasureForm = ({ token }) => {
@@ -506,7 +356,7 @@ const EventInjectorForm = ({ onLogEvent, eventData, setEventData }) => {
     );
 };
 
-// --- MAIN DASHBOARD COMPONENT (UPPDATERAD) ---
+// --- MAIN DASHBOARD COMPONENT ---
 const Dashboard = ({ processor, stats, token, eventData, setEventData, onLogEvent, KeyRotation, recentLogs, chartData, onLogout }) => {
   const eventsLimit = stats.eventsLimit || 100;
   const [activeTab, setActiveTab] = useState('logs');
@@ -558,7 +408,7 @@ const Dashboard = ({ processor, stats, token, eventData, setEventData, onLogEven
                 <p className="text-xs text-slate-400">Resets in 28 days</p>
             </div>
             
-            {/* NYCKELROTATIONSTIMER SOM ANVÄNDER RIKTIGT DATUM */}
+            {/* TIDSVISAREN */}
             <KeyRotationTimer lastRotationDate={processor.lastRotationDate} />
 
             {KeyRotation}
