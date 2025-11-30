@@ -112,7 +112,7 @@ const AuthScreen = ({ onLogin }) => {
     );
 };
 
-// --- KORRIGERAD KEY ROTATION KOMPONENT (2-STEG VERIFIERING) ---
+// --- KEY ROTATION COMPONENT ---
 const KeyRotationComponent = ({ processor, token, onKeyUpdate, onRevoke }) => {
   const [step, setStep] = useState('idle'); // 'idle', 'verify', 'complete'
   const [verificationCode, setVerificationCode] = useState('');
@@ -123,7 +123,7 @@ const KeyRotationComponent = ({ processor, token, onKeyUpdate, onRevoke }) => {
   const [keyToDisplay, setKeyToDisplay] = useState(null); 
   const [showKey, setShowKey] = useState(false);
 
-  // Steg 1: Begär kod (Anropar den nya endpointen)
+  // Steg 1: Begär kod
   const requestRotation = async () => {
     setIsLoading(true);
     setError(null);
@@ -145,7 +145,7 @@ const KeyRotationComponent = ({ processor, token, onKeyUpdate, onRevoke }) => {
     try {
         const data = await apiCall('/api/keys/rotate', { 
             method: 'POST', 
-            body: { code: verificationCode } // SKICKAR KODEN
+            body: { code: verificationCode } 
         }, token);
         
         localStorage.setItem('av_sim_key', data.newApiKey);
@@ -387,6 +387,7 @@ function App() {
              <nav className="hidden md:flex gap-6 items-center">
                  <button onClick={() => setActiveTab('home')} className={`text-sm font-medium transition-colors ${activeTab === 'home' ? 'text-white' : 'text-slate-400 hover:text-white'}`}>Home</button>
                  <button onClick={() => setActiveTab('services')} className={`text-sm font-medium transition-colors ${activeTab === 'services' ? 'text-white' : 'text-slate-400 hover:text-white'}`}>Services</button>
+                 <button onClick={() => setActiveTab('pricing')} className={`text-sm font-medium transition-colors ${activeTab === 'pricing' ? 'text-white' : 'text-slate-400 hover:text-white'}`}>Pricing</button>
                  <button onClick={() => setActiveTab('about')} className={`text-sm font-medium transition-colors ${activeTab === 'about' ? 'text-white' : 'text-slate-400 hover:text-white'}`}>About</button>
                  <button onClick={() => setActiveTab('contact')} className={`text-sm font-medium transition-colors ${activeTab === 'contact' ? 'text-white' : 'text-slate-400 hover:text-white'}`}>Contact</button>
                  <div className="h-4 w-px bg-white/10 mx-2"></div>
@@ -408,6 +409,7 @@ function App() {
                       <div className="px-6 py-6 flex flex-col gap-4">
                           <button onClick={() => { setActiveTab('home'); setIsMobileMenuOpen(false); }} className="text-left text-lg font-medium text-slate-300">Home</button>
                           <button onClick={() => { setActiveTab('services'); setIsMobileMenuOpen(false); }} className="text-left text-lg font-medium text-slate-300">Services</button>
+                          <button onClick={() => { setActiveTab('pricing'); setIsMobileMenuOpen(false); }} className="text-left text-lg font-medium text-slate-300">Pricing</button>
                           <button onClick={() => { setActiveTab('about'); setIsMobileMenuOpen(false); }} className="text-left text-lg font-medium text-slate-300">About</button>
                           <button onClick={() => { setActiveTab('contact'); setIsMobileMenuOpen(false); }} className="text-left text-lg font-medium text-slate-300">Contact</button>
                           <div className="h-px bg-white/10 my-2"></div>

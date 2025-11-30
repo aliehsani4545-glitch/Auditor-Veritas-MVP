@@ -3,7 +3,6 @@
   <head>
     <meta charset="UTF-8" />
     
-
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#1e40af">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -37,6 +36,12 @@
   </head>
   <body>
     
+    <!-- 
+      NETLIFY FORMS (HIDDEN)
+      Dessa måste finnas här för att Netlify ska hitta dem.
+    -->
+
+    <!-- 1. Enterprise Inquiry (Din version) -->
     <form name="enterprise-inquiry" netlify netlify-honeypot="bot-field" hidden>
       <input type="text" name="name" />
       <input type="email" name="email" />
@@ -48,6 +53,20 @@
       <input type="text" name="region" />
       <input type="text" name="retention" />
       <input type="text" name="compliance" />
+    </form>
+
+    <!-- 2. Contact Page Form (Lades till för att fixa ContactPage.jsx) -->
+    <form name="contact" netlify netlify-honeypot="bot-field" hidden>
+      <input type="text" name="name" />
+      <input type="email" name="email" />
+      <textarea name="message"></textarea>
+    </form>
+
+    <!-- 3. Footer Contact Form (Lades till för att fixa Footer.jsx) -->
+    <form name="contact_footer" netlify netlify-honeypot="bot-field" hidden>
+      <input type="text" name="name" />
+      <input type="email" name="email" />
+      <textarea name="message"></textarea>
     </form>
     
     <div id="loading" class="loading-spinner">
