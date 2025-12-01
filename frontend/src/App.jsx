@@ -28,10 +28,6 @@ import SecurityPage from './components/SecurityPage';
 import DocsModal from './components/DocsModal'; 
 import TrustCenter from './components/TrustCenter'; 
 
-// --- CUBE COMPONENTS ---
-import ResendStyleCube from './components/ResendStyleCube';
-import AdvancedResendCube from './components/AdvancedResendCube';
-
 // --- NEW PAGES ---
 import Footer from './components/Footer';
 import ContactPage from './components/ContactPage';
@@ -57,6 +53,41 @@ export const apiCall = async (endpoint, options = {}, token = null, apiKey = nul
   const data = await response.json();
   if (!response.ok) throw new Error(data.error || data.message || `Error ${response.status}`);
   return data;
+};
+
+// --- 3D CUBE COMPONENT ---
+const HeroCube = () => {
+  const faceStyle = {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.05), rgba(147, 51, 234, 0.05))',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+    borderRadius: '16px',
+    backdropFilter: 'blur(4px)',
+    boxShadow: '0 0 30px rgba(59, 130, 246, 0.1) inset'
+  };
+
+  return (
+    <div className="absolute top-[40%] right-[-10%] md:right-[5%] w-[400px] h-[400px] lg:w-[500px] lg:h-[500px] z-0 pointer-events-none hidden md:block opacity-60">
+      <motion.div
+        style={{ width: '100%', height: '100%', transformStyle: 'preserve-3d' }}
+        animate={{ rotateX: [15, -15, 15], rotateY: [0, 360] }}
+        transition={{
+          rotateX: { duration: 12, repeat: Infinity, ease: "easeInOut", repeatType: "mirror" },
+          rotateY: { duration: 25, repeat: Infinity, ease: "linear" }
+        }}
+      >
+        <div style={{ ...faceStyle, transform: 'translateZ(200px)' }} />
+        <div style={{ ...faceStyle, transform: 'translateZ(-200px) rotateY(180deg)' }} />
+        <div style={{ ...faceStyle, transform: 'translateX(200px) rotateY(90deg)' }} />
+        <div style={{ ...faceStyle, transform: 'translateX(-200px) rotateY(-90deg)' }} />
+        <div style={{ ...faceStyle, transform: 'translateY(-200px) rotateX(90deg)' }} />
+        <div style={{ ...faceStyle, transform: 'translateY(200px) rotateX(-90deg)' }} />
+        <div className="absolute top-1/2 left-1/2 w-32 h-32 bg-blue-500/40 rounded-full blur-[60px] -translate-x-1/2 -translate-y-1/2" />
+      </motion.div>
+    </div>
+  );
 };
 
 // --- AUTH COMPONENT ---
@@ -269,9 +300,12 @@ const CreateProcessor = ({ token, onProcessorCreated, email }) => {
         try {
             const data = await apiCall('/api/processors', { method: 'POST', body: { companyName, plan } }, token);
             setApiKey(data.apiKey);
-            alert(`Success! Your API Key is ${data.apiKey}. Save it!`);
-        } catch (error) { alert(`Registration Failed: ${error.message}`); } 
-        finally { setLoading(false); }
+            // Vi låter success-vyn ta över istället för att alert:a
+        } catch (error) { 
+            alert(`Registration Failed: ${error.message}`); 
+        } finally { 
+            setLoading(false); 
+        }
     };
 
     if (apiKey) {
@@ -312,7 +346,6 @@ function App() {
   const [showDocs, setShowDocs] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [legalTab, setLegalTab] = useState('privacy'); 
-  const [useAdvancedCube, setUseAdvancedCube] = useState(true); // Toggle för vilken kub som ska visas
   
   useEffect(() => {
     const savedPrivacy = localStorage.getItem('av_privacy_v1');
@@ -325,7 +358,8 @@ function App() {
   const openPrivacyModal = useCallback(() => { setLegalTab('privacy'); setShowPrivacyModal(true); }, []);
   const openTermsModal = useCallback(() => { setLegalTab('terms'); setShowPrivacyModal(true); }, []);
 
-  const fetchDashboard = useCallback(async () => { 
+  // --- ROBUST FETCH DASHBOARD LOGIC (RETRY) ---
+  const fetchDashboard = useCallback(async (retryCount = 0) => { 
     if (!session?.access_token) return; 
     setProcessor(null); 
     try { 
@@ -340,8 +374,16 @@ function App() {
            setChartData([0,0,0,0,0,0,0,0,0,0]);
       }
     } catch (error) { 
+      // Om det är ett 404-fel och vi inte försökt 3 gånger än, vänta och försök igen.
+      if(error.message.includes('404') && retryCount < 3) {
+          console.log(`Processor not found yet. Retrying (${retryCount + 1}/3)...`);
+          await new Promise(resolve => setTimeout(resolve, 1000)); // Vänta 1 sekund
+          return fetchDashboard(retryCount + 1);
+      }
+      
+      // Om vi fortfarande misslyckas, eller om det är ett annat fel:
       if(error.message.includes('404') || error.message.includes('Processor not found')) {
-        setProcessor(false);
+        setProcessor(false); // Visa "Create Processor"-sidan
       } else {
         alert(`Connection Failed: ${error.message}`); 
         setProcessor(null); 
@@ -432,91 +474,87 @@ function App() {
       
       <main className="pt-0">
         {activeTab === 'home' && (
-          <div className="bg-[#020617] min-h-screen overflow-hidden relative">
-            {/* Resend-style Animated Cube in Background */}
-            <div className="fixed inset-0 w-full h-full opacity-30 pointer-events-none z-0">
-              {useAdvancedCube ? <AdvancedResendCube /> : <ResendStyleCube />}
-            </div>
-            
-            <div className="relative min-h-[90vh] flex items-center justify-center text-center z-10 pt-20">
-              <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-600/20 rounded-full blur-[128px] animate-pulse-glow pointer-events-none" />
-              <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-indigo-600/20 rounded-full blur-[128px] animate-pulse-glow pointer-events-none" style={{ animationDelay: '2s' }} />
+          <div className="bg-[#020617] min-h-screen">
+               <div className="relative min-h-[90vh] flex items-center justify-center overflow-hidden text-center z-10 pt-20">
+               <InteractiveHeroBackground />
+               
+               {/* 3D CUBE COMPONENT */}
+               <HeroCube />
 
-              <div className="relative z-10 max-w-5xl mx-auto px-4 mt-10">
-                <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }} className="inline-flex items-center gap-2 bg-white/5 px-4 py-1.5 rounded-full text-blue-400 text-sm font-bold border border-white/10 backdrop-blur-md mb-8 shadow-lg shadow-blue-900/20 hover:scale-105 transition-transform cursor-default">
-                  <Sparkles className="w-3 h-3 animate-pulse" /><span>Version 2.0: Enterprise Ready</span>
-                </motion.div>
-                
-                <motion.h1 initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.8, delay: 0.2 }} className="text-5xl md:text-8xl font-extrabold tracking-tight leading-[1.1] mb-8 drop-shadow-2xl">
-                  Compliance <br/> <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-400 to-cyan-400 animate-text-shine bg-[length:200%_auto]">Engineered for Truth.</span>
-                </motion.h1>
-                
-                <div className="h-24 md:h-20 mb-10 flex items-start justify-center">
-                  <p className="text-lg md:text-xl text-slate-300 max-w-2xl mx-auto leading-relaxed bg-black/30 backdrop-blur-sm p-4 rounded-xl border border-white/5 shadow-xl">
-                    <span className="text-blue-500 font-mono mr-2">{'>'}</span>
-                    <TypewriterEffect text=" The interactive standard for data integrity. Cryptographically verifiable audit logs that scale with your enterprise infrastructure." speed={30} delay={800} />
-                  </p>
-                </div>
+               <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-600/20 rounded-full blur-[128px] animate-pulse-glow pointer-events-none" />
+               <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-indigo-600/20 rounded-full blur-[128px] animate-pulse-glow pointer-events-none" style={{ animationDelay: '2s' }} />
 
-                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 2.5 }} className="flex flex-col sm:flex-row gap-5 justify-center">
-                  <button onClick={() => setActiveTab('dashboard')} className="group relative px-8 py-4 rounded-full bg-blue-600 font-bold text-white shadow-[0_0_40px_-10px_rgba(37,99,235,0.5)] overflow-hidden transition-all hover:scale-105 hover:shadow-[0_0_60px_-15px_rgba(37,99,235,0.6)]">
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:animate-beam" />
-                    <span className="relative flex items-center gap-2">Start Integration <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform"/></span>
-                  </button>
-                  <button onClick={() => setActiveTab('pricing')} className="px-8 py-4 rounded-full bg-white/5 hover:bg-white/10 font-bold backdrop-blur-sm text-white border border-white/10 transition-all hover:scale-105">Enterprise Access</button>
-                </motion.div>
-              </div>
-            </div>
-            
-            <div id="demo-section" className="relative z-20">
-              <InteractiveFeatureSection />
-            </div>
-            <DashboardPreview />
-            <div className="bg-white">
-              <CodeIntegration setActiveTab={setActiveTab} onOpenDocs={() => setShowDocs(true)} />
-            </div>
-            <UseCases />
-            <IntegrityEngine />
-            <CoreArchitecture />
+               <div className="relative z-10 max-w-5xl mx-auto px-4 mt-10">
+                   <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }} className="inline-flex items-center gap-2 bg-white/5 px-4 py-1.5 rounded-full text-blue-400 text-sm font-bold border border-white/10 backdrop-blur-md mb-8 shadow-lg shadow-blue-900/20 hover:scale-105 transition-transform cursor-default">
+                       <Sparkles className="w-3 h-3 animate-pulse" /><span>Version 2.0: Enterprise Ready</span>
+                   </motion.div>
+                   
+                   <motion.h1 initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.8, delay: 0.2 }} className="text-5xl md:text-8xl font-extrabold tracking-tight leading-[1.1] mb-8 drop-shadow-2xl">
+                       Compliance <br/> <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-400 to-cyan-400 animate-text-shine bg-[length:200%_auto]">Engineered for Truth.</span>
+                   </motion.h1>
+                   
+                   <div className="h-24 md:h-20 mb-10 flex items-start justify-center">
+                       <p className="text-lg md:text-xl text-slate-300 max-w-2xl mx-auto leading-relaxed bg-black/30 backdrop-blur-sm p-4 rounded-xl border border-white/5 shadow-xl">
+                           <span className="text-blue-500 font-mono mr-2">{'>'}</span>
+                           <TypewriterEffect text=" The interactive standard for data integrity. Cryptographically verifiable audit logs that scale with your enterprise infrastructure." speed={30} delay={800} />
+                       </p>
+                   </div>
+
+                   <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 2.5 }} className="flex flex-col sm:flex-row gap-5 justify-center">
+                       <button onClick={() => setActiveTab('dashboard')} className="group relative px-8 py-4 rounded-full bg-blue-600 font-bold text-white shadow-[0_0_40px_-10px_rgba(37,99,235,0.5)] overflow-hidden transition-all hover:scale-105 hover:shadow-[0_0_60px_-15px_rgba(37,99,235,0.6)]">
+                           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:animate-beam" />
+                           <span className="relative flex items-center gap-2">Start Integration <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform"/></span>
+                       </button>
+                       <button onClick={() => setActiveTab('pricing')} className="px-8 py-4 rounded-full bg-white/5 hover:bg-white/10 font-bold backdrop-blur-sm text-white border border-white/10 transition-all hover:scale-105">Enterprise Access</button>
+                   </motion.div>
+               </div>
+             </div>
+              
+             <div id="demo-section" className="relative z-20"><InteractiveFeatureSection /></div>
+             <DashboardPreview />
+             <div className="bg-white"><CodeIntegration setActiveTab={setActiveTab} onOpenDocs={() => setShowDocs(true)} /></div>
+             <UseCases />
+             <IntegrityEngine />
+             <CoreArchitecture />
           </div>
         )}
         
         {activeTab === 'about' && <AboutPage />}
         {activeTab === 'services' && <ServicesPage setActiveTab={setActiveTab} />}
         {activeTab === 'contact' && <ContactPage />}
-        {activeTab === 'trust' && <TrustCenter />}
+        {activeTab === 'trust' && <TrustCenter setActiveTab={setActiveTab} />}
         
         {activeTab === 'integrity' && <IntegrityFocusPage setActiveTab={setActiveTab} />}
         {activeTab === 'pricing' && <PricingPageStripe setActiveTab={setActiveTab} />}
         
         {activeTab === 'dashboard' && (
           <div className="min-h-screen bg-slate-50 text-slate-900 pt-20">
-              {!session ? (
-                <AuthScreen onLogin={(sess) => setSession(sess)} />
-              ) : (processor === false) ? (
-                  <div className="pt-20 px-4"><CreateProcessor token={session.access_token} email={session.user.email} onProcessorCreated={() => { setProcessor(null); fetchDashboard(); }} /></div>
-              ) : (!processor) ? (
-                  <div className="text-center py-40"><RefreshCw className="animate-spin mx-auto w-8 h-8 text-blue-500"/><p className="text-slate-500 mt-4">Loading secure ledger data...</p></div>
-              ) : (
-                <Dashboard 
-                    processor={processor} 
-                    stats={stats} 
-                    token={session.access_token} 
-                    eventData={eventData} 
-                    setEventData={setEventData} 
-                    onLogEvent={handleLogEvent} 
-                    recentLogs={recentLogs} 
-                    chartData={chartData} 
-                    onLogout={handleLogout} 
-                    simulationApiKey={simulationApiKey} 
-                    KeyRotation={<KeyRotationComponent 
-                                    processor={processor} 
-                                    token={session.access_token} 
-                                    onKeyUpdate={setSimulationApiKey} 
-                                    onRevoke={handleLogout} 
-                                />} 
-                />
-              )}
+               {!session ? (
+                 <AuthScreen onLogin={(sess) => setSession(sess)} />
+               ) : (processor === false) ? (
+                   <div className="pt-20 px-4"><CreateProcessor token={session.access_token} email={session.user.email} onProcessorCreated={() => { setProcessor(null); fetchDashboard(); }} /></div>
+               ) : (!processor) ? (
+                   <div className="text-center py-40"><RefreshCw className="animate-spin mx-auto w-8 h-8 text-blue-500"/><p className="text-slate-500 mt-4">Loading secure ledger data...</p></div>
+               ) : (
+                 <Dashboard 
+                     processor={processor} 
+                     stats={stats} 
+                     token={session.access_token} 
+                     eventData={eventData} 
+                     setEventData={setEventData} 
+                     onLogEvent={handleLogEvent} 
+                     recentLogs={recentLogs} 
+                     chartData={chartData} 
+                     onLogout={handleLogout} 
+                     simulationApiKey={simulationApiKey} 
+                     KeyRotation={<KeyRotationComponent 
+                                     processor={processor} 
+                                     token={session.access_token} 
+                                     onKeyUpdate={setSimulationApiKey} 
+                                     onRevoke={handleLogout} 
+                                 />} 
+                 />
+               )}
           </div>
         )}
       </main>

@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
 	ShieldCheck, Lock, Users, FileText, ScrollText, AlertCircle, 
-	Server, Ban, X, Fingerprint, Globe, Download, CreditCard, 
-	ChevronDown, Activity, Clock, Eye, Mail, Key, Zap // <--- NU INKLUDERAS EYE, CLOCK, MAIL, KEY
+	Server, Ban, X, Globe, Download, CreditCard, 
+	ChevronDown, Activity, Clock, Eye, Mail, Key, Zap, CheckCircle2 
 } from 'lucide-react';
+// Jag antar att denna import fungerar i ditt projekt
 import { DarkAuroraBackground } from './SharedBackgrounds'; 
 
 const PrivacyPage = ({ onAccept, isFooterView = false, onClose, initialTab = 'privacy' }) => {
@@ -214,6 +215,13 @@ const PrivacyPage = ({ onAccept, isFooterView = false, onClose, initialTab = 'pr
 				{/* FOOTER ACTION BAR */}
 				{!isFooterView && (
 					<div className="p-6 border-t border-white/10 bg-slate-900 shrink-0 z-20 relative">
+						{/* NYTT: VARNINGSRUTA FÖR ATT HÖJA PROFESSIONALISMEN */}
+						<div className="flex items-center gap-2 mb-4 p-3 bg-red-800/20 rounded-lg border border-red-500/30 text-red-300">
+							<AlertCircle size={18} className="shrink-0" />
+							<p className="text-xs font-medium">WARNING: Accepting these terms is a legal and security commitment. Do not proceed unless fully reviewed.</p>
+						</div>
+
+
 						{!canAccept && (
 							<div className="absolute -top-12 left-0 w-full flex justify-center pointer-events-none">
 								<motion.div initial={{ y: 0 }} animate={{ y: 5 }} transition={{ repeat: Infinity, repeatType: "reverse", duration: 1 }} className="bg-blue-600 text-white text-[10px] font-bold px-4 py-1.5 rounded-full flex items-center shadow-lg gap-2">
@@ -221,9 +229,16 @@ const PrivacyPage = ({ onAccept, isFooterView = false, onClose, initialTab = 'pr
 								</motion.div>
 							</div>
 						)}
-						<button onClick={onAccept} disabled={!canAccept} className={`w-full py-4 rounded-xl font-bold text-base transition-all duration-300 flex items-center justify-center gap-2 shadow-lg ${canAccept ? 'bg-blue-600 text-white hover:bg-blue-500 hover:shadow-blue-500/25' : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-white/5'}`}>
-							{canAccept ? <><ShieldCheck size={20} /> I Accept Terms & Privacy Policy</> : 'Scroll to Accept'}
-						</button>
+						<div className="flex gap-4">
+							{/* FIX: Avvisar avtalet och stänger */}
+							<button onClick={onClose} className="flex-1 py-4 rounded-xl font-bold text-base transition-colors bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white border border-white/5">
+								Decline (Reject Contract)
+							</button>
+							
+							<button onClick={onAccept} disabled={!canAccept} className={`flex-1 py-4 rounded-xl font-bold text-base transition-all duration-300 flex items-center justify-center gap-2 shadow-lg ${canAccept ? 'bg-blue-600 text-white hover:bg-blue-500 hover:shadow-blue-500/25' : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-white/5'}`}>
+								{canAccept ? <><ShieldCheck size={20} /> I Accept Terms & Privacy Policy</> : 'Scroll to Accept'}
+							</button>
+						</div>
 					</div>
 				)}
 			</motion.div>
