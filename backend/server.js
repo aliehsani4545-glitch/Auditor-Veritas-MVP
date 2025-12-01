@@ -87,6 +87,12 @@ const decryptData = (ciphertext, key) => {
 };
 const sha256 = (data) => CryptoJS.SHA256(data).toString();
 
+// --- DOMAIN HELPER ---
+const extractDomain = (email) => {
+    const match = email.match(/@(.+)$/);
+    return match ? match[1].toLowerCase() : null;
+};
+
 // --- 4. DATABASE-BACKED MERKLE ENGINE ---
 class DBMerkleService {
     static async appendLeaf(leafHash, leafIndex) {
@@ -195,7 +201,7 @@ const eventSubmissionSchema = z.object({
   event_data: z.record(z.any()),
 });
 
-// --- 6. AUTHENTICATION MIDDLEWARE ---
+// --- 6. AUTHENTICATION MIDDLEWARE (UPDATED FOR TEAMS) ---
 const authenticateApiKey = async (req, res, next) => {
   const apiKey = req.headers['x-api-key'];
   if (!apiKey) return res.status(401).json({ error: 'API key required' });
@@ -221,7 +227,27 @@ const authenticateUser = async (req, res, next) => {
         const { data: { user } } = await supabase.auth.getUser(token);
         if (!user) throw new Error('Invalid Token');
         req.user = user; 
-        const { data: processor } = await supabase.from('processors').select('*').eq('owner_id', user.id).single();
+        
+        // 1. Försök hitta som Ägare (Owner)
+        let { data: processor } = await supabase.from('processors').select('*').eq('owner_id', user.id).single();
+        
+        // 2. Om inte ägare, försök hitta som Teammedlem
+        if (!processor) {
+            const { data: membership } = await supabase
+                .from('processor_users')
+                .select('processor_id, role')
+                .eq('user_id', user.id)
+                .single();
+            
+            if (membership) {
+                const { data: proc } = await supabase.from('processors').select('*').eq('id', membership.processor_id).single();
+                processor = proc;
+                req.userRole = membership.role; // Spara rollen för framtida bruk
+            }
+        } else {
+            req.userRole = 'owner';
+        }
+
         if (processor) req.processor = processor;
         req.authType = 'human';
         next();
@@ -236,159 +262,90 @@ const authenticateAny = async (req, res, next) => {
 
 // --- 7. ROUTES ---
 
-// --- STEP 1: REQUEST ROTATION (SKICKAR KOD) ---
+// --- KEY ROTATION ROUTES ---
 app.post('/api/keys/request-rotation', authenticateUser, async (req, res) => {
     if (!req.processor) return res.status(403).json({ error: 'Access denied' });
-
+    
+    // Generera kod och skicka
     try {
-        // 1. Generera kod
         const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
         const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString(); 
 
-        // 2. Spara kod i DB
-        await supabase
-            .from('processors')
-            .update({ 
+        await supabase.from('processors').update({ 
                 verification_code: verificationCode, 
                 verification_expires: expiresAt 
-            })
-            .eq('id', req.processor.id);
+            }).eq('id', req.processor.id);
 
-        // 3. Skicka mail via Resend (Använd din verifierade domän!)
-        const { data, error } = await resend.emails.send({
+        const { error } = await resend.emails.send({
             from: 'security@auditorveritas.com', 
             to: [req.user.email],
             subject: 'Security Alert: API Key Rotation Request',
-            html: `
-                <div style="font-family: sans-serif; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
-                    <h2 style="color: #0f172a;">Identity Verification</h2>
-                    <p style="color: #475569;">A request to rotate the API key for <strong>${req.processor.company_name}</strong> was initiated.</p>
-                    <p>Your verification code:</p>
-                    <div style="background: #f1f5f9; padding: 15px; border-radius: 8px; text-align: center; margin: 20px 0;">
-                        <span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #334155;">${verificationCode}</span>
-                    </div>
-                    <p style="color: #64748b; font-size: 12px;">Valid for 10 minutes. If you did not request this, please contact support immediately.</p>
-                </div>
-            `
+            html: `<p>Your code: <strong>${verificationCode}</strong></p>`
         });
 
-        if (error) {
-            console.error('Resend Error:', error);
-            return res.status(500).json({ error: 'Could not send email.' });
-        }
-
+        if (error) { console.error(error); return res.status(500).json({ error: 'Email failed' }); }
         res.json({ message: 'Code sent', email: req.user.email });
-
-    } catch (err) {
-        logger.error('Request Rotation Error', err);
-        res.status(500).json({ error: 'Internal verification error.' });
-    }
+    } catch (err) { res.status(500).json({ error: 'Internal verification error.' }); }
 });
 
-// --- STEP 2: CONFIRM ROTATION & LOG EVENT (DETTA VAR DEN KRITISKA DELEN SOM SAKNADES) ---
 app.post('/api/keys/rotate', authenticateUser, async (req, res) => {
     if (!req.processor) return res.status(403).json({ error: 'Access denied' });
-    
     const { code } = req.body;
     if (!code) return res.status(400).json({ error: 'Verification code missing' });
 
     try {
-        // 1. Validera Kod
-        const { data: proc, error: fetchError } = await supabase
-            .from('processors')
-            .select('verification_code, verification_expires')
-            .eq('id', req.processor.id)
-            .single();
+        const { data: proc } = await supabase.from('processors').select('*').eq('id', req.processor.id).single();
+        if (!proc || proc.verification_code !== code) return res.status(400).json({ error: 'Invalid code.' });
+        if (new Date() > new Date(proc.verification_expires)) return res.status(400).json({ error: 'Code expired.' });
 
-        if (fetchError || !proc) return res.status(404).json({ error: 'Processor not found' });
-
-        if (!proc.verification_code || proc.verification_code !== code) {
-            return res.status(400).json({ error: 'Invalid verification code.' });
-        }
-
-        if (new Date() > new Date(proc.verification_expires)) {
-            return res.status(400).json({ error: 'Code expired.' });
-        }
-
-        // 2. Generera Nya Data
+        // Rotera
         const newApiKey = `av_${uuidv4().replace(/-/g, '')}`;
         const newHash = sha256(newApiKey);
         const rotationDate = new Date().toISOString();
 
-        // 3. Uppdatera Processorn (Inklusive last_rotation_date)
-        const { error: updateError } = await supabase.from('processors').update({ 
-            api_key_hash: newHash,
-            verification_code: null,
-            verification_expires: null,
-            last_rotation_date: rotationDate 
+        await supabase.from('processors').update({ 
+            api_key_hash: newHash, verification_code: null, verification_expires: null, last_rotation_date: rotationDate 
         }).eq('id', req.processor.id);
 
-        if (updateError) throw updateError;
-
-        // 4. SKAPA AUDIT LOGG (KRITISKT FÖR DASHBOARDEN)
-        // Vi skapar en riktig händelse så den syns i "Live Logs"
+        // LOGGA EVENTET (Viktigt för Dashboard)
         const eventType = 'system.key_rotation';
         const userIdentifier = req.user.email;
-        const eventData = { message: 'API Key Rotated via 2FA', initiated_by: 'admin_dashboard' };
         const userHash = sha256(userIdentifier);
+        const eventData = { message: 'API Key Rotated via 2FA' };
         
-        // Hämta/Skapa krypteringsnyckel för användaren
+        // Hämta/Skapa User Key
         let { data: keyRow } = await supabase.from('encryption_keys').select('encrypted_key').eq('user_identifier_hash', userHash).single();
         let userKey;
         if (!keyRow) {
-            userKey = uuidv4() + "-" + uuidv4(); 
-            const encryptedUserKey = encryptData(userKey, MASTER_KEY);
-            await supabase.from('encryption_keys').insert([{ user_identifier_hash: userHash, encrypted_key: encryptedUserKey }]);
+             userKey = uuidv4() + "-" + uuidv4(); 
+             const encryptedUserKey = encryptData(userKey, MASTER_KEY);
+             await supabase.from('encryption_keys').insert([{ user_identifier_hash: userHash, encrypted_key: encryptedUserKey }]);
         } else {
-            userKey = decryptData(keyRow.encrypted_key, MASTER_KEY);
+             userKey = decryptData(keyRow.encrypted_key, MASTER_KEY);
         }
 
-        // Kryptera och Hasha händelsen
         const encryptedPayload = encryptData(eventData, userKey);
-        const { data: lastEvent } = await supabase.from('audit_events')
-            .select('data_hash')
-            .eq('processor_id', req.processor.id)
-            .order('leaf_index', { ascending: false })
-            .limit(1);
-        
+        const { data: lastEvent } = await supabase.from('audit_events').select('data_hash').eq('processor_id', req.processor.id).order('leaf_index', { ascending: false }).limit(1);
         const previous_hash = lastEvent?.[0]?.data_hash || null;
+        
         const hashData = { processor_id: req.processor.id, event_type: eventType, userHash, encryptedPayload, timestamp: rotationDate, previous_hash };
         const data_hash = sha256(stringify(hashData));
 
-        // Spara till audit_events och uppdatera Merkle Tree
         const { data: savedEvent } = await supabase.from('audit_events').insert([{
-            processor_id: req.processor.id,
-            event_type: eventType,
-            user_identifier: userHash,
-            event_data: { encrypted: encryptedPayload },
-            event_timestamp: rotationDate,
-            data_hash,
-            previous_hash
+            processor_id: req.processor.id, event_type: eventType, user_identifier: userHash,
+            event_data: { encrypted: encryptedPayload }, event_timestamp: rotationDate, data_hash, previous_hash
         }]).select('id, leaf_index').single();
 
         if (savedEvent && savedEvent.leaf_index !== null) {
             await DBMerkleService.appendLeaf(data_hash, savedEvent.leaf_index);
         }
 
-        // 5. Intern Admin Logg
-        await supabase.from('admin_audit_logs').insert([{
-            processor_id: req.processor.id,
-            user_email: req.user.email,
-            action: 'KEY_ROTATION_SUCCESS',
-            details: { timestamp: rotationDate }
-        }]);
-
-        logger.info(`Key rotated securely for processor ${req.processor.id}`);
         res.json({ message: 'Success', newApiKey });
-
-    } catch (err) {
-        logger.error('Rotation Error', err);
-        res.status(500).json({ error: 'Rotation failed.' });
-    }
+    } catch (err) { res.status(500).json({ error: 'Rotation failed.' }); }
 });
 
 
-// Ingestion Endpoint
+// INGESTION ENDPOINT
 app.post('/api/events', authenticateApiKey, async (req, res) => {
     try {
         const { event_type, user_identifier, event_data } = eventSubmissionSchema.parse(req.body);
@@ -396,8 +353,14 @@ app.post('/api/events', authenticateApiKey, async (req, res) => {
         const timestamp = new Date().toISOString();
         const userHash = sha256(user_identifier);
 
+        // --- RATE LIMIT CHECK (STARTER PLAN) ---
+        if (processor.plan === 'starter' && processor.monthly_events_used >= 100) {
+            logger.warn(`Limit reached for ${processor.id}`);
+            return res.status(403).json({ error: `Monthly limit reached (100 events). Usage: ${processor.monthly_events_used}` });
+        }
+
+        // Encryption logic
         let { data: keyRow } = await supabase.from('encryption_keys').select('encrypted_key').eq('user_identifier_hash', userHash).single();
-        
         let userKey;
         if (!keyRow) {
             userKey = uuidv4() + "-" + uuidv4(); 
@@ -406,38 +369,25 @@ app.post('/api/events', authenticateApiKey, async (req, res) => {
         } else {
             userKey = decryptData(keyRow.encrypted_key, MASTER_KEY);
         }
-
         if (!userKey) throw new Error("Encryption key failure");
 
         const encryptedPayload = encryptData(event_data, userKey);
-
-        const { data: lastEvent } = await supabase.from('audit_events')
-            .select('data_hash')
-            .eq('processor_id', processor.id)
-            .order('leaf_index', { ascending: false })
-            .limit(1);
-        
+        const { data: lastEvent } = await supabase.from('audit_events').select('data_hash').eq('processor_id', processor.id).order('leaf_index', { ascending: false }).limit(1);
         const previous_hash = lastEvent?.[0]?.data_hash || null;
         
         const hashData = { processor_id: processor.id, event_type, userHash, encryptedPayload, timestamp, previous_hash };
         const data_hash = sha256(stringify(hashData));
 
         const { data: savedEvent } = await supabase.from('audit_events').insert([{
-            processor_id: processor.id,
-            event_type,
-            user_identifier: userHash,
-            event_data: { encrypted: encryptedPayload },
-            event_timestamp: timestamp,
-            data_hash,
-            previous_hash
+            processor_id: processor.id, event_type, user_identifier: userHash,
+            event_data: { encrypted: encryptedPayload }, event_timestamp: timestamp, data_hash, previous_hash
         }]).select('id, leaf_index').single();
 
         if (savedEvent && savedEvent.leaf_index !== null) {
             await DBMerkleService.appendLeaf(data_hash, savedEvent.leaf_index);
         }
 
-        try { await supabase.rpc('increment_processor_usage', { pid: processor.id }); } catch (e) {}
-
+        try { await supabase.rpc('increment_processor_usage', { pid: processor.id }); } catch (e) {logger.error('RPC Error', e);} 
         res.status(201).json({ success: true, eventId: savedEvent.id, hash: data_hash });
 
     } catch (err) {
@@ -446,33 +396,62 @@ app.post('/api/events', authenticateApiKey, async (req, res) => {
     }
 });
 
-// GDPR Endpoint
+// PROCESSOR CREATION (MED DOMÄN-CHECK)
+app.post('/api/processors', authenticateUser, async (req, res) => {
+    const { companyName, plan } = req.body;
+    
+    // 1. Check om användaren redan har en processor (som ägare eller medlem)
+    if (req.processor) return res.status(409).json({ error: 'User already belongs to a processor node.' });
+    
+    // 2. Extrahera domän
+    const domain = extractDomain(req.user.email);
+    if (!domain || domain === 'gmail.com' || domain === 'hotmail.com') { 
+        return res.status(400).json({ error: 'Cannot determine valid corporate domain from user email.' });
+    }
+
+    // 3. Check om domänen är upptagen
+    const { data: existing } = await supabase.from('processors').select('id').eq('company_domain', domain).single();
+    if (existing) {
+        return res.status(409).json({ error: `Domain ${domain} is already claimed by another processor. Contact support to merge.` });
+    }
+
+    // 4. Skapa Processor
+    const apiKey = `av_${uuidv4().replace(/-/g, '')}`;
+    const apiKeyHash = sha256(apiKey);
+    
+    const { error: insertError } = await supabase.from('processors').insert([{
+        company_name: companyName, 
+        email: req.user.email, 
+        plan, 
+        api_key_hash: apiKeyHash, 
+        status: 'active', 
+        owner_id: req.user.id,
+        company_domain: domain,
+        events_limit: 100
+    }]);
+    
+    if (insertError) {
+        logger.error('Processor Insert Error', insertError);
+        return res.status(500).json({ error: 'Failed to create processor.' });
+    }
+
+    res.status(201).json({ apiKey });
+});
+
+// --- ÖVRIGA ROUTES ---
 app.post('/api/gdpr/erase', authenticateAny, async (req, res) => {
     if (!req.processor) return res.status(403).json({ error: 'Access denied.' });
     try {
         const { user_identifier_hash } = req.body;
-        if (!user_identifier_hash) return res.status(400).json({ error: 'Missing hash' });
-
-        const { error } = await supabase.from('encryption_keys')
-            .delete()
-            .eq('user_identifier_hash', user_identifier_hash);
-        
-        if (error) throw error;
-
+        await supabase.from('encryption_keys').delete().eq('user_identifier_hash', user_identifier_hash);
         await supabase.from('admin_audit_logs').insert([{
-            processor_id: req.processor.id,
-            user_email: req.user?.email || 'api_system',
-            action: 'CRYPTO_SHRED_EXECUTED',
-            details: { target: user_identifier_hash }
+            processor_id: req.processor.id, user_email: req.user?.email || 'api_system',
+            action: 'CRYPTO_SHRED_EXECUTED', details: { target: user_identifier_hash }
         }]);
-
-        res.json({ success: true, message: "Encryption key destroyed. Data permanently unrecoverable." });
-    } catch (err) {
-        res.status(500).json({ error: 'Erasure failed' });
-    }
+        res.json({ success: true, message: "Encryption key destroyed." });
+    } catch (err) { res.status(500).json({ error: 'Erasure failed' }); }
 });
 
-// Export Endpoint
 app.get('/api/export/evidence', authenticateUser, async (req, res) => {
     if (!req.processor) return res.status(403).json({ error: 'Access denied' });
     try {
@@ -492,38 +471,18 @@ app.get('/api/export/evidence', authenticateUser, async (req, res) => {
     } catch (err) { res.status(500).end(); }
 });
 
-// Merkle Proof Endpoint
 app.get('/api/merkle/proof/:eventId', authenticateAny, async (req, res) => {
     if (!req.processor) return res.status(403).json({ error: 'Access denied' });
-    
-    const { data: targetEvent } = await supabase
-        .from('audit_events')
-        .select('data_hash, leaf_index')
-        .eq('id', req.params.eventId)
-        .single();
-
+    const { data: targetEvent } = await supabase.from('audit_events').select('data_hash, leaf_index').eq('id', req.params.eventId).single();
     if(!targetEvent) return res.status(404).json({error: 'Event not found'});
-
-    const { count } = await supabase
-        .from('audit_events')
-        .select('*', { count: 'exact', head: true })
-        .eq('processor_id', req.processor.id);
-
+    const { count } = await supabase.from('audit_events').select('*', { count: 'exact', head: true }).eq('processor_id', req.processor.id);
     const { proof, root } = await DBMerkleService.getProof(targetEvent.leaf_index, count);
-
-    res.json({ 
-        leafHash: targetEvent.data_hash, 
-        merkleRoot: root, 
-        proof: proof, 
-        verified: true 
-    });
+    res.json({ leafHash: targetEvent.data_hash, merkleRoot: root, proof: proof, verified: true });
 });
 
-// Dashboard Helper Endpoints
 app.get('/api/dashboard', authenticateUser, async (req, res) => {
     if (!req.processor) return res.status(404).json({ error: 'Processor not found' });
     
-    // Explicit selection of fields including last_rotation_date
     const { data: processorData, error } = await supabase
         .from('processors')
         .select('id, company_name, events_limit, plan, monthly_events_used, last_rotation_date')
@@ -536,14 +495,13 @@ app.get('/api/dashboard', authenticateUser, async (req, res) => {
     }
 
     const { count } = await supabase.from('audit_events').select('*', { count: 'exact', head: true }).eq('processor_id', req.processor.id);
-    
     res.json({
         processor: { 
             id: processorData.id, 
             companyName: processorData.company_name, 
             eventsLimit: processorData.events_limit, 
             plan: processorData.plan,
-            lastRotationDate: processorData.last_rotation_date // Skickar datumet till frontend
+            lastRotationDate: processorData.last_rotation_date 
         },
         stats: { totalEvents: count || 0, monthlyEvents: processorData.monthly_events_used || 0, eventsLimit: processorData.events_limit }
     });
@@ -556,17 +514,6 @@ app.get('/api/events/search', authenticateAny, async (req, res) => {
     if (query) dbQuery = dbQuery.or(`event_type.ilike.%${query}%, user_identifier.ilike.%${query}%`);
     const { data } = await dbQuery;
     res.json({ events: data || [] });
-});
-
-app.post('/api/processors', authenticateUser, async (req, res) => {
-    const { companyName, plan } = req.body;
-    if (req.processor) return res.status(409).json({ error: 'Exists' });
-    const apiKey = `av_${uuidv4().replace(/-/g, '')}`;
-    const apiKeyHash = sha256(apiKey);
-    await supabase.from('processors').insert([{
-        company_name: companyName, email: req.user.email, plan, api_key_hash: apiKeyHash, status: 'active', owner_id: req.user.id
-    }]);
-    res.status(201).json({ apiKey });
 });
 
 app.listen(PORT, () => logger.info(`🚀 SERVER RUNNING ON ${PORT}`));
