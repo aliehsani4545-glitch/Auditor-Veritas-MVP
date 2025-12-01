@@ -35,7 +35,7 @@ import ServicesPage from './components/ServicesPage';
 // --- CONFIG & UTILS ---
 const API_BASE_URL = 'https://auditor-veritas-mvp.onrender.com';
 const SUPABASE_URL = 'https://ridpgvikvjreljwypbpj.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJpZHBndmlrdmpyZWxqd3lwYnBqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM0MDU5MDksImV4cCI6MjA3ODk4MTkwOX0.qP9Okdx8uroKpkWjoUNLNC9WcRSPD6S6AV7RasCCPHg';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJpZHBndmlrdmpyZWxqd3lwYnBqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM0MDU5MDksImV4cCI6MjA3ODk4MTkwOX0.qP9Ok огромный!qP9Okdx8uroKpkWjoUNLNC9WcRSPD6S6AV7RasCCPHg';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -76,7 +76,7 @@ export const apiCall = async (endpoint, options = {}, token = null, apiKey = nul
     return data;
 };
 
-// --- AUTH COMPONENT (Med domänbegränsning vid registrering) ---
+// --- AUTH COMPONENT ---
 const AuthScreen = ({ onLogin }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -88,7 +88,6 @@ const AuthScreen = ({ onLogin }) => {
         setLoading(true);
         try {
             if (mode === 'signup') {
-                // KORRIGERING: KLIENT-SIDAN DOMÄNKONTROLL
                 if (!isCorporateEmail(email)) {
                     throw new Error("Registration is restricted to corporate email addresses to create a Processor Node.");
                 }
@@ -144,7 +143,7 @@ const AuthScreen = ({ onLogin }) => {
     );
 };
 
-// --- KEY ROTATION COMPONENT (Oförändrad) ---
+// --- KEY ROTATION COMPONENT ---
 const KeyRotationComponent = ({ processor, token, onKeyUpdate, onRevoke }) => {
     const [step, setStep] = useState('idle');
     const [verificationCode, setVerificationCode] = useState('');
@@ -283,7 +282,7 @@ const KeyRotationComponent = ({ processor, token, onKeyUpdate, onRevoke }) => {
     );
 };
 
-// --- CREATE PROCESSOR (Med förbättrad felhantering) ---
+// --- CREATE PROCESSOR ---
 const CreateProcessor = ({ token, onProcessorCreated, email }) => {
     const [companyName, setCompanyName] = useState('');
     const [plan, setPlan] = useState('starter');
@@ -342,6 +341,86 @@ const CreateProcessor = ({ token, onProcessorCreated, email }) => {
                 <button type="submit" disabled={loading || !companyName} className="w-full bg-[#0a2540] text-white p-4 rounded-xl font-bold hover:bg-slate-800 transition-colors shadow-lg disabled:opacity-50 flex justify-center items-center gap-2">{loading ? <RefreshCw className="animate-spin w-5 h-5" /> : 'Create Secure Ledger'}</button>
             </form>
         </motion.div>
+    );
+};
+
+// --- JOIN TEAM PAGE (NY KOMPONENT FÖR INBJUDNINGSTOKEN) ---
+const JoinTeamPage = ({ session, fetchDashboard }) => {
+    const [status, setStatus] = useState('loading'); // loading, success, error, login_required
+    const [message, setMessage] = useState('Validating invitation...');
+    const [token, setToken] = useState(null);
+
+    useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const tokenFromUrl = urlParams.get('token');
+        setToken(tokenFromUrl);
+
+        if (!session) {
+            // Om användaren inte är inloggad, måste de logga in först
+            setStatus('login_required');
+            setMessage('Please sign in with the email address that received the invitation to proceed.');
+        } else if (tokenFromUrl) {
+            handleAcceptInvite(session.access_token, tokenFromUrl);
+        } else {
+            setStatus('error');
+            setMessage('No invitation token found in the URL.');
+        }
+    }, [session]);
+
+    const handleAcceptInvite = async (accessToken, currentToken) => {
+        setStatus('loading');
+        try {
+            const data = await apiCall('/api/team/accept', {
+                method: 'POST',
+                body: { token: currentToken }
+            }, accessToken);
+
+            // Rensa token från URL:en för att undvika omladdning
+            window.history.replaceState({}, document.title, window.location.pathname);
+            
+            setStatus('success');
+            setMessage(data.message || 'Invitation accepted successfully!');
+            
+            // Ladda om dashboard-data efter en kort fördröjning
+            setTimeout(() => {
+                fetchDashboard(); 
+            }, 1000);
+
+        } catch (err) {
+            setStatus('error');
+            setMessage(err.message || 'Failed to accept invitation. The token might be expired or already used.');
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+    };
+
+    const getIcon = () => {
+        switch (status) {
+            case 'success': return <CheckCircle2 size={36} className="text-green-500" />;
+            case 'error': return <AlertTriangle size={36} className="text-red-500" />;
+            case 'loading': return <Loader2 size={36} className="animate-spin text-blue-500" />;
+            case 'login_required': return <Lock size={36} className="text-yellow-500" />;
+            default: return null;
+        }
+    };
+    
+    // Använd AuthScreen för att hantera inloggning/registrering
+    if (status === 'login_required' && !session) {
+        return <AuthScreen onLogin={fetchDashboard} />;
+    }
+
+    return (
+        <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4 pt-20">
+            <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center p-10 bg-white shadow-xl rounded-2xl max-w-lg mx-auto border border-slate-100">
+                <div className="mx-auto mb-4">{getIcon()}</div>
+                <h3 className="text-xl font-bold text-slate-800 mb-2">Team Invitation Status</h3>
+                <p className="text-slate-600 mb-6">{message}</p>
+                {status === 'success' && (
+                    <button onClick={() => window.location.href = '/dashboard'} className="bg-blue-600 text-white py-2 px-4 rounded-full font-bold hover:bg-blue-700">
+                        Go to Dashboard
+                    </button>
+                )}
+            </motion.div>
+        </div>
     );
 };
 
@@ -556,7 +635,7 @@ const TeamManagement = ({ token, processor, userRole }) => {
             {/* Teamlista */}
             <TeamList team={team} pending={pending} />
 
-            {!isOwner && userRole && ( // **KORRIGERING: Lägg till userRole check här**
+            {!isOwner && userRole && ( 
                  <div className="mt-8 p-4 bg-yellow-50 border border-yellow-200 rounded-xl text-yellow-800 flex items-start gap-3">
                     <AlertTriangle size={20} className="flex-shrink-0 mt-0.5"/>
                     <p className="text-sm">You are logged in as a **{userRole.toUpperCase()}**. You do not have permission to invite or remove team members.</p>
@@ -585,6 +664,9 @@ function App() {
     const [userRole, setUserRole] = useState(null); 
     const [dashboardSubTab, setDashboardSubTab] = useState('overview'); 
 
+    // Kontrollerar URL:en för inbjudningstoken
+    const hasJoinToken = new URLSearchParams(window.location.search).has('token');
+
     useEffect(() => {
         const savedPrivacy = localStorage.getItem('av_privacy_v1');
         if (savedPrivacy === 'true') setPrivacyAccepted(true);
@@ -611,6 +693,9 @@ function App() {
             } else {
                 setChartData([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
             }
+            // Om inbjudan lyckades och vi är på startsidan, skicka till dashboard
+            if (hasJoinToken) setActiveTab('dashboard');
+
         } catch (error) {
             if (error.message.includes('404') || error.message.includes('Processor not found')) {
                 setProcessor(false);
@@ -619,11 +704,16 @@ function App() {
                 console.error("Fetch Error:", error);
             }
         }
-    }, [session]);
+    }, [session, hasJoinToken]);
 
     useEffect(() => {
-        if (activeTab === 'dashboard' && session) { fetchDashboard(); }
-    }, [activeTab, session]);
+        // Om vi har en token i URL:en, skicka användaren till Dashboard-vyn för att trigga inloggning/acceptans
+        if (hasJoinToken) {
+            setActiveTab('dashboard');
+        } else if (activeTab === 'dashboard' && session) { 
+            fetchDashboard(); 
+        }
+    }, [activeTab, session, hasJoinToken]);
 
     const handleLogEvent = async (e) => {
         e.preventDefault();
@@ -757,11 +847,15 @@ function App() {
 
                 {activeTab === 'dashboard' && (
                     <div className="min-h-screen bg-slate-50 text-slate-900 pt-20">
-                        {!session ? (
+                        {hasJoinToken && !session ? (
+                             <AuthScreen onLogin={fetchDashboard} />
+                        ) : hasJoinToken && session ? (
+                            <JoinTeamPage session={session} fetchDashboard={fetchDashboard} />
+                        ) : !session ? (
                             <AuthScreen onLogin={(sess) => setSession(sess)} />
                         ) : (processor === false) ? (
                             <div className="pt-20 px-4"><CreateProcessor token={session.access_token} email={session.user.email} onProcessorCreated={() => { setProcessor(null); fetchDashboard(); }} /></div>
-                        ) : (!processor || userRole === null) ? ( // <-- KORRIGERAD KONTROLL: Väntar tills userRole har laddats
+                        ) : (!processor || userRole === null) ? ( 
                             <div className="text-center py-40"><RefreshCw className="animate-spin mx-auto w-8 h-8 text-blue-500" /><p className="text-slate-500 mt-4">Loading secure ledger data...</p></div>
                         ) : (
                             // Dashboard med flikhantering

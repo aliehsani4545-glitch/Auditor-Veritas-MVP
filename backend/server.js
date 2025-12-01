@@ -407,7 +407,64 @@ app.post('/api/team/invite', authenticateUser, authorizeOwner, async (req, res) 
 });
 
 
-// Lista alla teammedlemmar och inbjudningar (UPPDATERAD FÖR FELSÖKNING)
+// NY ROUTE: Acceptera inbjudan
+app.post('/api/team/accept', authenticateUser, async (req, res) => {
+    const { token } = req.body;
+    const userId = req.user.id;
+
+    if (!token) {
+        return res.status(400).json({ error: 'Invitation token is missing.' });
+    }
+
+    try {
+        // 1. Kontrollera om användaren redan har en processor-nod (som ägare eller medlem)
+        if (req.processor) {
+            return res.status(409).json({ error: 'User already belongs to a processor node.' });
+        }
+
+        // 2. Hitta och validera inbjudan
+        const { data: invite, error: inviteError } = await supabase.from('processor_invitations')
+            .select('*')
+            .eq('token', token)
+            .gte('expires_at', new Date().toISOString())
+            .single();
+
+        if (inviteError || !invite) {
+            return res.status(404).json({ error: 'Invalid or expired invitation token.' });
+        }
+        
+        // 3. Verifiera att användarens e-post matchar den inbjudna e-posten
+        if (invite.invited_email !== req.user.email) {
+            return res.status(403).json({ error: 'Token does not match your registered email.' });
+        }
+
+        // 4. Lägg till användaren i processor_users
+        const { error: insertError } = await supabase.from('processor_users').insert([{
+            user_id: userId,
+            processor_id: invite.processor_id,
+            role: invite.role,
+            joined_at: new Date().toISOString()
+        }]);
+
+        if (insertError) throw insertError;
+
+        // 5. Radera inbjudan
+        await supabase.from('processor_invitations').delete().eq('token', token);
+
+        res.json({ 
+            success: true, 
+            message: `Successfully joined processor node ${invite.processor_id} as ${invite.role}.`,
+            processor_id: invite.processor_id
+        });
+
+    } catch (err) {
+        logger.error('Accept Invite Error', err);
+        res.status(500).json({ error: err.message || 'Failed to accept invitation.' });
+    }
+});
+
+
+// Lista alla teammedlemmar och inbjudningar (FIXAT 500-FELET)
 app.get('/api/team', authenticateUser, async (req, res) => {
     if (!req.processor) return res.status(403).json({ error: 'Access denied.' });
     const processorId = req.processor.id;
@@ -418,7 +475,7 @@ app.get('/api/team', authenticateUser, async (req, res) => {
             .select('user_id, role') 
             .eq('processor_id', processorId);
 
-        // Loggar det exakta Supabase-felet för membersError om det finns
+        // FELSÖKNING: Logga exakt Supabase-fel
         if (membersError) {
             logger.error('Supabase Error (Members):', membersError); 
             throw new Error(`DB Error (Members): ${membersError.message}`);
@@ -430,7 +487,7 @@ app.get('/api/team', authenticateUser, async (req, res) => {
             .eq('processor_id', processorId)
             .gte('expires_at', new Date().toISOString());
 
-        // Loggar det exakta Supabase-felet för invitesError om det finns
+        // FELSÖKNING: Logga exakt Supabase-fel
         if (invitesError) {
             logger.error('Supabase Error (Invites):', invitesError); 
             throw new Error(`DB Error (Invites): ${invitesError.message}`);
@@ -475,7 +532,6 @@ app.get('/api/team', authenticateUser, async (req, res) => {
         res.json({ team: fullTeam, pending: pending, userRole: req.userRole });
 
     } catch (err) {
-        // Här loggar vi det mer specifika felet, vilket nu ska vara något av våra kastade "DB Error"
         logger.error('Team List Final Catch Error', err); 
         res.status(500).json({ error: 'Failed to fetch team data.' });
     }
