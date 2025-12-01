@@ -26,6 +26,11 @@ import Dashboard from './components/Dashboard';
 import IntegrityFocusPage from './components/IntegrityFocusPage';
 import SecurityPage from './components/SecurityPage'; 
 import DocsModal from './components/DocsModal'; 
+import TrustCenter from './components/TrustCenter'; 
+
+// --- CUBE COMPONENTS ---
+import ResendStyleCube from './components/ResendStyleCube';
+import AdvancedResendCube from './components/AdvancedResendCube';
 
 // --- NEW PAGES ---
 import Footer from './components/Footer';
@@ -114,7 +119,7 @@ const AuthScreen = ({ onLogin }) => {
 
 // --- KEY ROTATION COMPONENT ---
 const KeyRotationComponent = ({ processor, token, onKeyUpdate, onRevoke }) => {
-  const [step, setStep] = useState('idle'); // 'idle', 'verify', 'complete'
+  const [step, setStep] = useState('idle'); 
   const [verificationCode, setVerificationCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -123,7 +128,6 @@ const KeyRotationComponent = ({ processor, token, onKeyUpdate, onRevoke }) => {
   const [keyToDisplay, setKeyToDisplay] = useState(null); 
   const [showKey, setShowKey] = useState(false);
 
-  // Steg 1: Begär kod
   const requestRotation = async () => {
     setIsLoading(true);
     setError(null);
@@ -137,7 +141,6 @@ const KeyRotationComponent = ({ processor, token, onKeyUpdate, onRevoke }) => {
     }
   };
 
-  // Steg 2: Skicka kod och rotera
   const verifyAndRotate = async (e) => {
     e.preventDefault();
     setIsLoading(true);
@@ -309,6 +312,7 @@ function App() {
   const [showDocs, setShowDocs] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [legalTab, setLegalTab] = useState('privacy'); 
+  const [useAdvancedCube, setUseAdvancedCube] = useState(true); // Toggle för vilken kub som ska visas
   
   useEffect(() => {
     const savedPrivacy = localStorage.getItem('av_privacy_v1');
@@ -336,7 +340,7 @@ function App() {
            setChartData([0,0,0,0,0,0,0,0,0,0]);
       }
     } catch (error) { 
-      if(error.message.includes('404') || error.message.includes('Processor account not found')) {
+      if(error.message.includes('404') || error.message.includes('Processor not found')) {
         setProcessor(false);
       } else {
         alert(`Connection Failed: ${error.message}`); 
@@ -387,6 +391,7 @@ function App() {
              <nav className="hidden md:flex gap-6 items-center">
                  <button onClick={() => setActiveTab('home')} className={`text-sm font-medium transition-colors ${activeTab === 'home' ? 'text-white' : 'text-slate-400 hover:text-white'}`}>Home</button>
                  <button onClick={() => setActiveTab('services')} className={`text-sm font-medium transition-colors ${activeTab === 'services' ? 'text-white' : 'text-slate-400 hover:text-white'}`}>Services</button>
+                 <button onClick={() => setActiveTab('trust')} className={`text-sm font-medium transition-colors ${activeTab === 'trust' ? 'text-white' : 'text-slate-400 hover:text-white'}`}>Trust Center</button>
                  <button onClick={() => setActiveTab('pricing')} className={`text-sm font-medium transition-colors ${activeTab === 'pricing' ? 'text-white' : 'text-slate-400 hover:text-white'}`}>Pricing</button>
                  <button onClick={() => setActiveTab('about')} className={`text-sm font-medium transition-colors ${activeTab === 'about' ? 'text-white' : 'text-slate-400 hover:text-white'}`}>About</button>
                  <button onClick={() => setActiveTab('contact')} className={`text-sm font-medium transition-colors ${activeTab === 'contact' ? 'text-white' : 'text-slate-400 hover:text-white'}`}>Contact</button>
@@ -409,6 +414,7 @@ function App() {
                       <div className="px-6 py-6 flex flex-col gap-4">
                           <button onClick={() => { setActiveTab('home'); setIsMobileMenuOpen(false); }} className="text-left text-lg font-medium text-slate-300">Home</button>
                           <button onClick={() => { setActiveTab('services'); setIsMobileMenuOpen(false); }} className="text-left text-lg font-medium text-slate-300">Services</button>
+                          <button onClick={() => { setActiveTab('trust'); setIsMobileMenuOpen(false); }} className="text-left text-lg font-medium text-slate-300">Trust Center</button>
                           <button onClick={() => { setActiveTab('pricing'); setIsMobileMenuOpen(false); }} className="text-left text-lg font-medium text-slate-300">Pricing</button>
                           <button onClick={() => { setActiveTab('about'); setIsMobileMenuOpen(false); }} className="text-left text-lg font-medium text-slate-300">About</button>
                           <button onClick={() => { setActiveTab('contact'); setIsMobileMenuOpen(false); }} className="text-left text-lg font-medium text-slate-300">Contact</button>
@@ -426,82 +432,91 @@ function App() {
       
       <main className="pt-0">
         {activeTab === 'home' && (
-          <div className="bg-[#020617] min-h-screen">
-               <div className="relative min-h-[90vh] flex items-center justify-center overflow-hidden text-center z-10 pt-20">
-               <InteractiveHeroBackground />
-               <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-600/20 rounded-full blur-[128px] animate-pulse-glow pointer-events-none" />
-               <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-indigo-600/20 rounded-full blur-[128px] animate-pulse-glow pointer-events-none" style={{ animationDelay: '2s' }} />
+          <div className="bg-[#020617] min-h-screen overflow-hidden relative">
+            {/* Resend-style Animated Cube in Background */}
+            <div className="fixed inset-0 w-full h-full opacity-30 pointer-events-none z-0">
+              {useAdvancedCube ? <AdvancedResendCube /> : <ResendStyleCube />}
+            </div>
+            
+            <div className="relative min-h-[90vh] flex items-center justify-center text-center z-10 pt-20">
+              <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-600/20 rounded-full blur-[128px] animate-pulse-glow pointer-events-none" />
+              <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-indigo-600/20 rounded-full blur-[128px] animate-pulse-glow pointer-events-none" style={{ animationDelay: '2s' }} />
 
-               <div className="relative z-10 max-w-5xl mx-auto px-4 mt-10">
-                   <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }} className="inline-flex items-center gap-2 bg-white/5 px-4 py-1.5 rounded-full text-blue-400 text-sm font-bold border border-white/10 backdrop-blur-md mb-8 shadow-lg shadow-blue-900/20 hover:scale-105 transition-transform cursor-default">
-                       <Sparkles className="w-3 h-3 animate-pulse" /><span>Version 2.0: Enterprise Ready</span>
-                   </motion.div>
-                   
-                   <motion.h1 initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.8, delay: 0.2 }} className="text-5xl md:text-8xl font-extrabold tracking-tight leading-[1.1] mb-8 drop-shadow-2xl">
-                       Compliance <br/> <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-400 to-cyan-400 animate-text-shine bg-[length:200%_auto]">Engineered for Truth.</span>
-                   </motion.h1>
-                   
-                   <div className="h-24 md:h-20 mb-10 flex items-start justify-center">
-                       <p className="text-lg md:text-xl text-slate-300 max-w-2xl mx-auto leading-relaxed bg-black/30 backdrop-blur-sm p-4 rounded-xl border border-white/5 shadow-xl">
-                           <span className="text-blue-500 font-mono mr-2">{'>'}</span>
-                           <TypewriterEffect text=" The interactive standard for data integrity. Cryptographically verifiable audit logs that scale with your enterprise infrastructure." speed={30} delay={800} />
-                       </p>
-                   </div>
+              <div className="relative z-10 max-w-5xl mx-auto px-4 mt-10">
+                <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }} className="inline-flex items-center gap-2 bg-white/5 px-4 py-1.5 rounded-full text-blue-400 text-sm font-bold border border-white/10 backdrop-blur-md mb-8 shadow-lg shadow-blue-900/20 hover:scale-105 transition-transform cursor-default">
+                  <Sparkles className="w-3 h-3 animate-pulse" /><span>Version 2.0: Enterprise Ready</span>
+                </motion.div>
+                
+                <motion.h1 initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.8, delay: 0.2 }} className="text-5xl md:text-8xl font-extrabold tracking-tight leading-[1.1] mb-8 drop-shadow-2xl">
+                  Compliance <br/> <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-400 to-cyan-400 animate-text-shine bg-[length:200%_auto]">Engineered for Truth.</span>
+                </motion.h1>
+                
+                <div className="h-24 md:h-20 mb-10 flex items-start justify-center">
+                  <p className="text-lg md:text-xl text-slate-300 max-w-2xl mx-auto leading-relaxed bg-black/30 backdrop-blur-sm p-4 rounded-xl border border-white/5 shadow-xl">
+                    <span className="text-blue-500 font-mono mr-2">{'>'}</span>
+                    <TypewriterEffect text=" The interactive standard for data integrity. Cryptographically verifiable audit logs that scale with your enterprise infrastructure." speed={30} delay={800} />
+                  </p>
+                </div>
 
-                   <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 2.5 }} className="flex flex-col sm:flex-row gap-5 justify-center">
-                       <button onClick={() => setActiveTab('dashboard')} className="group relative px-8 py-4 rounded-full bg-blue-600 font-bold text-white shadow-[0_0_40px_-10px_rgba(37,99,235,0.5)] overflow-hidden transition-all hover:scale-105 hover:shadow-[0_0_60px_-15px_rgba(37,99,235,0.6)]">
-                           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:animate-beam" />
-                           <span className="relative flex items-center gap-2">Start Integration <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform"/></span>
-                       </button>
-                       <button onClick={() => setActiveTab('pricing')} className="px-8 py-4 rounded-full bg-white/5 hover:bg-white/10 font-bold backdrop-blur-sm text-white border border-white/10 transition-all hover:scale-105">Enterprise Access</button>
-                   </motion.div>
-               </div>
-             </div>
-              
-             <div id="demo-section" className="relative z-20"><InteractiveFeatureSection /></div>
-             <DashboardPreview />
-             <div className="bg-white"><CodeIntegration setActiveTab={setActiveTab} onOpenDocs={() => setShowDocs(true)} /></div>
-             <UseCases />
-             <IntegrityEngine />
-             <CoreArchitecture />
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 2.5 }} className="flex flex-col sm:flex-row gap-5 justify-center">
+                  <button onClick={() => setActiveTab('dashboard')} className="group relative px-8 py-4 rounded-full bg-blue-600 font-bold text-white shadow-[0_0_40px_-10px_rgba(37,99,235,0.5)] overflow-hidden transition-all hover:scale-105 hover:shadow-[0_0_60px_-15px_rgba(37,99,235,0.6)]">
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:animate-beam" />
+                    <span className="relative flex items-center gap-2">Start Integration <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform"/></span>
+                  </button>
+                  <button onClick={() => setActiveTab('pricing')} className="px-8 py-4 rounded-full bg-white/5 hover:bg-white/10 font-bold backdrop-blur-sm text-white border border-white/10 transition-all hover:scale-105">Enterprise Access</button>
+                </motion.div>
+              </div>
+            </div>
+            
+            <div id="demo-section" className="relative z-20">
+              <InteractiveFeatureSection />
+            </div>
+            <DashboardPreview />
+            <div className="bg-white">
+              <CodeIntegration setActiveTab={setActiveTab} onOpenDocs={() => setShowDocs(true)} />
+            </div>
+            <UseCases />
+            <IntegrityEngine />
+            <CoreArchitecture />
           </div>
         )}
         
         {activeTab === 'about' && <AboutPage />}
         {activeTab === 'services' && <ServicesPage setActiveTab={setActiveTab} />}
         {activeTab === 'contact' && <ContactPage />}
+        {activeTab === 'trust' && <TrustCenter />}
         
         {activeTab === 'integrity' && <IntegrityFocusPage setActiveTab={setActiveTab} />}
         {activeTab === 'pricing' && <PricingPageStripe setActiveTab={setActiveTab} />}
         
         {activeTab === 'dashboard' && (
           <div className="min-h-screen bg-slate-50 text-slate-900 pt-20">
-               {!session ? (
-                 <AuthScreen onLogin={(sess) => setSession(sess)} />
-               ) : (processor === false) ? (
-                   <div className="pt-20 px-4"><CreateProcessor token={session.access_token} email={session.user.email} onProcessorCreated={() => { setProcessor(null); fetchDashboard(); }} /></div>
-               ) : (!processor) ? (
-                   <div className="text-center py-40"><RefreshCw className="animate-spin mx-auto w-8 h-8 text-blue-500"/><p className="text-slate-500 mt-4">Loading secure ledger data...</p></div>
-               ) : (
-                 <Dashboard 
-                     processor={processor} 
-                     stats={stats} 
-                     token={session.access_token} 
-                     eventData={eventData} 
-                     setEventData={setEventData} 
-                     onLogEvent={handleLogEvent} 
-                     recentLogs={recentLogs} 
-                     chartData={chartData} 
-                     onLogout={handleLogout} 
-                     simulationApiKey={simulationApiKey} 
-                     KeyRotation={<KeyRotationComponent 
-                                     processor={processor} 
-                                     token={session.access_token} 
-                                     onKeyUpdate={setSimulationApiKey} 
-                                     onRevoke={handleLogout} 
-                                 />} 
-                 />
-               )}
+              {!session ? (
+                <AuthScreen onLogin={(sess) => setSession(sess)} />
+              ) : (processor === false) ? (
+                  <div className="pt-20 px-4"><CreateProcessor token={session.access_token} email={session.user.email} onProcessorCreated={() => { setProcessor(null); fetchDashboard(); }} /></div>
+              ) : (!processor) ? (
+                  <div className="text-center py-40"><RefreshCw className="animate-spin mx-auto w-8 h-8 text-blue-500"/><p className="text-slate-500 mt-4">Loading secure ledger data...</p></div>
+              ) : (
+                <Dashboard 
+                    processor={processor} 
+                    stats={stats} 
+                    token={session.access_token} 
+                    eventData={eventData} 
+                    setEventData={setEventData} 
+                    onLogEvent={handleLogEvent} 
+                    recentLogs={recentLogs} 
+                    chartData={chartData} 
+                    onLogout={handleLogout} 
+                    simulationApiKey={simulationApiKey} 
+                    KeyRotation={<KeyRotationComponent 
+                                    processor={processor} 
+                                    token={session.access_token} 
+                                    onKeyUpdate={setSimulationApiKey} 
+                                    onRevoke={handleLogout} 
+                                />} 
+                />
+              )}
           </div>
         )}
       </main>
