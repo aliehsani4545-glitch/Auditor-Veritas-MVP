@@ -35,7 +35,7 @@ import ServicesPage from './components/ServicesPage';
 // --- CONFIG & UTILS ---
 const API_BASE_URL = 'https://auditor-veritas-mvp.onrender.com';
 const SUPABASE_URL = 'https://ridpgvikvjreljwypbpj.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJpZHBndmlrdmpyZWxqd3lwYnBqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM0MDU5MDksImV4cCI6MjA3ODk4MTkwOX0.qP9Ok огромный!qP9Okdx8uroKpkWjoUNLNC9WcRSPD6S6AV7RasCCPHg';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJpZHBndmlrdmpyZWxqd3lwYnBqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM0MDU5MDksImV4cCI6MjA3ODk4MTkwOX0.qP9Okdx8uroKpkWjoUNLNC9WcRSPD6S6AV7RasCCPHg';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -48,11 +48,23 @@ const isCorporateEmail = (email) => {
     return domain && !blockedDomains.includes(domain);
 };
 
-// Robust apiCall (Exporteras för att användas i andra komponenter, som TeamManagement)
+// Robust apiCall (FIXAT: Sanerar headers för att undvika icke-ASCII-fel)
 export const apiCall = async (endpoint, options = {}, token = null, apiKey = null) => {
-    const headers = { 'Content-Type': 'application/json', ...options.headers };
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-    if (apiKey) headers['x-api-key'] = apiKey;
+    
+    // Använder UTF-8 Content-Type och skapar en ren kopia av headers
+    const headers = { 'Content-Type': 'application/json; charset=utf-8', ...options.headers }; 
+
+    // Funktion för att sanera strängen och ta bort alla icke-ASCII/utökade tecken
+    // Detta åtgärdar "String contains non ISO-8859-1 code point"
+    const sanitize = (str) => str ? str.replace(/[^\x00-\x7F]/g, "") : str; 
+
+    if (token) {
+        headers['Authorization'] = `Bearer ${sanitize(token)}`;
+    }
+    if (apiKey) {
+        headers['x-api-key'] = sanitize(apiKey); 
+    }
+    
     const config = { headers, ...options };
     if (options.body) config.body = JSON.stringify(options.body);
 
@@ -96,7 +108,8 @@ const AuthScreen = ({ onLogin }) => {
                 if (error) throw error;
                 alert("Success! Check your email for confirmation link.");
             } else {
-                const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+                // Supabase inloggningstriggar fetch, vilket nu hanteras av den sanerade apiCall
+                const { data, error } = await supabase.auth.signInWithPassword({ email, password }); 
                 if (error) throw error;
                 onLogin(data.session);
             }
@@ -344,7 +357,7 @@ const CreateProcessor = ({ token, onProcessorCreated, email }) => {
     );
 };
 
-// --- JOIN TEAM PAGE (NY KOMPONENT FÖR INBJUDNINGSTOKEN) ---
+// --- JOIN TEAM PAGE ---
 const JoinTeamPage = ({ session, fetchDashboard }) => {
     const [status, setStatus] = useState('loading'); // loading, success, error, login_required
     const [message, setMessage] = useState('Validating invitation...');
@@ -356,7 +369,6 @@ const JoinTeamPage = ({ session, fetchDashboard }) => {
         setToken(tokenFromUrl);
 
         if (!session) {
-            // Om användaren inte är inloggad, måste de logga in först
             setStatus('login_required');
             setMessage('Please sign in with the email address that received the invitation to proceed.');
         } else if (tokenFromUrl) {
