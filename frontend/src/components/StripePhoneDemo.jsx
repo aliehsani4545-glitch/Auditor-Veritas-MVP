@@ -247,14 +247,14 @@ const StripePhoneDemo = ({ activeStep = 0 }) => {
                                </div>
                                <div className="text-4xl font-bold text-white tracking-tight flex items-baseline gap-1">
                                    <AnimatePresence mode="popLayout">
-                                       <motion.span
-                                         key={logs.filter(l => l.status === 'secure').length}
-                                         initial={{ y: 10, opacity: 0 }}
-                                         animate={{ y: 0, opacity: 1 }}
-                                         className="inline-block bg-clip-text text-transparent bg-gradient-to-b from-white to-slate-400"
-                                       >
-                                         {logs.filter(l => l.status === 'secure').length + 842}
-                                       </motion.span>
+                                        <motion.span
+                                             key={logs.filter(l => l.status === 'secure').length}
+                                             initial={{ y: 10, opacity: 0 }}
+                                             animate={{ y: 0, opacity: 1 }}
+                                             className="inline-block bg-clip-text text-transparent bg-gradient-to-b from-white to-slate-400"
+                                         >
+                                             {logs.filter(l => l.status === 'secure').length + 842}
+                                         </motion.span>
                                    </AnimatePresence>
                                </div>
                            </div>
