@@ -1,11 +1,10 @@
 [build]
-  # Netlify går in i denna mapp först
   base = "frontend"
   
-  # Kör installation och sedan build-scriptet i package.json (som nu använder npx)
-  command = "npm install && npm run build"
+  # CRITICAL FIX: Force removal of node_modules and reinstall
+  # This ensures the vite binary has correct permissions
+  command = "rm -rf node_modules && npm install && npm run build"
   
-  # Mappen där filerna hamnar
   publish = "dist"
 
 [build.environment]
@@ -30,8 +29,8 @@
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "camera=(), microphone=(), geolocation=()"
-    
-    # CSP helt utan Stripe/Resend
+
+    # CSP Cleaned of Stripe/Resend
     Content-Security-Policy = """default-src 'self'; 
       script-src 'self' 'unsafe-inline'; 
       style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; 
