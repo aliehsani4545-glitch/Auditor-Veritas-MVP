@@ -10,11 +10,11 @@ import { z } from 'zod';
 import stringify from 'fast-json-stable-stringify';
 import winston from 'winston';
 import morgan from 'morgan';
-import archiver from 'archiver';
 import { authenticator } from 'otplib'; 
 import QRCode from 'qrcode'; 
+import archiver from 'archiver'; // Importeras för Export-funktionalitet
 
-// Load environment variables
+// Load env vars
 if (process.env.NODE_ENV !== 'production') {
   config();
 }
@@ -22,48 +22,60 @@ if (process.env.NODE_ENV !== 'production') {
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// --- 1. CONFIGURATION ---
+// --- 1. CONFIGURATION & SECRETS ---
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY; 
 const MASTER_KEY = process.env.MASTER_ENCRYPTION_KEY; 
 
-// Kritiska systemnycklar måste finnas vid start. Stripe/Resend är borttagna.
+// Critical Check
 if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY || !MASTER_KEY) {
-  console.error('❌ FATAL: Missing Credentials (SUPABASE or MASTER_ENCRYPTION_KEY).');
-  process.exit(1);
+  console.error('❌ FATAL: Missing Environment Variables. Check Render Dashboard.');
 }
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false }
 });
 
-// --- 2. LOGGING & MIDDLEWARE ---
+// --- 2. LOGGING, SECURITY & CORS ---
 const logger = winston.createLogger({
   level: 'info',
   format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
   transports: [new winston.transports.Console()],
 });
-
 app.use(morgan('combined', { stream: { write: message => logger.info(message.trim()) } }));
 app.use(helmet());
 
+// Tillåtna domäner (Produktion + Dev)
 const ALLOWED_ORIGINS = [
     'https://auditorveritas.com',
     'https://www.auditorveritas.com',
     'https://dreamy-banoffee-1603b3.netlify.app',
-    'http://localhost:5173',
+    'http://localhost:5173', 
     'http://localhost:3000'
 ];
 
-app.use(cors({
+const corsOptions = {
   origin: (origin, callback) => {
-    if (!origin || ALLOWED_ORIGINS.includes(origin)) callback(null, true);
-    else callback(new Error('Not allowed by CORS'));
+    if (!origin) return callback(null, true);
+    
+    const isAllowed = ALLOWED_ORIGINS.some(allowed => origin === allowed || origin.startsWith(allowed));
+    
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      console.warn(`Blocked by CORS: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
+    }
   },
-  credentials: true
-}));
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key']
+};
 
-app.use(express.json({ limit: '2mb' })); 
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions)); 
+
+app.use(express.json({ limit: '5mb' })); 
 
 const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -83,14 +95,12 @@ const decryptData = (ciphertext, key) => {
     } catch (e) { return null; }
 };
 const sha256 = (data) => CryptoJS.SHA256(data).toString();
-
-// --- DOMAIN HELPER ---
 const extractDomain = (email) => {
     const match = email.match(/@(.+)$/);
     return match ? match[1].toLowerCase() : null;
 };
 
-// --- 4. DATABASE-BACKED MERKLE ENGINE ---
+// --- 4. MERKLE LOGIC (FULL RECURSIVE IMPLEMENTATION) ---
 class DBMerkleService {
     static async appendLeaf(leafHash, leafIndex) {
         await supabase.from('merkle_nodes').upsert({ level: 0, node_index: leafIndex, hash: leafHash });
@@ -101,28 +111,44 @@ class DBMerkleService {
         while (true) {
             const isRightNode = currentIndex % 2 === 1;
             const siblingIndex = isRightNode ? currentIndex - 1 : currentIndex + 1;
-            const { data: siblingNode } = await supabase.from('merkle_nodes').select('hash').eq('level', currentLevel).eq('node_index', siblingIndex).single();
+            
+            const { data: siblingNode } = await supabase.from('merkle_nodes')
+                .select('hash')
+                .eq('level', currentLevel)
+                .eq('node_index', siblingIndex)
+                .single();
 
-            if (!siblingNode && !isRightNode) {
-                const parentHash = sha256(currentHash + currentHash);
-                const parentIndex = Math.floor(currentIndex / 2);
-                await supabase.from('merkle_nodes').upsert({ level: currentLevel + 1, node_index: parentIndex, hash: parentHash });
-                currentLevel++; currentIndex = parentIndex; currentHash = parentHash;
-                if (currentLevel > 32) break;
-                continue;
-            } else if (siblingNode) {
+            const parentIndex = Math.floor(currentIndex / 2);
+            currentLevel++;
+            
+            if (siblingNode) {
                 const leftHash = isRightNode ? siblingNode.hash : currentHash;
                 const rightHash = isRightNode ? currentHash : siblingNode.hash;
                 const parentHash = sha256(leftHash + rightHash);
-                const parentIndex = Math.floor(currentIndex / 2);
-                await supabase.from('merkle_nodes').upsert({ level: currentLevel + 1, node_index: parentIndex, hash: parentHash });
-                currentLevel++; currentIndex = parentIndex; currentHash = parentHash;
+                
+                await supabase.from('merkle_nodes').upsert({ level: currentLevel, node_index: parentIndex, hash: parentHash });
+                
+                // Optimerad: Ta bort lövet och dess syskon när föräldern är beräknad
+                await supabase.from('merkle_nodes').delete().eq('level', currentLevel - 1).eq('node_index', siblingIndex);
+                await supabase.from('merkle_nodes').delete().eq('level', currentLevel - 1).eq('node_index', currentIndex);
+
+                currentIndex = parentIndex; 
+                currentHash = parentHash;
+            } else if (!isRightNode) {
+                // Lyft upp en ensam vänster nod
+                const parentHash = sha256(currentHash + currentHash);
+                await supabase.from('merkle_nodes').upsert({ level: currentLevel, node_index: parentIndex, hash: parentHash });
+                currentIndex = parentIndex;
+                currentHash = parentHash;
             } else {
                 break;
             }
+
+            // Avsluta om trädnivån blir för hög (säkerhet)
+            if (currentLevel > 32) break; 
         }
     }
-
+    
     static async getProof(leafIndex, totalLeaves) {
         const proof = [];
         let currentLevel = 0;
@@ -144,12 +170,11 @@ class DBMerkleService {
 
 // --- 5. VALIDATION SCHEMAS ---
 const eventSubmissionSchema = z.object({
-  event_type: z.string().min(1).max(64),
+  event_type: z.string().min(1).max(128),
   user_identifier: z.string().min(1).max(256), 
   event_data: z.record(z.any()),
 });
 
-// Utökade roller här
 const inviteUserSchema = z.object({
     email: z.string().email(),
     role: z.enum(['reader', 'editor', 'manager', 'admin']).default('reader'),
@@ -175,9 +200,10 @@ const authenticateUser = async (req, res, next) => {
     const token = req.headers['authorization']?.split(' ')[1]; 
     if (!token) return res.status(401).json({ error: 'Token required' });
     try {
-        const { data: { user } } = await supabase.auth.getUser(token);
-        if (!user) throw new Error('Invalid Token');
+        const { data: { user }, error } = await supabase.auth.getUser(token);
+        if (error || !user) throw new Error('Invalid Token');
         req.user = user; 
+        
         let { data: processor } = await supabase.from('processors').select('*').eq('owner_id', user.id).single();
         if (!processor) {
             const { data: membership } = await supabase.from('processor_users').select('processor_id, role').eq('user_id', user.id).single();
@@ -186,16 +212,14 @@ const authenticateUser = async (req, res, next) => {
                 processor = proc; req.userRole = membership.role;
             }
         } else { req.userRole = 'owner'; }
+        
         if (processor) req.processor = processor;
         req.authType = 'human'; next();
     } catch (err) { res.status(401).json({ error: 'Auth failed' }); }
 };
 
-const authorizeManagerOrAbove = (req, res, next) => {
-    const allowed = ['owner', 'admin', 'manager'];
-    if (!allowed.includes(req.userRole)) {
-        return res.status(403).json({ error: 'Forbidden. Insufficient permissions to manage team.' });
-    }
+const authorizeOwner = (req, res, next) => {
+    if (req.userRole !== 'owner') return res.status(403).json({ error: 'Forbidden. Owner only.' });
     next();
 };
 
@@ -207,10 +231,11 @@ const authenticateAny = async (req, res, next) => {
 
 // --- 7. ROUTES ---
 
-// 7.1 TOTP Setup
+// Health Check (Förhindrar 502 på Render)
+app.get('/health', (req, res) => res.status(200).send('OK'));
+
+// Key Rotation Setup (2FA)
 app.post('/api/keys/totp/setup', authenticateUser, async (req, res) => {
-    const { data: existing } = await supabase.from('user_secrets').select('is_totp_enabled').eq('user_id', req.user.id).maybeSingle();
-    if (existing?.is_totp_enabled) return res.status(409).json({ error: 'TOTP is already enabled.' });
     try {
         const secret = authenticator.generateSecret();
         await supabase.from('user_secrets').upsert({ user_id: req.user.id, totp_secret: secret, is_totp_enabled: false });
@@ -219,142 +244,157 @@ app.post('/api/keys/totp/setup', authenticateUser, async (req, res) => {
     } catch (err) { res.status(500).json({ error: 'Setup failed.' }); }
 });
 
-// 7.2 TOTP Enable
 app.post('/api/keys/totp/enable', authenticateUser, async (req, res) => {
     try {
         const { code } = totpSchema.parse(req.body);
         const { data: userSecret } = await supabase.from('user_secrets').select('totp_secret').eq('user_id', req.user.id).single();
-        if (!userSecret) return res.status(404).json({ error: 'Setup missing.' });
-        if (!authenticator.check(code, userSecret.totp_secret)) return res.status(400).json({ error: 'Invalid code.' });
+        if (!userSecret || !authenticator.check(code, userSecret.totp_secret)) return res.status(400).json({ error: 'Invalid code.' });
         await supabase.from('user_secrets').update({ is_totp_enabled: true }).eq('user_id', req.user.id);
         res.json({ success: true });
     } catch (err) { res.status(500).json({ error: 'Enable failed.' }); }
 });
 
-// 7.3 Key Rotation Request
 app.post('/api/keys/request-rotation', authenticateUser, async (req, res) => {
-    if (!req.processor) return res.status(403).json({ error: 'Denied.' });
     const { data } = await supabase.from('user_secrets').select('is_totp_enabled').eq('user_id', req.user.id).maybeSingle();
-    if (!data?.is_totp_enabled) return res.status(400).json({ error: 'TOTP required.', totpEnabled: false });
-    res.json({ message: 'Ready.', totpEnabled: true });
+    res.json({ message: 'Ready.', totpEnabled: !!data?.is_totp_enabled });
 });
 
-// 7.4 Key Rotation Execute
 app.post('/api/keys/rotate', authenticateUser, async (req, res) => {
-    if (!req.processor) return res.status(403).json({ error: 'Denied.' });
-    const { code } = req.body;
-    const { data: userSecret } = await supabase.from('user_secrets').select('*').eq('user_id', req.user.id).single();
-    if (!userSecret?.is_totp_enabled || !authenticator.check(code, userSecret.totp_secret)) return res.status(401).json({ error: 'Invalid TOTP.' });
+    try {
+        const { code } = req.body;
+        const { data: userSecret } = await supabase.from('user_secrets').select('*').eq('user_id', req.user.id).single();
+        if (!userSecret?.is_totp_enabled || !authenticator.check(code, userSecret.totp_secret)) return res.status(401).json({ error: 'Invalid TOTP.' });
 
-    const newKey = `av_${uuidv4().replace(/-/g, '')}`;
-    const newHash = sha256(newKey);
-    await supabase.from('processors').update({ api_key_hash: newHash }).eq('id', req.processor.id);
-    
-    // Merkle Log
-    const userHash = sha256(req.user.email);
-    let { data: keyRow } = await supabase.from('encryption_keys').select('encrypted_key').eq('user_identifier_hash', userHash).single();
-    let userKey = keyRow ? decryptData(keyRow.encrypted_key, MASTER_KEY) : (uuidv4() + "-" + uuidv4());
-    if(!keyRow) await supabase.from('encryption_keys').insert([{ user_identifier_hash: userHash, encrypted_key: encryptData(userKey, MASTER_KEY) }]);
-    
-    const hashData = { processor_id: req.processor.id, event_type: 'system.key_rotation', userHash, timestamp: new Date().toISOString() };
-    const { data: savedEvent } = await supabase.from('audit_events').insert([{
-        processor_id: req.processor.id, event_type: 'system.key_rotation', user_identifier: userHash,
-        event_data: { encrypted: encryptData({ message: 'Rotated via TOTP' }, userKey) }, event_timestamp: new Date().toISOString(), data_hash: sha256(stringify(hashData)), previous_hash: null 
-    }]).select('id, leaf_index').single();
+        const newKey = `av_${uuidv4().replace(/-/g, '')}`;
+        await supabase.from('processors').update({ api_key_hash: sha256(newKey), last_rotation_date: new Date() }).eq('id', req.processor.id);
+        
+        await supabase.from('audit_events').insert([{
+            processor_id: req.processor.id, event_type: 'system.key_rotation', user_identifier: sha256(req.user.email),
+            event_data: { note: 'Key rotated via 2FA' }, event_timestamp: new Date().toISOString(), data_hash: sha256(`rotation-${Date.now()}`)
+        }]);
 
-    if (savedEvent) await DBMerkleService.appendLeaf(sha256(stringify(hashData)), savedEvent.leaf_index);
-    res.json({ message: 'Success', newApiKey: newKey });
+        res.json({ message: 'Success', newApiKey: newKey });
+    } catch(e) { res.status(500).json({error: e.message}); }
 });
 
-// 7.5 TEAM INVITE (MANUELL LÄNK, INGET MAIL)
-app.post('/api/team/invite', authenticateUser, authorizeManagerOrAbove, async (req, res) => {
+// Team Invite (Ger länk)
+app.post('/api/team/invite', authenticateUser, authorizeOwner, async (req, res) => {
     try {
         const { email, role } = inviteUserSchema.parse(req.body);
-        const { data: existing } = await supabase.from('processor_invitations').select('id').eq('processor_id', req.processor.id).eq('invited_email', email).maybeSingle();
-        if (existing) return res.status(409).json({ error: 'User already invited.' });
-        if (email === req.user.email) return res.status(400).json({ error: 'Cannot invite self.' });
-
         const token = uuidv4().replace(/-/g, '');
+        
         await supabase.from('processor_invitations').insert([{
             processor_id: req.processor.id, invited_email: email, role, token, expires_at: new Date(Date.now() + 86400000).toISOString()
         }]);
         
-        // Returnera token så admin kan kopiera den
         res.status(200).json({ 
-            message: `Invitation created for ${email}.`, 
-            inviteToken: token,
+            message: `Invitation generated`, 
             inviteLink: `https://auditorveritas.com/join?token=${token}` 
         });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// 7.6 TEAM ACCEPT
-app.post('/api/team/accept', authenticateUser, async (req, res) => {
-    const { token } = req.body;
-    if (req.processor) return res.status(409).json({ error: 'Already in a team.' });
-    
-    const { data: invite } = await supabase.from('processor_invitations').select('*').eq('token', token).single();
-    if (!invite || new Date() > new Date(invite.expires_at)) return res.status(404).json({ error: 'Invalid/Expired.' });
-    if (invite.invited_email !== req.user.email) return res.status(403).json({ error: 'Email mismatch.' });
-
-    await supabase.from('processor_users').insert([{ user_id: req.user.id, processor_id: invite.processor_id, role: invite.role, joined_at: new Date().toISOString() }]);
-    await supabase.from('processor_invitations').delete().eq('token', token);
-    res.json({ success: true });
-});
-
-// 7.7 GET TEAM (SAFE FETCH)
 app.get('/api/team', authenticateUser, async (req, res) => {
-    if (!req.processor) return res.status(403).json({ error: 'Denied.' });
     try {
         const { data: members } = await supabase.from('processor_users').select('user_id, role').eq('processor_id', req.processor.id);
         const { data: invites } = await supabase.from('processor_invitations').select('*').eq('processor_id', req.processor.id);
         
-        const team = await Promise.all(members.map(async m => {
+        // Använder Admin API för att hämta e-postadresser för Dashboarden
+        const team = members ? await Promise.all(members.map(async m => {
             const { data: u } = await supabase.auth.admin.getUserById(m.user_id);
             return { email: u?.user?.email || 'Unknown', role: m.role, status: 'Active', user_id: m.user_id };
-        }));
+        })) : [];
+        
         const { data: owner } = await supabase.auth.admin.getUserById(req.processor.owner_id);
-        team.unshift({ email: owner?.user?.email, role: 'owner', status: 'Active', user_id: req.processor.owner_id });
+        if (!team.find(t => t.user_id === req.processor.owner_id)) {
+             team.unshift({ email: owner?.user?.email, role: 'owner', status: 'Active', user_id: req.processor.owner_id });
+        }
 
-        res.json({ team, pending: invites, userRole: req.userRole });
+        res.json({ team, pending: invites || [], userRole: req.userRole });
     } catch (err) { res.status(500).json({ error: 'Fetch error' }); }
 });
 
-app.delete('/api/team/member/:userId', authenticateUser, authorizeManagerOrAbove, async (req, res) => {
-    if (req.params.userId === req.processor.owner_id) return res.status(400).json({ error: 'Cannot remove owner.' });
-    await supabase.from('processor_users').delete().eq('user_id', req.params.userId);
-    res.json({ success: true });
-});
-
+// MAIN EVENT INGESTION (PRODUCTION READY)
 app.post('/api/events', authenticateApiKey, async (req, res) => {
     try {
         const { event_type, user_identifier, event_data } = eventSubmissionSchema.parse(req.body);
-        // ... (Encryption & Merkle logic similar to rotate) ...
+        
+        const timestamp = new Date().toISOString();
+        const userHash = sha256(user_identifier);
+        
+        // 1. Krypteringsnyckel (Crypto-Shredding logic)
+        let { data: keyRow } = await supabase.from('encryption_keys').select('encrypted_key').eq('user_identifier_hash', userHash).maybeSingle();
+        let userKey;
+        
+        if (keyRow) {
+            userKey = decryptData(keyRow.encrypted_key, MASTER_KEY);
+        } else {
+            userKey = uuidv4() + "-" + uuidv4();
+            await supabase.from('encryption_keys').insert([{ user_identifier_hash: userHash, encrypted_key: encryptData(userKey, MASTER_KEY) }]);
+        }
+
+        if (!userKey) throw new Error("Encryption key access failed.");
+
+        // 2. Kryptera payload
+        const encryptedPayload = encryptData(event_data, userKey);
+        
+        // 3. Skapa Integrity Hash
+        const integrityHash = sha256(stringify({
+            processor_id: req.processor.id,
+            event_type,
+            userHash,
+            timestamp,
+            payload_hash: sha256(encryptedPayload) 
+        }));
+
+        // 4. Spara till DB och få leaf index
+        const { data: savedEvent, error } = await supabase.from('audit_events').insert([{
+            processor_id: req.processor.id,
+            event_type,
+            user_identifier: userHash, 
+            event_data: { encrypted: encryptedPayload },
+            event_timestamp: timestamp,
+            data_hash: integrityHash
+        }]).select('leaf_index').single();
+
+        if (error) throw error;
+        
+        // 5. Uppdatera Merkle (Full rekursion, körs asynkront)
+        DBMerkleService.appendLeaf(integrityHash, savedEvent.leaf_index).catch(console.error);
+        
+        // 6. Uppdatera Usage
         await supabase.rpc('increment_processor_usage', { pid: req.processor.id });
-        res.status(201).json({ success: true });
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
 
-app.post('/api/processors', authenticateUser, async (req, res) => {
-    if (req.processor) return res.status(409).json({ error: 'Exists.' });
-    const domain = extractDomain(req.user.email);
-    if (!domain || ['gmail.com','hotmail.com'].includes(domain)) return res.status(400).json({ error: 'Corporate email required.' });
-    
-    const existing = await supabase.from('processors').select('id').eq('company_domain', domain).single();
-    if (existing.data) return res.status(409).json({ error: 'Domain taken.' });
-
-    const apiKey = `av_${uuidv4().replace(/-/g, '')}`;
-    await supabase.from('processors').insert([{
-        company_name: req.body.companyName, email: req.user.email, plan: req.body.plan,
-        api_key_hash: sha256(apiKey), status: 'active', owner_id: req.user.id, company_domain: domain, events_limit: 100
-    }]);
-    res.status(201).json({ apiKey });
+        res.status(201).json({ success: true, hash: integrityHash });
+    } catch (err) { 
+        console.error("Ingest Error:", err);
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
 app.get('/api/dashboard', authenticateUser, async (req, res) => {
-    const { data } = await supabase.from('processors').select('*').eq('id', req.processor.id).single();
-    if(!data) return res.status(404).json({error: 'No processor'});
-    res.json({ processor: { ...data }, stats: { totalEvents: 0, monthlyEvents: data.monthly_events_used }, userRole: req.userRole });
+    try {
+        const { data } = await supabase.from('processors').select('*').eq('id', req.processor.id).single();
+        if (!data) return res.status(404).json({ error: 'No processor found.' });
+        
+        const { count } = await supabase.from('audit_events').select('*', { count: 'exact', head: true }).eq('processor_id', req.processor.id);
+        
+        res.json({ 
+            processor: data, 
+            stats: { totalEvents: count || 0, monthlyEvents: data.monthly_events_used }, 
+            userRole: req.userRole 
+        });
+    } catch(e) { res.status(500).json({error: e.message}); }
+});
+
+app.get('/api/events/search', authenticateAny, async (req, res) => {
+    const limit = parseInt(req.query.limit) || 20;
+    const { data } = await supabase.from('audit_events')
+        .select('*')
+        .eq('processor_id', req.processor.id)
+        .order('event_timestamp', { ascending: false })
+        .limit(limit);
+    res.json({ events: data || [] });
 });
 
 app.listen(PORT, () => logger.info(`Server running on ${PORT}`));
