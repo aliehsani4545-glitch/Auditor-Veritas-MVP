@@ -5,9 +5,8 @@ import rateLimit from 'express-rate-limit';
 import { createClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
 import CryptoJS from 'crypto-js';
-import Stripe from 'stripe';
+// Stripe och Resend imports är borttagna
 import { config } from 'dotenv';
-import { Resend } from 'resend'; 
 import { z } from 'zod';
 import stringify from 'fast-json-stable-stringify';
 import winston from 'winston';
@@ -27,11 +26,12 @@ const PORT = process.env.PORT || 3001;
 // --- 1. CONFIGURATION ---
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY; 
-const MASTER_KEY = process.env.MASTER_ENCRYPTION_KEY;
-const RESEND_API_KEY = process.env.RESEND_API_KEY; 
+const MASTER_KEY = process.env.MASTER_ENCRYPTION_KEY; 
+// Stripe och Resend API-nycklar har tagits bort
 
-if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY || !MASTER_KEY || !RESEND_API_KEY) {
-  console.error('❌ FATAL: Missing Credentials (SUPABASE, MASTER_KEY, or RESEND_API_KEY).');
+// Kritiska systemnycklar måste finnas vid start
+if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY || !MASTER_KEY) {
+  console.error('❌ FATAL: Missing Credentials (SUPABASE_URL, SUPABASE_SERVICE_KEY, or MASTER_ENCRYPTION_KEY).');
   process.exit(1);
 }
 
@@ -39,8 +39,8 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false }
 });
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_placeholder');
-const resend = new Resend(RESEND_API_KEY); 
+// Stripe initiering borttagen
+
 
 // --- 2. LOGGING & MIDDLEWARE ---
 const logger = winston.createLogger({
@@ -281,9 +281,9 @@ const authenticateAny = async (req, res, next) => {
 
 // --- 7. ROUTES ---
 
-// --- KEY ROTATION ROUTES (UPPDATERAD FÖR TOTP) ---
+// --- KEY ROTATION ROUTES (TOTP) ---
 
-// 7.1 NY: Initierar TOTP setup genom att generera secret och QR-kod
+// 7.1 Initierar TOTP setup genom att generera secret och QR-kod
 app.post('/api/keys/totp/setup', authenticateUser, async (req, res) => {
     const { data: existingSecret } = await supabase.from('user_secrets').select('is_totp_enabled').eq('user_id', req.user.id).maybeSingle();
 
@@ -294,7 +294,6 @@ app.post('/api/keys/totp/setup', authenticateUser, async (req, res) => {
     try {
         const secret = authenticator.generateSecret();
         
-        // Lagra hemligheten temporärt, men inte aktiverad
         await supabase.from('user_secrets').upsert({
             user_id: req.user.id,
             totp_secret: secret,
@@ -304,7 +303,6 @@ app.post('/api/keys/totp/setup', authenticateUser, async (req, res) => {
         const serviceName = 'Auditor Veritas';
         const otpAuthUrl = authenticator.keyuri(req.user.email, serviceName, secret);
         
-        // Generera QR-kod som data URL
         const qrCodeDataUrl = await QRCode.toDataURL(otpAuthUrl);
 
         res.json({ secret, qrCodeDataUrl });
@@ -314,7 +312,7 @@ app.post('/api/keys/totp/setup', authenticateUser, async (req, res) => {
     }
 });
 
-// 7.2 NY: Verifierar och Aktiverar TOTP
+// 7.2 Verifierar och Aktiverar TOTP
 app.post('/api/keys/totp/enable', authenticateUser, async (req, res) => {
     try {
         const { code } = totpSchema.parse(req.body);
@@ -325,14 +323,12 @@ app.post('/api/keys/totp/enable', authenticateUser, async (req, res) => {
             return res.status(404).json({ error: 'TOTP setup not initiated or secret missing.' });
         }
 
-        // Verifiera koden
         const isValid = authenticator.check(code, userSecret.totp_secret);
 
         if (!isValid) {
             return res.status(400).json({ error: 'Invalid TOTP code. Please try again.' });
         }
 
-        // Aktivera TOTP i databasen
         await supabase.from('user_secrets').update({ is_totp_enabled: true }).eq('user_id', req.user.id);
 
         res.json({ success: true, message: 'TOTP successfully enabled.' });
@@ -344,12 +340,11 @@ app.post('/api/keys/totp/enable', authenticateUser, async (req, res) => {
 });
 
 
-// 7.3 UPPDATERAD: Förbereder för nyckelrotation (Returnerar TOTP status istället för att skicka mail)
+// 7.3 Förbereder för nyckelrotation (Kontrollerar TOTP status)
 app.post('/api/keys/request-rotation', authenticateUser, async (req, res) => {
     if (!req.processor) return res.status(403).json({ error: 'Access denied' });
     
     try {
-        // Kontrollera om TOTP är aktiverat
         const { data: secretData } = await supabase.from('user_secrets').select('is_totp_enabled').eq('user_id', req.user.id).maybeSingle();
         const totpEnabled = secretData?.is_totp_enabled || false;
 
@@ -357,7 +352,6 @@ app.post('/api/keys/request-rotation', authenticateUser, async (req, res) => {
              return res.status(400).json({ error: 'Two-factor authentication (TOTP) is required but not enabled for this account. Please enable it first.', totpEnabled: false });
         }
         
-        // Returnerar status
         res.json({ message: 'TOTP required. Ready for code verification.', totpEnabled: true });
         
     } catch (err) { 
@@ -366,10 +360,10 @@ app.post('/api/keys/request-rotation', authenticateUser, async (req, res) => {
     }
 });
 
-// 7.4 UPPDATERAD: Utför nyckelrotation (Använder TOTP-kod istället för email-kod)
+// 7.4 Utför nyckelrotation (Använder TOTP-kod)
 app.post('/api/keys/rotate', authenticateUser, async (req, res) => {
     if (!req.processor) return res.status(403).json({ error: 'Access denied' });
-    const { code } = req.body; // Detta är nu TOTP-koden
+    const { code } = req.body; 
     
     try {
         const { data: userSecret, error: fetchError } = await supabase.from('user_secrets').select('totp_secret, is_totp_enabled').eq('user_id', req.user.id).single();
@@ -378,14 +372,13 @@ app.post('/api/keys/rotate', authenticateUser, async (req, res) => {
             return res.status(401).json({ error: 'TOTP not enabled or secret missing.' });
         }
 
-        // 1. Verifiera TOTP-koden
         const isValid = authenticator.check(code, userSecret.totp_secret);
 
         if (!isValid) {
             return res.status(400).json({ error: 'Invalid TOTP code.' });
         }
         
-        // 2. Fortsätt med rotationen
+        // Fortsätt med rotationen
         const newApiKey = `av_${uuidv4().replace(/-/g, '')}`;
         const newHash = sha256(newApiKey);
         const rotationDate = new Date().toISOString();
@@ -394,7 +387,7 @@ app.post('/api/keys/rotate', authenticateUser, async (req, res) => {
             api_key_hash: newHash
         }).eq('id', req.processor.id);
 
-        // 3. LOGGA EVENTET
+        // LOGGA EVENTET
         const eventType = 'system.key_rotation';
         const userIdentifier = req.user.email;
         const userHash = sha256(userIdentifier);
@@ -465,17 +458,10 @@ app.post('/api/team/invite', authenticateUser, authorizeOwner, async (req, res) 
         }]);
 
         if (insertError) throw insertError;
-
-        const inviteLink = `https://auditorveritas.com/join?token=${inviteToken}`;
-
-        await resend.emails.send({
-            from: 'team@auditorveritas.com', 
-            to: [validated.email],
-            subject: `You've been invited to join ${req.processor.company_name} on Auditor Veritas`,
-            html: `<p>You have been invited by ${req.user.email} to join the team as a ${validated.role}. Click here to accept: <a href="${inviteLink}">${inviteLink}</a></p>`
-        });
         
-        res.status(200).json({ message: `Invitation sent to ${validated.email}.` });
+        // OBS: E-postutskick BORTTAGET från Resend. Användaren måste nu informeras via UI.
+        
+        res.status(200).json({ message: `Invitation sent (Token: ${inviteToken}). User must visit /join?token=...` });
 
     } catch (err) {
         logger.error('Invite Error', err);
@@ -761,7 +747,7 @@ app.post('/api/processors', authenticateUser, async (req, res) => {
 
 // --- ÖVRIGA ROUTES ---
 app.post('/api/gdpr/erase', authenticateAny, async (req, res) => {
-    if (!req.processor) return res.status(403).json({ error: 'Access denied.' });
+    if (!req.processor) return res.status(403).json({ error: 'Access denied' });
     try {
         const { user_identifier_hash } = req.body;
         await supabase.from('encryption_keys').delete().eq('user_identifier_hash', user_identifier_hash);

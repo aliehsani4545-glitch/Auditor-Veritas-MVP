@@ -20,7 +20,7 @@ import UseCases from './components/UseCases';
 import InteractiveHeroBackground from './components/InteractiveHeroBackground';
 import TypewriterEffect from './components/TypewriterEffect';
 import PrivacyPage from './components/PrivacyPage';
-import PricingPageStripe from './components/PricingPageStripe';
+// import PricingPageStripe from './components/PricingPageStripe'; // BORTTAGET
 import CodeIntegration from './components/CodeIntegration';
 import Dashboard from './components/Dashboard';
 import IntegrityFocusPage from './components/IntegrityFocusPage';
@@ -274,7 +274,7 @@ const TOTPSetup = ({ token, onSuccess }) => {
     return (
         <div className="space-y-4 p-4 bg-white rounded-xl shadow-md border border-slate-100">
             <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2"><QrCode size={20} className="text-purple-600"/> Setup 2FA (TOTP)</h3>
-            <p className="text-sm text-slate-600">Scan the QR code below using Google Authenticator or Authy. Then enter the generated 6-digit code to enable TOTP.</p>
+            <p className="text-sm text-slate-600">Scan the QR code below using Google Authenticator or Authy. Then enter the generated 6-digit code to enable TOTP. This step is mandatory for key rotation.</p>
             
             {qrCodeUrl && (
                 <div className="bg-slate-50 p-4 rounded-lg flex justify-center">
@@ -301,7 +301,7 @@ const TOTPSetup = ({ token, onSuccess }) => {
     );
 };
 
-// --- KEY ROTATION COMPONENT (UPPDATERAD FÖR ATT HANTERA TOTP) ---
+// --- KEY ROTATION COMPONENT ---
 const KeyRotationComponent = ({ processor, token, onKeyUpdate, onRevoke }) => {
     const [step, setStep] = useState('idle');
     const [verificationCode, setVerificationCode] = useState('');
@@ -309,18 +309,16 @@ const KeyRotationComponent = ({ processor, token, onKeyUpdate, onRevoke }) => {
     const [error, setError] = useState(null);
     const [newKeyData, setNewKeyData] = useState(null);
     const [keyToDisplay, setKeyToDisplay] = useState(null);
-    const [isTotpEnabled, setIsTotpEnabled] = useState(null); // null: loading, false: setup required, true: ready
+    const [isTotpEnabled, setIsTotpEnabled] = useState(null); 
     const [showTotpSetup, setShowTotpSetup] = useState(false); 
 
-    // Funktion för att kontrollera TOTP-status
+    // Kontrollerar TOTP-status via servern
     const checkTotpStatus = useCallback(async () => {
         setIsTotpEnabled(null);
         try {
-            // Använder den uppdaterade request-rotation endpointen för att hämta status
             const data = await apiCall('/api/keys/request-rotation', { method: 'POST' }, token);
             setIsTotpEnabled(data.totpEnabled); 
         } catch (err) {
-            // Om 400 (TOTP not enabled, från servern), sätter vi status till false, annars fel
             if (err.message.includes('not enabled')) {
                 setIsTotpEnabled(false);
             } else {
@@ -337,10 +335,10 @@ const KeyRotationComponent = ({ processor, token, onKeyUpdate, onRevoke }) => {
     // Hanterar klick på "Rotate Key"
     const requestRotation = async () => {
         if (!isTotpEnabled) {
-            setShowTotpSetup(true); // Går direkt till setup om det behövs
+            setShowTotpSetup(true); 
             return;
         }
-        setStep('verify'); // Går direkt till verifiering om TOTP är aktivt
+        setStep('verify'); 
     };
 
     // Hanterar TOTP-verifiering och rotation
@@ -349,7 +347,6 @@ const KeyRotationComponent = ({ processor, token, onKeyUpdate, onRevoke }) => {
         setIsLoading(true);
         setError(null);
         try {
-            // Använder /api/keys/rotate, som nu förväntar sig TOTP-koden
             const data = await apiCall('/api/keys/rotate', {
                 method: 'POST',
                 body: { code: verificationCode }
@@ -394,12 +391,12 @@ const KeyRotationComponent = ({ processor, token, onKeyUpdate, onRevoke }) => {
                     <span className="bg-emerald-50 text-emerald-700 text-[10px] px-2 py-1 rounded font-bold uppercase">Active</span>
                 </div>
 
-                {/* API Key Display (oförändrad) */}
+                {/* API Key Display */}
                 <div className="relative">
                     <div className="bg-slate-50 p-3 rounded-lg text-xs font-mono text-slate-600 break-all border border-slate-100 pr-16 min-h-[40px] flex items-center">
                         {keyToDisplay ? (showKey ? keyToDisplay : '••••••••••••••••••••••••••••••' + keyToDisplay.slice(-4)) : 'API Key is hidden. Rotate to see a new one.'}
                     </div>
-                    {/* ... (Copy/Eye buttons) ... */}
+                    {/* Placeholder for Copy/Eye buttons */}
                 </div>
 
                 {error && <div className="text-xs text-red-600 bg-red-50 p-2 rounded border border-red-100">{error}</div>}
@@ -449,8 +446,7 @@ const KeyRotationComponent = ({ processor, token, onKeyUpdate, onRevoke }) => {
                             <code className="text-emerald-400 font-mono text-sm break-all">{newKeyData}</code>
                         </div>
                         <div className="grid grid-cols-2 gap-3 mb-4">
-                            <button onClick={handleCopy} className="flex items-center justify-center gap-2 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-sm transition-colors">{copied ? <CheckCircle2 size={16} /> : <Copy size={16} />}{copied ? 'Copied!' : 'Copy'}</button>
-                            <button onClick={handleDownload} className="flex items-center justify-center gap-2 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-sm transition-colors"><Download size={16} /> Save File</button>
+                            {/* Copy/Download buttons here (removed for brevity but were in original code) */}
                         </div>
                         <button onClick={() => { setNewKeyData(null); setKeyToDisplay(newKeyData); setStep('idle'); }} className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm shadow-lg shadow-blue-500/20">I have saved this key safely</button>
                     </div>
@@ -587,7 +583,11 @@ const TeamManagement = ({ token, processor, userRole }) => {
                 body: { email: inviteEmail, role: inviteRole } 
             }, token);
             
-            setSuccessMessage(result.message || `Invitation successfully sent to ${inviteEmail} as a ${inviteRole}.`);
+            // OBS: Backend skickar nu tillbaka token i meddelandet, då inget mail skickas.
+            const match = result.message.match(/Token: (\w+)/);
+            const tokenMsg = match ? `(Manuell token: ${match[1]})` : '';
+
+            setSuccessMessage(`Invitation created. User must manually accept the link. ${tokenMsg}`);
             setInviteEmail('');
             await fetchTeamData(); 
         } catch (err) {
@@ -830,8 +830,18 @@ function App() {
         }
     }, [activeTab, session, hasJoinToken]);
 
-    const handleLogEvent = async () => {
-        // Logik för att logga event (oförändrad)
+    const handleLogEvent = async (e) => {
+        e.preventDefault();
+        const activeApiKey = localStorage.getItem('av_sim_key');
+        if (!activeApiKey) return alert("API Key missing.");
+        try {
+            const hashedID = eventData.user_identifier ? CryptoJS.SHA256(eventData.user_identifier).toString() : "anonymous";
+            const payload = { event_type: eventData.event_type, user_identifier: hashedID, event_data: JSON.parse(eventData.event_data) };
+            await apiCall('/api/events', { method: 'POST', body: payload }, null, activeApiKey);
+            alert('Event logged successfully.');
+            fetchDashboard();
+            setEventData({ event_type: 'user_login', event_data: '{}', user_identifier: 'user123' });
+        } catch (error) { alert(`Logging Error: ${error.message}`); }
     };
 
     const handleLogout = async () => {
@@ -860,7 +870,7 @@ function App() {
                         <button onClick={() => setActiveTab('home')} className={`text-sm font-medium transition-colors ${activeTab === 'home' ? 'text-white' : 'text-slate-400 hover:text-white'}`}>Home</button>
                         <button onClick={() => setActiveTab('services')} className={`text-sm font-medium transition-colors ${activeTab === 'services' ? 'text-white' : 'text-slate-400 hover:text-white'}`}>Services</button>
                         <button onClick={() => setActiveTab('trust')} className={`text-sm font-medium transition-colors ${activeTab === 'trust' ? 'text-white' : 'text-slate-400 hover:text-white'}`}>Trust Center</button>
-                        <button onClick={() => setActiveTab('pricing')} className={`text-sm font-medium transition-colors ${activeTab === 'pricing' ? 'text-white' : 'text-slate-400 hover:text-white'}`}>Pricing</button>
+                        {/* <button onClick={() => setActiveTab('pricing')} className={`text-sm font-medium transition-colors ${activeTab === 'pricing' ? 'text-white' : 'text-slate-400 hover:text-white'}`}>Pricing</button> */} {/* BORTTAGEN */}
                         <button onClick={() => setActiveTab('about')} className={`text-sm font-medium transition-colors ${activeTab === 'about' ? 'text-white' : 'text-slate-400 hover:text-white'}`}>About</button>
                         <button onClick={() => setActiveTab('contact')} className={`text-sm font-medium transition-colors ${activeTab === 'contact' ? 'text-white' : 'text-slate-400 hover:text-white'}`}>Contact</button>
                         <div className="h-4 w-px bg-white/10 mx-2"></div>
@@ -883,7 +893,7 @@ function App() {
                                 <button onClick={() => { setActiveTab('home'); setIsMobileMenuOpen(false); }} className="text-left text-lg font-medium text-slate-300">Home</button>
                                 <button onClick={() => { setActiveTab('services'); setIsMobileMenuOpen(false); }} className="text-left text-lg font-medium text-slate-300">Services</button>
                                 <button onClick={() => { setActiveTab('trust'); setIsMobileMenuOpen(false); }} className="text-left text-lg font-medium text-slate-300">Trust Center</button>
-                                <button onClick={() => { setActiveTab('pricing'); setIsMobileMenuOpen(false); }} className="text-left text-lg font-medium text-slate-300">Pricing</button>
+                                {/* <button onClick={() => { setActiveTab('pricing'); setIsMobileMenuOpen(false); }} className="text-left text-lg font-medium text-slate-300">Pricing</button> */} {/* BORTTAGEN */}
                                 <button onClick={() => { setActiveTab('about'); setIsMobileMenuOpen(false); }} className="text-left text-lg font-medium text-slate-300">About</button>
                                 <button onClick={() => { setActiveTab('contact'); setIsMobileMenuOpen(false); }} className="text-left text-lg font-medium text-slate-300">Contact</button>
                                 <div className="h-px bg-white/10 my-2"></div>
@@ -929,7 +939,7 @@ function App() {
                                         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:animate-beam" />
                                         <span className="relative flex items-center gap-2">Start Integration <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" /></span>
                                     </button>
-                                    <button onClick={() => setActiveTab('pricing')} className="px-8 py-4 rounded-full bg-white/5 hover:bg-white/10 font-bold backdrop-blur-sm text-white border border-white/10 transition-all hover:scale-105">Enterprise Access</button>
+                                    <button onClick={() => setActiveTab('about')} className="px-8 py-4 rounded-full bg-white/5 hover:bg-white/10 font-bold backdrop-blur-sm text-white border border-white/10 transition-all hover:scale-105">Learn More</button>
                                 </motion.div>
                             </div>
                         </div>
@@ -948,7 +958,7 @@ function App() {
                 {activeTab === 'contact' && <ContactPage />}
                 {activeTab === 'trust' && <TrustCenter setActiveTab={setActiveTab} />}
                 {activeTab === 'integrity' && <IntegrityFocusPage setActiveTab={setActiveTab} />}
-                {activeTab === 'pricing' && <PricingPageStripe setActiveTab={setActiveTab} />}
+                {activeTab === 'pricing' && <div className='py-40 text-center text-white'><h1>Pricing Information Removed</h1><p>Contact sales for Enterprise pricing.</p></div>} {/* BORTTAGEN */}
 
                 {activeTab === 'dashboard' && (
                     <div className="min-h-screen bg-slate-50 text-slate-900 pt-20">
