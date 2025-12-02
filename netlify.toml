@@ -1,12 +1,11 @@
 [build]
-  # Netlify går automatiskt in i denna mapp
+  # Netlify går in i denna mapp först
   base = "frontend"
   
-  # Vi kör install och sedan npm run build. 
-  # npm run build använder scriptet i package.json som nu är korrekt.
+  # Kör installation och sedan build-scriptet i package.json (som nu använder npx)
   command = "npm install && npm run build"
   
-  # Mappen där Vite lägger byggfilerna
+  # Mappen där filerna hamnar
   publish = "dist"
 
 [build.environment]
@@ -31,8 +30,8 @@
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "camera=(), microphone=(), geolocation=()"
-
-    # CSP Rensad från Stripe och Resend
+    
+    # CSP helt utan Stripe/Resend
     Content-Security-Policy = """default-src 'self'; 
       script-src 'self' 'unsafe-inline'; 
       style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; 
