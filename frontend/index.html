@@ -3,27 +3,20 @@
   <head>
     <meta charset="UTF-8" />
     
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="#1e40af">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Auditor Veritas">
-    <meta name="mobile-web-app-capable" content="yes">
     
-    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
-    <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
-
     <title>Auditor Veritas - GDPR Compliant Audit Trail</title>
     
     <style>
+      /* Återställer standard beteende */
       * { margin: 0; padding: 0; box-sizing: border-box; }
       body {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         min-height: 100vh;
-        -webkit-touch-callout: none; -webkit-user-select: none; -khtml-user-select: none;
-        -moz-user-select: none; -ms-user-select: none; user-select: none;
       }
+      /* Loading spinner (Behållen för initial laddning) */
       .loading-spinner {
         display: flex; justify-content: center; align-items: center; height: 100vh; color: white; font-size: 1.2rem;
       }
@@ -36,12 +29,6 @@
   </head>
   <body>
     
-    <!-- 
-      NETLIFY FORMS (HIDDEN)
-      Dessa måste finnas här för att Netlify ska hitta dem.
-    -->
-
-    <!-- 1. Enterprise Inquiry (Din version) -->
     <form name="enterprise-inquiry" netlify netlify-honeypot="bot-field" hidden>
       <input type="text" name="name" />
       <input type="email" name="email" />
@@ -55,14 +42,12 @@
       <input type="text" name="compliance" />
     </form>
 
-    <!-- 2. Contact Page Form (Lades till för att fixa ContactPage.jsx) -->
     <form name="contact" netlify netlify-honeypot="bot-field" hidden>
       <input type="text" name="name" />
       <input type="email" name="email" />
       <textarea name="message"></textarea>
     </form>
 
-    <!-- 3. Footer Contact Form (Lades till för att fixa Footer.jsx) -->
     <form name="contact_footer" netlify netlify-honeypot="bot-field" hidden>
       <input type="text" name="name" />
       <input type="email" name="email" />
@@ -78,19 +63,13 @@
     
     <script type="module" src="/src/main.jsx"></script>
     
-    <script src="https://js.stripe.com/v3/"></script>
-
     <script>
+      // Döljer laddningsskärmen efter 1 sekund
       window.addEventListener('load', function() {
         setTimeout(function() {
           const loading = document.getElementById('loading');
           if (loading) loading.style.display = 'none';
         }, 1000);
-      });
-      
-      document.addEventListener('DOMContentLoaded', function() {
-        if (window.location !== window.parent.location) window.top.location = window.location;
-        document.addEventListener('selectstart', function(e) { e.preventDefault(); return false; });
       });
     </script>
   </body>
