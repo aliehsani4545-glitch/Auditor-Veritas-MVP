@@ -13,6 +13,8 @@ import stringify from 'fast-json-stable-stringify';
 import winston from 'winston';
 import morgan from 'morgan';
 import archiver from 'archiver';
+import { authenticator } from 'otplib'; 
+import QRCode from 'qrcode'; 
 
 // Load environment variables
 if (process.env.NODE_ENV !== 'production') {
@@ -206,6 +208,10 @@ const inviteUserSchema = z.object({
     role: z.enum(['reader', 'editor', 'admin']).default('reader'),
 });
 
+const totpSchema = z.object({
+    code: z.string().length(6),
+});
+
 // --- 6. AUTHENTICATION MIDDLEWARE ---
 
 const authenticateApiKey = async (req, res, next) => {
@@ -275,55 +281,124 @@ const authenticateAny = async (req, res, next) => {
 
 // --- 7. ROUTES ---
 
-// --- KEY ROTATION ROUTES ---
+// --- KEY ROTATION ROUTES (UPPDATERAD FÖR TOTP) ---
+
+// 7.1 NY: Initierar TOTP setup genom att generera secret och QR-kod
+app.post('/api/keys/totp/setup', authenticateUser, async (req, res) => {
+    const { data: existingSecret } = await supabase.from('user_secrets').select('is_totp_enabled').eq('user_id', req.user.id).maybeSingle();
+
+    if (existingSecret?.is_totp_enabled) {
+        return res.status(409).json({ error: 'TOTP is already enabled for this user.' });
+    }
+
+    try {
+        const secret = authenticator.generateSecret();
+        
+        // Lagra hemligheten temporärt, men inte aktiverad
+        await supabase.from('user_secrets').upsert({
+            user_id: req.user.id,
+            totp_secret: secret,
+            is_totp_enabled: false 
+        });
+
+        const serviceName = 'Auditor Veritas';
+        const otpAuthUrl = authenticator.keyuri(req.user.email, serviceName, secret);
+        
+        // Generera QR-kod som data URL
+        const qrCodeDataUrl = await QRCode.toDataURL(otpAuthUrl);
+
+        res.json({ secret, qrCodeDataUrl });
+    } catch (err) {
+        logger.error('TOTP Setup Error', err);
+        res.status(500).json({ error: 'Failed to initiate TOTP setup.' });
+    }
+});
+
+// 7.2 NY: Verifierar och Aktiverar TOTP
+app.post('/api/keys/totp/enable', authenticateUser, async (req, res) => {
+    try {
+        const { code } = totpSchema.parse(req.body);
+
+        const { data: userSecret, error: fetchError } = await supabase.from('user_secrets').select('totp_secret').eq('user_id', req.user.id).single();
+
+        if (fetchError || !userSecret || !userSecret.totp_secret) {
+            return res.status(404).json({ error: 'TOTP setup not initiated or secret missing.' });
+        }
+
+        // Verifiera koden
+        const isValid = authenticator.check(code, userSecret.totp_secret);
+
+        if (!isValid) {
+            return res.status(400).json({ error: 'Invalid TOTP code. Please try again.' });
+        }
+
+        // Aktivera TOTP i databasen
+        await supabase.from('user_secrets').update({ is_totp_enabled: true }).eq('user_id', req.user.id);
+
+        res.json({ success: true, message: 'TOTP successfully enabled.' });
+    } catch (err) {
+        logger.error('TOTP Enable Error', err);
+        if (err instanceof z.ZodError) return res.status(400).json({ error: 'Invalid code format.' });
+        res.status(500).json({ error: 'Failed to enable TOTP.' });
+    }
+});
+
+
+// 7.3 UPPDATERAD: Förbereder för nyckelrotation (Returnerar TOTP status istället för att skicka mail)
 app.post('/api/keys/request-rotation', authenticateUser, async (req, res) => {
     if (!req.processor) return res.status(403).json({ error: 'Access denied' });
     
     try {
-        const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
-        const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString(); 
+        // Kontrollera om TOTP är aktiverat
+        const { data: secretData } = await supabase.from('user_secrets').select('is_totp_enabled').eq('user_id', req.user.id).maybeSingle();
+        const totpEnabled = secretData?.is_totp_enabled || false;
 
-        await supabase.from('processors').update({ 
-                verification_code: verificationCode, 
-                verification_expires: expiresAt 
-            }).eq('id', req.processor.id);
-
-        const { error } = await resend.emails.send({
-            from: 'security@auditorveritas.com', 
-            to: [req.user.email],
-            subject: 'Security Alert: API Key Rotation Request',
-            html: `<p>Your code: <strong>${verificationCode}</strong></p>`
-        });
-
-        if (error) { console.error(error); return res.status(500).json({ error: 'Email failed' }); }
-        res.json({ message: 'Code sent', email: req.user.email });
-    } catch (err) { res.status(500).json({ error: 'Internal verification error.' }); }
+        if (!totpEnabled) {
+             return res.status(400).json({ error: 'Two-factor authentication (TOTP) is required but not enabled for this account. Please enable it first.', totpEnabled: false });
+        }
+        
+        // Returnerar status
+        res.json({ message: 'TOTP required. Ready for code verification.', totpEnabled: true });
+        
+    } catch (err) { 
+        logger.error('Request Rotation Error', err);
+        res.status(500).json({ error: 'Internal verification error.' }); 
+    }
 });
 
+// 7.4 UPPDATERAD: Utför nyckelrotation (Använder TOTP-kod istället för email-kod)
 app.post('/api/keys/rotate', authenticateUser, async (req, res) => {
     if (!req.processor) return res.status(403).json({ error: 'Access denied' });
-    const { code } = req.body;
-    if (!code) return res.status(400).json({ error: 'Verification code missing' });
-
+    const { code } = req.body; // Detta är nu TOTP-koden
+    
     try {
-        const { data: proc } = await supabase.from('processors').select('*').eq('id', req.processor.id).single();
-        if (!proc || proc.verification_code !== code) return res.status(400).json({ error: 'Invalid code.' });
-        if (new Date() > new Date(proc.verification_expires)) return res.status(400).json({ error: 'Code expired.' });
+        const { data: userSecret, error: fetchError } = await supabase.from('user_secrets').select('totp_secret, is_totp_enabled').eq('user_id', req.user.id).single();
 
-        // Rotera
+        if (fetchError || !userSecret || !userSecret.is_totp_enabled) {
+            return res.status(401).json({ error: 'TOTP not enabled or secret missing.' });
+        }
+
+        // 1. Verifiera TOTP-koden
+        const isValid = authenticator.check(code, userSecret.totp_secret);
+
+        if (!isValid) {
+            return res.status(400).json({ error: 'Invalid TOTP code.' });
+        }
+        
+        // 2. Fortsätt med rotationen
         const newApiKey = `av_${uuidv4().replace(/-/g, '')}`;
         const newHash = sha256(newApiKey);
         const rotationDate = new Date().toISOString();
 
         await supabase.from('processors').update({ 
-            api_key_hash: newHash, verification_code: null, verification_expires: null, last_rotation_date: rotationDate 
+            api_key_hash: newHash
         }).eq('id', req.processor.id);
 
-        // LOGGA EVENTET
+        // 3. LOGGA EVENTET
         const eventType = 'system.key_rotation';
         const userIdentifier = req.user.email;
         const userHash = sha256(userIdentifier);
-        const eventData = { message: 'API Key Rotated via 2FA' };
+        const eventData = { message: 'API Key Rotated via TOTP' };
         
         let { data: keyRow } = await supabase.from('encryption_keys').select('encrypted_key').eq('user_identifier_hash', userHash).single();
         let userKey;
@@ -353,7 +428,10 @@ app.post('/api/keys/rotate', authenticateUser, async (req, res) => {
         }
 
         res.json({ message: 'Success', newApiKey });
-    } catch (err) { res.status(500).json({ error: 'Rotation failed.' }); }
+    } catch (err) { 
+        logger.error('Rotation failed:', err);
+        res.status(500).json({ error: 'Rotation failed.' }); 
+    }
 });
 
 
@@ -407,7 +485,7 @@ app.post('/api/team/invite', authenticateUser, authorizeOwner, async (req, res) 
 });
 
 
-// NY ROUTE: Acceptera inbjudan
+// ROUTE: Acceptera inbjudan
 app.post('/api/team/accept', authenticateUser, async (req, res) => {
     const { token } = req.body;
     const userId = req.user.id;
@@ -464,7 +542,7 @@ app.post('/api/team/accept', authenticateUser, async (req, res) => {
 });
 
 
-// Lista alla teammedlemmar och inbjudningar (FIXAT 500-FELET)
+// Lista alla teammedlemmar och inbjudningar
 app.get('/api/team', authenticateUser, async (req, res) => {
     if (!req.processor) return res.status(403).json({ error: 'Access denied.' });
     const processorId = req.processor.id;
@@ -475,7 +553,6 @@ app.get('/api/team', authenticateUser, async (req, res) => {
             .select('user_id, role') 
             .eq('processor_id', processorId);
 
-        // FELSÖKNING: Logga exakt Supabase-fel
         if (membersError) {
             logger.error('Supabase Error (Members):', membersError); 
             throw new Error(`DB Error (Members): ${membersError.message}`);
@@ -487,7 +564,6 @@ app.get('/api/team', authenticateUser, async (req, res) => {
             .eq('processor_id', processorId)
             .gte('expires_at', new Date().toISOString());
 
-        // FELSÖKNING: Logga exakt Supabase-fel
         if (invitesError) {
             logger.error('Supabase Error (Invites):', invitesError); 
             throw new Error(`DB Error (Invites): ${invitesError.message}`);
@@ -628,7 +704,7 @@ app.post('/api/events', authenticateApiKey, async (req, res) => {
         const data_hash = sha256(stringify(hashData));
 
         const { data: savedEvent } = await supabase.from('audit_events').insert([{
-            processor_id: processor.id, event_type, user_identifier: userHash,
+            processor_id: processor.id, event_type: eventType, user_identifier: userHash,
             event_data: { encrypted: encryptedPayload }, event_timestamp: timestamp, data_hash, previous_hash, leaf_index: next_leaf_index
         }]).select('id, leaf_index').single();
 
