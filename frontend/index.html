@@ -2,21 +2,19 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="description" content="Auditor Veritas - Immutable, GDPR-compliant audit logs for enterprise.">
+    <meta name="theme-color" content="#1e40af">
     
     <title>Auditor Veritas - GDPR Compliant Audit Trail</title>
     
     <style>
-      /* Återställer standard beteende */
       * { margin: 0; padding: 0; box-sizing: border-box; }
       body {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         min-height: 100vh;
       }
-      /* Loading spinner (Behållen för initial laddning) */
       .loading-spinner {
         display: flex; justify-content: center; align-items: center; height: 100vh; color: white; font-size: 1.2rem;
       }
@@ -64,12 +62,12 @@
     <script type="module" src="/src/main.jsx"></script>
     
     <script>
-      // Döljer laddningsskärmen efter 1 sekund
+      // Tar bort laddningsindikatorn när appen har laddats
       window.addEventListener('load', function() {
         setTimeout(function() {
           const loading = document.getElementById('loading');
           if (loading) loading.style.display = 'none';
-        }, 1000);
+        }, 500);
       });
     </script>
   </body>

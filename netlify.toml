@@ -1,18 +1,26 @@
 [build]
-  # Fixar Permission denied felet genom att använda npx för att köra vite
-  command = "npm install --prefix frontend && npx vite build --prefix frontend"
-  publish = "frontend/dist"
+  # Detta säger åt Netlify att allt händer i "frontend"-mappen
   base = "frontend"
+  
+  # Eftersom vi redan är i "frontend"-mappen (pga base ovan), 
+  # kör vi bara standardkommandon utan --prefix.
+  # npx vite build löser "Permission denied"-felet.
+  command = "npm install && npx vite build"
+  
+  # Mappen där Vite lägger byggfilerna (relativt till base)
+  publish = "dist"
 
 [build.environment]
   NODE_VERSION = "20"
 
+# Omdirigeringar för API-anrop till din Render-backend
 [[redirects]]
   from = "/api/*"
   to = "https://auditor-veritas-mvp.onrender.com/api/:splat"
   status = 200
   force = true
 
+# SPA-support (Single Page Application) för React Router
 [[redirects]]
   from = "/*"
   to = "/index.html"
@@ -27,7 +35,7 @@
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "camera=(), microphone=(), geolocation=()"
 
-    # FIXAT: Använder trippelcitat (triple quotes) för flerrads CSP.
+    # CSP: Helt rensad från Stripe. Använder trippelcitat för att tillåta radbrytningar.
     Content-Security-Policy = """default-src 'self'; 
       script-src 'self' 'unsafe-inline'; 
       style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; 
