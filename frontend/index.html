@@ -2,9 +2,9 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-    <meta name="description" content="Auditor Veritas - Immutable, GDPR-compliant audit logs for enterprise.">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#1e40af">
+    <meta name="apple-mobile-web-app-capable" content="yes">
     
     <title>Auditor Veritas - GDPR Compliant Audit Trail</title>
     
@@ -28,28 +28,13 @@
   <body>
     
     <form name="enterprise-inquiry" netlify netlify-honeypot="bot-field" hidden>
-      <input type="text" name="name" />
-      <input type="email" name="email" />
-      <input type="text" name="company" />
-      <input type="text" name="role" />
-      <input type="text" name="industry" />
-      <input type="text" name="timeline" />
-      <input type="text" name="volume" />
-      <input type="text" name="region" />
-      <input type="text" name="retention" />
-      <input type="text" name="compliance" />
+      <input type="text" name="name" /> <input type="email" name="email" /> <input type="text" name="company" /> <input type="text" name="role" /> <input type="text" name="industry" /> <input type="text" name="timeline" /> <input type="text" name="volume" /> <input type="text" name="region" /> <input type="text" name="retention" /> <input type="text" name="compliance" />
     </form>
-
     <form name="contact" netlify netlify-honeypot="bot-field" hidden>
-      <input type="text" name="name" />
-      <input type="email" name="email" />
-      <textarea name="message"></textarea>
+      <input type="text" name="name" /> <input type="email" name="email" /> <textarea name="message"></textarea>
     </form>
-
     <form name="contact_footer" netlify netlify-honeypot="bot-field" hidden>
-      <input type="text" name="name" />
-      <input type="email" name="email" />
-      <textarea name="message"></textarea>
+      <input type="text" name="name" /> <input type="email" name="email" /> <textarea name="message"></textarea>
     </form>
     
     <div id="loading" class="loading-spinner">
@@ -61,13 +46,14 @@
     
     <script type="module" src="/src/main.jsx"></script>
     
+    <script src="https://js.stripe.com/v3/"></script>
+    
     <script>
-      // Tar bort laddningsindikatorn när appen har laddats
       window.addEventListener('load', function() {
         setTimeout(function() {
           const loading = document.getElementById('loading');
           if (loading) loading.style.display = 'none';
-        }, 500);
+        }, 1000);
       });
     </script>
   </body>
