@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 
 // --- COMPONENTS ---
-// Jag antar att dessa filer existerar i din struktur. Om inte, måste de skapas.
+// Importerade komponenter
 import InteractiveFeatureSection from './components/InteractiveFeatureSection';
 import DashboardPreview from './components/DashboardPreview';
 import CoreArchitecture from './components/CoreArchitecture';
@@ -30,6 +30,7 @@ import Footer from './components/Footer';
 import ContactPage from './components/ContactPage';
 import AboutPage from './components/AboutPage';
 import ServicesPage from './components/ServicesPage';
+import StripePhoneDemo from './components/StripePhoneDemo'; // <--- NY
 
 // --- CONFIG ---
 const API_BASE_URL = 'https://auditor-veritas-mvp.onrender.com';
@@ -46,6 +47,7 @@ const isCorporateEmail = (email) => {
     return domain && !blockedDomains.includes(domain);
 };
 
+// FIX: Robust API Call
 export const apiCall = async (endpoint, options = {}, token = null, apiKey = null) => {
     const headers = { 'Content-Type': 'application/json; charset=utf-8', ...options.headers }; 
     const sanitize = (str) => str ? str.replace(/[^\x00-\x7F]/g, "") : str; 
@@ -54,9 +56,20 @@ export const apiCall = async (endpoint, options = {}, token = null, apiKey = nul
     
     try {
         const response = await fetch(`${API_BASE_URL}${endpoint}`, { headers, ...options, body: options.body ? JSON.stringify(options.body) : null });
+        
         if (response.status === 204) return null;
+        
         const text = await response.text();
-        const data = text ? JSON.parse(text) : {};
+        let data;
+        
+        // Försök parsa JSON, men hantera om servern returnerar HTML (t.ex. vid 502/504)
+        try {
+            data = text ? JSON.parse(text) : {};
+        } catch (e) {
+            console.warn("Non-JSON response:", text.substring(0, 100));
+            throw new Error(`Server connection error (${response.status}). Please try again.`);
+        }
+
         if (!response.ok) throw new Error(data.error || `Server Error: ${response.status}`);
         return data;
     } catch (e) {
@@ -189,7 +202,7 @@ function App() {
     const [stats, setStats] = useState({ totalEvents: 0, monthlyEvents: 0 });
     const [recentLogs, setRecentLogs] = useState([]);
     const [userRole, setUserRole] = useState(null);
-    const [chartData, setChartData] = useState([]); // Needed for dashboard prop
+    const [chartData, setChartData] = useState([]); 
 
     const isJoin = new URLSearchParams(window.location.search).has('token');
 
@@ -223,7 +236,10 @@ function App() {
             if (isJoin) setActiveTab('dashboard');
         } catch (e) { 
             console.error("Dashboard Load Error:", e);
-            if(e.message.includes('404')) setProcessor(false); 
+            // Om 404, betyder det att användaren inte har en processor -> Visa Create UI
+            if(e.message.includes('404')) {
+                setProcessor(false); 
+            }
         }
     }, [session, isJoin]);
 
@@ -240,7 +256,16 @@ function App() {
     // Simple event injector for the dashboard
     const handleLogEvent = async (e, eventData) => {
         e?.preventDefault();
-        // Implementation passed to Dashboard component
+        try {
+            await apiCall('/api/events', { 
+                method: 'POST', 
+                headers: { 'x-api-key': processor.api_key_raw }, 
+                body: { ...eventData, user_identifier: 'demo-user' }
+            }, session.access_token);
+            fetchDashboard(); // Refresh
+        } catch (err) {
+            console.error("Log failed", err);
+        }
     };
 
     if (!privacyAccepted) return <PrivacyPage onAccept={() => { localStorage.setItem('av_privacy_v1', 'true'); setPrivacyAccepted(true); }} />;
@@ -318,6 +343,10 @@ function App() {
                                 <button onClick={()=>setActiveTab('dashboard')} className="bg-blue-600 px-8 py-4 rounded-full text-lg font-bold hover:scale-105 transition-transform">Get Started</button>
                             </div>
                         </div>
+                        
+                        {/* NY: STRIPE PHONE DEMO - Nu med sticky scroll */}
+                        <StripePhoneDemo />
+
                         <DashboardPreview />
                         <UseCases />
                         <CoreArchitecture />
@@ -333,8 +362,18 @@ function App() {
                 {activeTab === 'dashboard' && (
                     <div className="min-h-screen bg-slate-50 text-slate-900 pt-24 px-4">
                         {!session ? <AuthScreen onLogin={fetchDashboard} /> :
-                         !processor && processor !== false ? <div className="text-center py-40"><RefreshCw className="animate-spin mx-auto w-8 h-8 text-blue-500" /><p className="text-slate-500 mt-4">Connecting to secure node...</p></div> :
-                         processor === false ? <CreateProcessor token={session.access_token} onProcessorCreated={fetchDashboard} /> : (
+                         // LÄGE 1: Laddar fortfarande data
+                         !processor && processor !== false ? (
+                            <div className="text-center py-40">
+                                <RefreshCw className="animate-spin mx-auto w-8 h-8 text-blue-500" />
+                                <p className="text-slate-500 mt-4">Connecting to secure node...</p>
+                            </div>
+                         ) :
+                         // LÄGE 2: Ingen processor hittades -> Skapa ny (404 från backend)
+                         processor === false ? (
+                            <CreateProcessor token={session.access_token} onProcessorCreated={fetchDashboard} /> 
+                         ) : (
+                            // LÄGE 3: Visa Dashboard
                             <Dashboard 
                                 processor={processor} 
                                 stats={stats} 

@@ -12,7 +12,6 @@ import winston from 'winston';
 import morgan from 'morgan';
 import { authenticator } from 'otplib'; 
 import QRCode from 'qrcode'; 
-import archiver from 'archiver'; // Importeras för Export-funktionalitet
 
 // Load env vars
 if (process.env.NODE_ENV !== 'production') {
@@ -27,9 +26,10 @@ const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY; 
 const MASTER_KEY = process.env.MASTER_ENCRYPTION_KEY; 
 
-// Critical Check
+// CRITICAL CHECK: Ensure server doesn't start in a broken state
 if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY || !MASTER_KEY) {
-  console.error('❌ FATAL: Missing Environment Variables. Check Render Dashboard.');
+  console.error('❌ FATAL: Missing Environment Variables (SUPABASE_URL, SERVICE_KEY or MASTER_KEY).');
+  process.exit(1);
 }
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
@@ -42,10 +42,11 @@ const logger = winston.createLogger({
   format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
   transports: [new winston.transports.Console()],
 });
+
 app.use(morgan('combined', { stream: { write: message => logger.info(message.trim()) } }));
 app.use(helmet());
 
-// Tillåtna domäner (Produktion + Dev)
+// Allowed Origins (Production + Dev)
 const ALLOWED_ORIGINS = [
     'https://auditorveritas.com',
     'https://www.auditorveritas.com',
@@ -54,12 +55,10 @@ const ALLOWED_ORIGINS = [
     'http://localhost:3000'
 ];
 
-const corsOptions = {
+app.use(cors({
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
-    
     const isAllowed = ALLOWED_ORIGINS.some(allowed => origin === allowed || origin.startsWith(allowed));
-    
     if (isAllowed) {
       callback(null, true);
     } else {
@@ -70,10 +69,7 @@ const corsOptions = {
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key']
-};
-
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions)); 
+}));
 
 app.use(express.json({ limit: '5mb' })); 
 
@@ -95,12 +91,8 @@ const decryptData = (ciphertext, key) => {
     } catch (e) { return null; }
 };
 const sha256 = (data) => CryptoJS.SHA256(data).toString();
-const extractDomain = (email) => {
-    const match = email.match(/@(.+)$/);
-    return match ? match[1].toLowerCase() : null;
-};
 
-// --- 4. MERKLE LOGIC (FULL RECURSIVE IMPLEMENTATION) ---
+// --- 4. MERKLE LOGIC ---
 class DBMerkleService {
     static async appendLeaf(leafHash, leafIndex) {
         await supabase.from('merkle_nodes').upsert({ level: 0, node_index: leafIndex, hash: leafHash });
@@ -116,7 +108,7 @@ class DBMerkleService {
                 .select('hash')
                 .eq('level', currentLevel)
                 .eq('node_index', siblingIndex)
-                .single();
+                .maybeSingle(); // Ändrat till maybeSingle för säkerhet
 
             const parentIndex = Math.floor(currentIndex / 2);
             currentLevel++;
@@ -128,14 +120,13 @@ class DBMerkleService {
                 
                 await supabase.from('merkle_nodes').upsert({ level: currentLevel, node_index: parentIndex, hash: parentHash });
                 
-                // Optimerad: Ta bort lövet och dess syskon när föräldern är beräknad
+                // Cleanup leaves to save space
                 await supabase.from('merkle_nodes').delete().eq('level', currentLevel - 1).eq('node_index', siblingIndex);
                 await supabase.from('merkle_nodes').delete().eq('level', currentLevel - 1).eq('node_index', currentIndex);
 
                 currentIndex = parentIndex; 
                 currentHash = parentHash;
             } else if (!isRightNode) {
-                // Lyft upp en ensam vänster nod
                 const parentHash = sha256(currentHash + currentHash);
                 await supabase.from('merkle_nodes').upsert({ level: currentLevel, node_index: parentIndex, hash: parentHash });
                 currentIndex = parentIndex;
@@ -143,28 +134,8 @@ class DBMerkleService {
             } else {
                 break;
             }
-
-            // Avsluta om trädnivån blir för hög (säkerhet)
             if (currentLevel > 32) break; 
         }
-    }
-    
-    static async getProof(leafIndex, totalLeaves) {
-        const proof = [];
-        let currentLevel = 0;
-        let currentIndex = leafIndex;
-        const maxLevel = Math.ceil(Math.log2(totalLeaves + 1)) + 1; 
-
-        for (let i = 0; i < maxLevel; i++) {
-            const isRightNode = currentIndex % 2 === 1;
-            const siblingIndex = isRightNode ? currentIndex - 1 : currentIndex + 1;
-            const { data: sibling } = await supabase.from('merkle_nodes').select('hash').eq('level', currentLevel).eq('node_index', siblingIndex).single();
-            if (sibling) proof.push({ position: isRightNode ? 'left' : 'right', hash: sibling.hash });
-            currentIndex = Math.floor(currentIndex / 2);
-            currentLevel++;
-        }
-        const { data: rootNode } = await supabase.from('merkle_nodes').select('hash').order('level', { ascending: false }).limit(1).single();
-        return { proof, root: rootNode?.hash || 'PENDING' };
     }
 }
 
@@ -184,43 +155,64 @@ const totpSchema = z.object({
     code: z.string().length(6),
 });
 
+const createProcessorSchema = z.object({
+    companyName: z.string().min(2).max(100)
+});
+
 // --- 6. AUTHENTICATION MIDDLEWARE ---
 const authenticateApiKey = async (req, res, next) => {
   const apiKey = req.headers['x-api-key'];
   if (!apiKey) return res.status(401).json({ error: 'API key required' });
   try {
     const apiKeyHash = sha256(apiKey);
-    const { data: processor } = await supabase.from('processors').select('*').eq('api_key_hash', apiKeyHash).single();
+    const { data: processor } = await supabase.from('processors').select('*').eq('api_key_hash', apiKeyHash).maybeSingle();
     if (!processor || processor.status === 'revoked') return res.status(401).json({ error: 'Invalid API key' });
     req.processor = processor; req.authType = 'machine'; next();
   } catch (err) { res.status(500).json({ error: 'Auth Error' }); }
 };
 
+// --- HÄR ÄR DEN BUGG-FIXADE AUTHENTICATE USER FÖR NYA SYSTEMET ---
 const authenticateUser = async (req, res, next) => {
-    const token = req.headers['authorization']?.split(' ')[1]; 
-    if (!token) return res.status(401).json({ error: 'Token required' });
+    const authHeader = req.headers['authorization'];
+    if (!authHeader) return res.status(401).json({ error: 'Token required' });
+    
+    const token = authHeader.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Token missing' });
+
     try {
         const { data: { user }, error } = await supabase.auth.getUser(token);
         if (error || !user) throw new Error('Invalid Token');
         req.user = user; 
         
-        let { data: processor } = await supabase.from('processors').select('*').eq('owner_id', user.id).single();
-        if (!processor) {
-            const { data: membership } = await supabase.from('processor_users').select('processor_id, role').eq('user_id', user.id).single();
+        let processor = null;
+        let userRole = null;
+
+        // 1. Försök hitta som Ägare (Använder maybeSingle för att inte krascha)
+        const { data: ownerProcessor } = await supabase.from('processors').select('*').eq('owner_id', user.id).maybeSingle();
+        
+        if (ownerProcessor) {
+            processor = ownerProcessor;
+            userRole = 'owner';
+        } else {
+            // 2. Om inte ägare, sök medlemskap
+            const { data: membership } = await supabase.from('processor_users').select('processor_id, role').eq('user_id', user.id).maybeSingle();
             if (membership) {
                 const { data: proc } = await supabase.from('processors').select('*').eq('id', membership.processor_id).single();
-                processor = proc; req.userRole = membership.role;
+                processor = proc; 
+                userRole = membership.role;
             }
-        } else { req.userRole = 'owner'; }
+        }
         
+        // Tilldela säkert (kan vara null om användaren är ny)
         if (processor) req.processor = processor;
-        req.authType = 'human'; next();
-    } catch (err) { res.status(401).json({ error: 'Auth failed' }); }
-};
-
-const authorizeOwner = (req, res, next) => {
-    if (req.userRole !== 'owner') return res.status(403).json({ error: 'Forbidden. Owner only.' });
-    next();
+        if (userRole) req.userRole = userRole;
+        
+        req.authType = 'human'; 
+        next();
+    } catch (err) { 
+        console.error('Auth Middleware Error:', err);
+        res.status(401).json({ error: 'Auth failed' }); 
+    }
 };
 
 const authenticateAny = async (req, res, next) => {
@@ -231,10 +223,65 @@ const authenticateAny = async (req, res, next) => {
 
 // --- 7. ROUTES ---
 
-// Health Check (Förhindrar 502 på Render)
+// Health Check
 app.get('/health', (req, res) => res.status(200).send('OK'));
 
-// Key Rotation Setup (2FA)
+// --- PROCESSOR CREATION ---
+app.post('/api/processors', authenticateUser, async (req, res) => {
+    try {
+        if (req.processor) return res.status(400).json({ error: 'Processor already exists' });
+        
+        const { companyName } = createProcessorSchema.parse(req.body);
+        const apiKeyRaw = `av_${uuidv4().replace(/-/g, '')}`;
+        const apiKeyHash = sha256(apiKeyRaw);
+
+        const { data, error } = await supabase.from('processors').insert([{
+            owner_id: req.user.id,
+            company_name: companyName,
+            api_key_hash: apiKeyHash,
+            status: 'active',
+            tier: 'standard',
+            region: 'eu-west',
+            monthly_events_limit: 1000
+        }]).select().single();
+
+        if (error) throw error;
+        
+        await supabase.from('processor_users').insert([{
+            processor_id: data.id,
+            user_id: req.user.id,
+            role: 'owner'
+        }]);
+
+        res.status(201).json({ success: true, apiKey: apiKeyRaw, processorId: data.id });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// --- DASHBOARD DATA (Safe against 500 errors) ---
+app.get('/api/dashboard', authenticateUser, async (req, res) => {
+    try {
+        // Kontroll: Om ingen processor hittades i middleware, returnera 404 (ej 500)
+        if (!req.processor || !req.processor.id) {
+            return res.status(404).json({ error: 'No processor found. Please create one.' });
+        }
+
+        const { data } = await supabase.from('processors').select('*').eq('id', req.processor.id).single();
+        if (!data) return res.status(404).json({ error: 'No processor data.' });
+        
+        const { count } = await supabase.from('audit_events').select('*', { count: 'exact', head: true }).eq('processor_id', req.processor.id);
+        
+        res.json({ 
+            processor: data, 
+            stats: { totalEvents: count || 0, monthlyEvents: data.monthly_events_used }, 
+            userRole: req.userRole 
+        });
+    } catch(e) { 
+        console.error("Dashboard Fetch Error:", e);
+        res.status(500).json({error: e.message}); 
+    }
+});
+
+// --- KEY ROTATION (New TOTP Logic) ---
 app.post('/api/keys/totp/setup', authenticateUser, async (req, res) => {
     try {
         const secret = authenticator.generateSecret();
@@ -254,16 +301,15 @@ app.post('/api/keys/totp/enable', authenticateUser, async (req, res) => {
     } catch (err) { res.status(500).json({ error: 'Enable failed.' }); }
 });
 
-app.post('/api/keys/request-rotation', authenticateUser, async (req, res) => {
-    const { data } = await supabase.from('user_secrets').select('is_totp_enabled').eq('user_id', req.user.id).maybeSingle();
-    res.json({ message: 'Ready.', totpEnabled: !!data?.is_totp_enabled });
-});
-
 app.post('/api/keys/rotate', authenticateUser, async (req, res) => {
     try {
+        if (!req.processor) return res.status(403).json({ error: 'No processor' });
         const { code } = req.body;
         const { data: userSecret } = await supabase.from('user_secrets').select('*').eq('user_id', req.user.id).single();
-        if (!userSecret?.is_totp_enabled || !authenticator.check(code, userSecret.totp_secret)) return res.status(401).json({ error: 'Invalid TOTP.' });
+        
+        if (!userSecret?.is_totp_enabled || !authenticator.check(code, userSecret.totp_secret)) {
+            return res.status(401).json({ error: 'Invalid TOTP code.' });
+        }
 
         const newKey = `av_${uuidv4().replace(/-/g, '')}`;
         await supabase.from('processors').update({ api_key_hash: sha256(newKey), last_rotation_date: new Date() }).eq('id', req.processor.id);
@@ -277,44 +323,24 @@ app.post('/api/keys/rotate', authenticateUser, async (req, res) => {
     } catch(e) { res.status(500).json({error: e.message}); }
 });
 
-// Team Invite (Ger länk)
-app.post('/api/team/invite', authenticateUser, authorizeOwner, async (req, res) => {
-    try {
-        const { email, role } = inviteUserSchema.parse(req.body);
-        const token = uuidv4().replace(/-/g, '');
-        
-        await supabase.from('processor_invitations').insert([{
-            processor_id: req.processor.id, invited_email: email, role, token, expires_at: new Date(Date.now() + 86400000).toISOString()
-        }]);
-        
-        res.status(200).json({ 
-            message: `Invitation generated`, 
-            inviteLink: `https://auditorveritas.com/join?token=${token}` 
-        });
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
+// --- TEAM MANAGEMENT ---
 app.get('/api/team', authenticateUser, async (req, res) => {
     try {
+        if (!req.processor) return res.json({ team: [], pending: [] });
+        
         const { data: members } = await supabase.from('processor_users').select('user_id, role').eq('processor_id', req.processor.id);
         const { data: invites } = await supabase.from('processor_invitations').select('*').eq('processor_id', req.processor.id);
         
-        // Använder Admin API för att hämta e-postadresser för Dashboarden
         const team = members ? await Promise.all(members.map(async m => {
             const { data: u } = await supabase.auth.admin.getUserById(m.user_id);
             return { email: u?.user?.email || 'Unknown', role: m.role, status: 'Active', user_id: m.user_id };
         })) : [];
-        
-        const { data: owner } = await supabase.auth.admin.getUserById(req.processor.owner_id);
-        if (!team.find(t => t.user_id === req.processor.owner_id)) {
-             team.unshift({ email: owner?.user?.email, role: 'owner', status: 'Active', user_id: req.processor.owner_id });
-        }
 
         res.json({ team, pending: invites || [], userRole: req.userRole });
     } catch (err) { res.status(500).json({ error: 'Fetch error' }); }
 });
 
-// MAIN EVENT INGESTION (PRODUCTION READY)
+// --- EVENT INGESTION ---
 app.post('/api/events', authenticateApiKey, async (req, res) => {
     try {
         const { event_type, user_identifier, event_data } = eventSubmissionSchema.parse(req.body);
@@ -322,7 +348,7 @@ app.post('/api/events', authenticateApiKey, async (req, res) => {
         const timestamp = new Date().toISOString();
         const userHash = sha256(user_identifier);
         
-        // 1. Krypteringsnyckel (Crypto-Shredding logic)
+        // 1. Encryption Key Management
         let { data: keyRow } = await supabase.from('encryption_keys').select('encrypted_key').eq('user_identifier_hash', userHash).maybeSingle();
         let userKey;
         
@@ -333,12 +359,12 @@ app.post('/api/events', authenticateApiKey, async (req, res) => {
             await supabase.from('encryption_keys').insert([{ user_identifier_hash: userHash, encrypted_key: encryptData(userKey, MASTER_KEY) }]);
         }
 
-        if (!userKey) throw new Error("Encryption key access failed.");
+        if (!userKey) throw new Error("Encryption key failure.");
 
-        // 2. Kryptera payload
+        // 2. Encrypt Payload
         const encryptedPayload = encryptData(event_data, userKey);
         
-        // 3. Skapa Integrity Hash
+        // 3. Generate Integrity Hash
         const integrityHash = sha256(stringify({
             processor_id: req.processor.id,
             event_type,
@@ -347,7 +373,7 @@ app.post('/api/events', authenticateApiKey, async (req, res) => {
             payload_hash: sha256(encryptedPayload) 
         }));
 
-        // 4. Spara till DB och få leaf index
+        // 4. Save Event
         const { data: savedEvent, error } = await supabase.from('audit_events').insert([{
             processor_id: req.processor.id,
             event_type,
@@ -359,10 +385,10 @@ app.post('/api/events', authenticateApiKey, async (req, res) => {
 
         if (error) throw error;
         
-        // 5. Uppdatera Merkle (Full rekursion, körs asynkront)
-        DBMerkleService.appendLeaf(integrityHash, savedEvent.leaf_index).catch(console.error);
+        // 5. Update Merkle Tree (Async)
+        DBMerkleService.appendLeaf(integrityHash, savedEvent.leaf_index).catch(err => console.error("Merkle Error:", err));
         
-        // 6. Uppdatera Usage
+        // 6. Update Usage Stats
         await supabase.rpc('increment_processor_usage', { pid: req.processor.id });
 
         res.status(201).json({ success: true, hash: integrityHash });
@@ -372,22 +398,9 @@ app.post('/api/events', authenticateApiKey, async (req, res) => {
     }
 });
 
-app.get('/api/dashboard', authenticateUser, async (req, res) => {
-    try {
-        const { data } = await supabase.from('processors').select('*').eq('id', req.processor.id).single();
-        if (!data) return res.status(404).json({ error: 'No processor found.' });
-        
-        const { count } = await supabase.from('audit_events').select('*', { count: 'exact', head: true }).eq('processor_id', req.processor.id);
-        
-        res.json({ 
-            processor: data, 
-            stats: { totalEvents: count || 0, monthlyEvents: data.monthly_events_used }, 
-            userRole: req.userRole 
-        });
-    } catch(e) { res.status(500).json({error: e.message}); }
-});
-
+// --- SEARCH ---
 app.get('/api/events/search', authenticateAny, async (req, res) => {
+    if (!req.processor) return res.status(403).json({ error: 'No processor' });
     const limit = parseInt(req.query.limit) || 20;
     const { data } = await supabase.from('audit_events')
         .select('*')
