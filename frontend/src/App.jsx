@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import './App.css';
-import CryptoJS from 'crypto-js'; // Behövs för loggning i frontend
+import CryptoJS from 'crypto-js';
 import { AnimatePresence, motion } from 'framer-motion';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
@@ -32,7 +32,7 @@ import ContactPage from './components/ContactPage';
 import AboutPage from './components/AboutPage';
 import ServicesPage from './components/ServicesPage';
 import EuroLedgerDemo from './components/EuroLedgerDemo'; 
-import EnterpriseForm from './components/EnterpriseForm';
+import EnterpriseForm from './components/EnterpriseForm'; 
 
 // --- CONFIGURATION ---
 const API_BASE_URL = 'https://auditor-veritas-mvp.onrender.com';
@@ -70,7 +70,6 @@ const isCorporateEmail = (email) => {
 
 // --- INTERNAL COMPONENTS ---
 
-// 1. JOIN TEAM PAGE
 const JoinTeamPage = ({ session, fetchDashboard }) => {
     const [status, setStatus] = useState('loading');
     const [message, setMessage] = useState('Validating invitation...');
@@ -118,7 +117,6 @@ const JoinTeamPage = ({ session, fetchDashboard }) => {
     );
 };
 
-// 2. TEAM MANAGEMENT
 const TeamManagement = ({ token, processor, userRole }) => {
     const [team, setTeam] = useState([]);
     const [pending, setPending] = useState([]);
@@ -128,6 +126,7 @@ const TeamManagement = ({ token, processor, userRole }) => {
     const [error, setError] = useState(null);
     const [success, setSuccess] = useState(null);
     const [inviteLoading, setInviteLoading] = useState(false);
+    const [generatedLink, setGeneratedLink] = useState(null);
     
     const isOwner = userRole === 'owner';
     const isAdmin = userRole === 'admin' || isOwner;
@@ -149,12 +148,14 @@ const TeamManagement = ({ token, processor, userRole }) => {
         if (!isAdmin) return;
         if (!isCorporateEmail(inviteEmail)) { setError("Security Policy: Corporate email required."); return; }
 
-        setInviteLoading(true); setError(null); setSuccess(null);
+        setInviteLoading(true); setError(null); setSuccess(null); setGeneratedLink(null);
         try {
-            await apiCall('/api/team/invite', { 
+            const data = await apiCall('/api/team/invite', { 
                 method: 'POST', body: { email: inviteEmail, role: inviteRole } 
             }, token);
-            setSuccess(`Invite sent to ${inviteEmail}`);
+            
+            setSuccess(`Invite created for ${inviteEmail}`);
+            setGeneratedLink(data.link); // Display link for manual copy
             setInviteEmail('');
             fetchTeamData();
         } catch (err) { setError(err.message); } 
@@ -172,13 +173,6 @@ const TeamManagement = ({ token, processor, userRole }) => {
         } catch (err) { setError(err.message); }
     };
 
-    const getRoleColor = (role) => {
-        if (role === 'owner') return 'bg-purple-100 text-purple-700';
-        if (role === 'admin') return 'bg-blue-100 text-blue-700';
-        if (role === 'editor') return 'bg-amber-100 text-amber-700';
-        return 'bg-slate-100 text-slate-600';
-    };
-
     return (
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
             <div className="flex justify-between items-center mb-6">
@@ -189,29 +183,37 @@ const TeamManagement = ({ token, processor, userRole }) => {
             {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-4 text-sm flex items-center gap-2"><XCircle size={16}/>{error}</div>}
             {success && <div className="bg-green-50 text-green-600 p-3 rounded-lg mb-4 text-sm flex items-center gap-2"><CheckCircle2 size={16}/>{success}</div>}
 
-            {isAdmin ? (
-                <form onSubmit={handleInvite} className="flex flex-col md:flex-row gap-3 mb-8 bg-slate-50 p-4 rounded-xl border border-slate-200">
-                    <div className="flex-1">
-                        <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Corporate Email</label>
-                        <input type="email" placeholder="colleague@company.com" className="w-full p-2 border rounded-lg text-slate-900 text-sm" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} required />
-                    </div>
-                    <div>
-                        <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Role</label>
-                        <select value={inviteRole} onChange={e => setInviteRole(e.target.value)} className="p-2 border rounded-lg text-sm bg-white w-32">
-                            <option value="reader">Reader</option>
-                            <option value="editor">Editor</option>
-                            <option value="admin">Admin</option>
-                        </select>
-                    </div>
-                    <div className="flex items-end">
-                        <button disabled={inviteLoading} className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-blue-700 disabled:opacity-50 h-[38px] w-full md:w-auto">
-                            {inviteLoading ? 'Sending...' : 'Invite'}
-                        </button>
-                    </div>
-                </form>
-            ) : (
-                <div className="mb-6 p-3 bg-blue-50 text-blue-800 text-sm rounded-lg border border-blue-100">
-                    Your role (<strong>{userRole}</strong>) does not permit team management actions.
+            {isAdmin && (
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-8">
+                    <form onSubmit={handleInvite} className="flex flex-col md:flex-row gap-3">
+                        <div className="flex-1">
+                            <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Corporate Email</label>
+                            <input type="email" placeholder="colleague@company.com" className="w-full p-2 border rounded-lg text-slate-900 text-sm" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} required />
+                        </div>
+                        <div>
+                            <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Role</label>
+                            <select value={inviteRole} onChange={e => setInviteRole(e.target.value)} className="p-2 border rounded-lg text-sm bg-white text-slate-900 w-32">
+                                <option value="reader">Reader</option>
+                                <option value="editor">Editor</option>
+                                <option value="admin">Admin</option>
+                            </select>
+                        </div>
+                        <div className="flex items-end">
+                            <button disabled={inviteLoading} className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-blue-700 disabled:opacity-50 h-[38px] w-full md:w-auto">
+                                {inviteLoading ? 'Creating...' : 'Generate Invite'}
+                            </button>
+                        </div>
+                    </form>
+                    
+                    {generatedLink && (
+                        <div className="mt-4 p-3 bg-blue-100 border border-blue-200 rounded-lg">
+                            <p className="text-xs font-bold text-blue-800 mb-1">Manual Invite Link (Send via secure channel):</p>
+                            <div className="flex gap-2">
+                                <input readOnly value={generatedLink} className="flex-1 p-1 text-xs bg-white border rounded" />
+                                <button onClick={() => navigator.clipboard.writeText(generatedLink)} className="px-3 py-1 bg-blue-600 text-white text-xs rounded font-bold">Copy</button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -221,12 +223,12 @@ const TeamManagement = ({ token, processor, userRole }) => {
                         <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Active Members</h4>
                         <div className="border rounded-xl overflow-hidden">
                             {team.map((m, i) => (
-                                <div key={m.email} className={`flex justify-between items-center p-4 bg-white ${i !== team.length - 1 ? 'border-b' : ''} hover:bg-slate-50 transition-colors`}>
+                                <div key={m.email} className={`flex justify-between items-center p-4 bg-white ${i !== team.length - 1 ? 'border-b' : ''}`}>
                                     <div className="flex items-center gap-3">
-                                        <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-sm font-bold text-slate-600 border border-slate-200">{m.email[0].toUpperCase()}</div>
+                                        <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-sm font-bold text-slate-600">{m.email[0].toUpperCase()}</div>
                                         <div>
                                             <div className="text-sm font-bold text-slate-900">{m.email}</div>
-                                            <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${getRoleColor(m.role)}`}>{m.role}</span>
+                                            <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600`}>{m.role}</span>
                                         </div>
                                     </div>
                                     {isAdmin && m.role !== 'owner' ? (
@@ -236,36 +238,20 @@ const TeamManagement = ({ token, processor, userRole }) => {
                             ))}
                         </div>
                     </div>
-                    {pending.length > 0 && (
-                        <div>
-                            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Pending Invitations</h4>
-                            <div className="space-y-2">
-                                {pending.map(p => (
-                                    <div key={p.invited_email} className="flex justify-between items-center p-3 border border-dashed rounded-lg">
-                                        <div className="text-sm text-slate-600">{p.invited_email} <span className="text-xs uppercase text-slate-400 ml-2">({p.role})</span></div>
-                                        <span className="text-xs text-orange-500 font-bold">Pending</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
                 </div>
             )}
         </div>
     );
 };
 
-// 3. KEY ROTATION (Fullständig)
 const KeyRotationComponent = ({ token, onKeyUpdate, userRole, onRevoke }) => {
     const [step, setStep] = useState('idle'); 
     const [qrData, setQrData] = useState(null);
     const [code, setCode] = useState('');
     const [loading, setLoading] = useState(false);
     const [newKeyData, setNewKeyData] = useState(null);
-    const [copied, setCopied] = useState(false);
-    const [keyToDisplay, setKeyToDisplay] = useState(null);
-    const [showKey, setShowKey] = useState(false);
     const [error, setError] = useState(null);
+    const [manualCode, setManualCode] = useState(null); // To display the code received from backend
 
     const canRotate = userRole === 'owner' || userRole === 'admin';
 
@@ -275,7 +261,12 @@ const KeyRotationComponent = ({ token, onKeyUpdate, userRole, onRevoke }) => {
         setError(null);
         try {
             const data = await apiCall('/api/keys/request-rotation', { method: 'POST' }, token);
-            setQrData(data);
+            // Check if data has code (Manual Mode) or if we expect email
+            if (data.code) {
+                setManualCode(data.code); // Display code to user directly
+            } else {
+                // Fallback or email flow (if re-enabled)
+            }
             setStep('verify');
         } catch (e) { setError(e.message); } finally { setLoading(false); }
     };
@@ -285,29 +276,12 @@ const KeyRotationComponent = ({ token, onKeyUpdate, userRole, onRevoke }) => {
         setLoading(true);
         setError(null);
         try {
-            try { await apiCall('/api/keys/totp/enable', { method: 'POST', body: { code } }, token); } catch(e) {}
-            
             const data = await apiCall('/api/keys/rotate', { method: 'POST', body: { code } }, token);
             setNewKeyData(data.newApiKey);
-            setKeyToDisplay(data.newApiKey);
             if (onKeyUpdate) onKeyUpdate(data.newApiKey);
             setStep('complete');
             setCode('');
         } catch (e) { setError(e.message); } finally { setLoading(false); }
-    };
-
-    const handleCopy = () => {
-        navigator.clipboard.writeText(newKeyData);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-    };
-
-    const handleDownload = () => {
-        const blob = new Blob([`AUDITOR_VERITAS_KEY=${newKeyData}\n# Keep safe!`], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url; a.download = 'auditor-veritas-prod.env';
-        a.click();
     };
 
     return (
@@ -317,16 +291,6 @@ const KeyRotationComponent = ({ token, onKeyUpdate, userRole, onRevoke }) => {
                     <ShieldCheck className="w-4 h-4 text-green-600" /> Credential Management
                 </h3>
                 <span className="bg-emerald-50 text-emerald-700 text-[10px] px-2 py-1 rounded font-bold uppercase">Active</span>
-            </div>
-
-            <div className="relative">
-                <div className="bg-slate-50 p-3 rounded-lg text-xs font-mono text-slate-600 break-all border border-slate-100 pr-16 min-h-[40px] flex items-center">
-                    {keyToDisplay ? (showKey ? keyToDisplay : '••••••••••••••••••••••••••••••' + keyToDisplay.slice(-4)) : 'API Key is hidden. Rotate to see a new one.'}
-                </div>
-                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1">
-                    <button onClick={() => setShowKey(!showKey)} disabled={!keyToDisplay} className="p-1.5 hover:bg-slate-200 rounded text-slate-500 disabled:opacity-50"><Eye size={14} /></button>
-                    <button onClick={() => navigator.clipboard.writeText(keyToDisplay)} disabled={!keyToDisplay} className="p-1.5 hover:bg-slate-200 rounded text-slate-500 disabled:opacity-50"><Copy size={14} /></button>
-                </div>
             </div>
 
             {error && <div className="text-xs text-red-600 bg-red-50 p-2 rounded border border-red-100">{error}</div>}
@@ -342,12 +306,24 @@ const KeyRotationComponent = ({ token, onKeyUpdate, userRole, onRevoke }) => {
                 </div>
             ) : (
                 <div className="bg-blue-50/50 p-3 rounded-xl border border-blue-100">
-                    {qrData && <div className="mb-4 text-center"><img src={qrData.qrCodeDataUrl} alt="QR" className="mx-auto w-24 h-24 mb-2"/><p className="text-[10px] text-slate-500 font-mono">{qrData.secret}</p></div>}
-                    <input type="text" placeholder="000 000" maxLength={6} className="w-full p-2 border rounded-lg text-center text-xl font-mono font-bold mb-4" value={code} onChange={e => setCode(e.target.value.replace(/\D/g,''))} autoFocus />
+                    {manualCode && (
+                        <div className="mb-3 p-2 bg-blue-100 border border-blue-200 rounded text-center">
+                            <p className="text-[10px] font-bold text-blue-800 uppercase">Verification Code</p>
+                            <p className="text-lg font-mono tracking-widest text-blue-900">{manualCode}</p>
+                        </div>
+                    )}
+                    
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-2">Confirm Code</label>
                     <div className="flex gap-2">
-                        <button onClick={() => setStep('idle')} className="flex-1 py-2 bg-white border rounded-lg text-xs font-bold text-slate-600">Cancel</button>
-                        <button onClick={confirmRotation} disabled={code.length !== 6 || loading} className="flex-1 py-2 bg-blue-600 text-white rounded-lg text-xs font-bold">{loading ? '...' : 'Confirm'}</button>
+                        <input
+                            type="text" placeholder="123456" className="flex-1 px-3 py-2 bg-white border border-slate-300 rounded-lg text-center text-sm tracking-widest font-bold"
+                            value={code} onChange={(e) => setCode(e.target.value)} maxLength={6} autoFocus
+                        />
+                        <button onClick={confirmRotation} disabled={isLoading || code.length < 6} className="px-4 py-2 bg-blue-600 text-white rounded-lg font-bold text-xs disabled:opacity-50">
+                            {isLoading ? <Loader2 className="animate-spin w-3 h-3" /> : 'Verify'}
+                        </button>
                     </div>
+                    <button onClick={() => setStep('idle')} className="text-[10px] text-slate-400 mt-2 hover:text-slate-600 underline w-full text-center">Cancel</button>
                 </div>
             )}
 
@@ -357,10 +333,6 @@ const KeyRotationComponent = ({ token, onKeyUpdate, userRole, onRevoke }) => {
                          <h3 className="text-xl font-bold text-slate-900 mb-2">Success!</h3>
                          <p className="text-sm text-slate-500 mb-4">Old key invalidated. Save the new key immediately.</p>
                          <div className="bg-slate-900 rounded-xl p-4 mb-6"><code className="text-emerald-400 font-mono text-sm break-all">{newKeyData}</code></div>
-                         <div className="grid grid-cols-2 gap-3 mb-4">
-                            <button onClick={handleCopy} className="flex items-center justify-center gap-2 py-3 bg-slate-100 font-bold text-sm rounded-xl">{copied ? 'Copied!' : 'Copy'}</button>
-                            <button onClick={handleDownload} className="flex-1 py-3 bg-blue-600 text-white font-bold text-sm rounded-xl">Download</button>
-                         </div>
                          <button onClick={() => setStep('idle')} className="text-slate-500 text-xs hover:underline">Close</button>
                     </div>
                 </div>
@@ -369,7 +341,6 @@ const KeyRotationComponent = ({ token, onKeyUpdate, userRole, onRevoke }) => {
     );
 };
 
-// 4. AUTH COMPONENT
 const AuthScreen = ({ onLogin }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -407,7 +378,6 @@ const AuthScreen = ({ onLogin }) => {
     );
 };
 
-// 5. CREATE PROCESSOR
 const CreateProcessor = ({ token, onProcessorCreated }) => {
     const [companyName, setCompanyName] = useState('');
     const [loading, setLoading] = useState(false);
@@ -420,7 +390,7 @@ const CreateProcessor = ({ token, onProcessorCreated }) => {
             const data = await apiCall('/api/processors', { method: 'POST', body: { companyName } }, token);
             setApiKey(data.apiKey);
             localStorage.setItem('av_active_key', data.apiKey);
-            localStorage.setItem('av_sim_key', data.apiKey); // Synka båda
+            localStorage.setItem('av_sim_key', data.apiKey);
             setTimeout(() => {
                  onProcessorCreated({ 
                     id: data.processorId || 'new-id', api_key_raw: data.apiKey, company_name: companyName,
@@ -469,7 +439,6 @@ function App() {
     const [recentLogs, setRecentLogs] = useState([]);
     const [chartData, setChartData] = useState([]); 
     const [userRole, setUserRole] = useState(null);
-    // Hanterar nyckel från localStorage för att behålla session
     const [activeApiKey, setActiveApiKey] = useState(localStorage.getItem('av_sim_key') || localStorage.getItem('av_active_key'));
     const [systemAuditLogs, setSystemAuditLogs] = useState([]); 
     
@@ -546,15 +515,12 @@ function App() {
         if(e) e.preventDefault();
         if (userRole === 'reader') return alert("Access Denied: Readers cannot log events.");
         try {
-            // Använd data från formuläret eller state
             const payloadData = dataFromForm || eventData;
-            
             const keyToUse = activeApiKey || processor?.api_key_raw || localStorage.getItem('av_sim_key');
             if (!keyToUse) throw new Error("No Active API Key found.");
             
             const realUserIdentifier = session?.user?.email || 'authenticated-user';
             
-            // Parsa JSON om det är en sträng
             let finalEventData = payloadData.event_data;
             if (typeof finalEventData === 'string') {
                 try { finalEventData = JSON.parse(finalEventData); } catch(e) { finalEventData = { raw: payloadData.event_data }; }
@@ -585,6 +551,7 @@ function App() {
                 {showSecurity && <SecurityPage onClose={() => setShowSecurity(false)} />}
             </AnimatePresence>
 
+             {/* HEADER */}
              <header className="fixed w-full z-50 bg-[#020617]/90 border-b border-white/10 py-2 px-6 flex justify-between items-center backdrop-blur-md">
                 <div className="font-bold text-lg flex gap-2 cursor-pointer items-center hover:text-blue-400 transition-colors" onClick={()=>setActiveTab('home')}>
                     <ShieldCheck className="text-blue-500"/> EuroLedger
@@ -674,7 +641,9 @@ function App() {
                                     />
                                 )}
 
-                                {dashboardSubTab === 'team' && <TeamManagement token={session.access_token} processor={processor} userRole={userRole} />}
+                                {dashboardSubTab === 'team' && (
+                                    <TeamManagement token={session.access_token} processor={processor} userRole={userRole} />
+                                )}
                                 
                                 {dashboardSubTab === 'system_audit' && (
                                     <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
@@ -702,7 +671,7 @@ function App() {
                 )}
             </main>
             <Footer onOpenPrivacy={()=>{setLegalTab('privacy'); setShowPrivacyModal(true);}} onOpenTerms={()=>{setLegalTab('terms'); setShowPrivacyModal(true);}} onOpenSecurity={() => setShowSecurity(true)} onOpenDocs={() => setShowDocs(true)} onNavigate={setActiveTab} />
-            {/* CookieConsent Removed as requested (handled by PrivacyPage) */}
+            <CookieConsent />
         </div>
     );
 }

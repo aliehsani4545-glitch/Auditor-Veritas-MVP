@@ -7,7 +7,7 @@ import { v4 as uuidv4 } from 'uuid';
 import CryptoJS from 'crypto-js';
 import Stripe from 'stripe';
 import { config } from 'dotenv';
-import { Resend } from 'resend';
+// Resend removed
 import { z } from 'zod';
 import stringify from 'fast-json-stable-stringify';
 import winston from 'winston';
@@ -26,10 +26,10 @@ const PORT = process.env.PORT || 3001;
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 const MASTER_KEY = process.env.MASTER_ENCRYPTION_KEY;
-const RESEND_API_KEY = process.env.RESEND_API_KEY;
 
-if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY || !MASTER_KEY || !RESEND_API_KEY) {
-  console.error('❌ FATAL: Missing Credentials (SUPABASE, MASTER_KEY, or RESEND_API_KEY).');
+// Removed RESEND_API_KEY check
+if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY || !MASTER_KEY) {
+  console.error('❌ FATAL: Missing Credentials (SUPABASE_URL, SUPABASE_SERVICE_KEY, or MASTER_ENCRYPTION_KEY).');
   process.exit(1);
 }
 
@@ -38,7 +38,6 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
 });
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_placeholder');
-const resend = new Resend(RESEND_API_KEY);
 
 // --- 2. LOGGING & MIDDLEWARE ---
 const logger = winston.createLogger({
@@ -61,7 +60,7 @@ const ALLOWED_ORIGINS = [
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin || ALLOWED_ORIGINS.includes(origin)) callback(null, true);
-    else callback(null, true); // Allow all for MVP connectivity (Stricter in full prod)
+    else callback(null, true);
   },
   credentials: true
 }));
@@ -106,9 +105,7 @@ class DBMerkleService {
             const isRightNode = currentIndex % 2 === 1;
             const siblingIndex = isRightNode ? currentIndex - 1 : currentIndex + 1;
             
-            const { data: siblingNode } = await supabase
-                .from('merkle_nodes').select('hash')
-                .eq('level', currentLevel).eq('node_index', siblingIndex).single();
+            const { data: siblingNode } = await supabase.from('merkle_nodes').select('hash').eq('level', currentLevel).eq('node_index', siblingIndex).single();
 
             const parentIndex = Math.floor(currentIndex / 2);
             let parentHash;
@@ -220,12 +217,12 @@ const authenticateAny = async (req, res, next) => {
 
 // --- 7. ROUTES ---
 
-// SYSTEM AUDIT LOGS (NY ENDPOINT - LÖSER 404)
+// SYSTEM AUDIT LOGS
 app.get('/api/system/audit', authenticateUser, async (req, res) => {
     if (req.userRole !== 'owner' && req.userRole !== 'admin') return res.status(403).json({ error: 'Access denied.' });
     try {
         const { data, error } = await supabase.from('admin_audit_logs').select('*').eq('processor_id', req.processor.id).order('created_at', { ascending: false }).limit(50);
-        if (error && error.code !== '42P01') throw error; // Ignorera om tabell saknas
+        if (error && error.code !== '42P01') throw error;
         
         const logs = data ? data.map(l => ({
             timestamp: l.created_at,
@@ -234,11 +231,11 @@ app.get('/api/system/audit', authenticateUser, async (req, res) => {
         })) : [];
         res.json({ logs });
     } catch (err) {
-        res.json({ logs: [] }); // Return empty on error to prevent crash
+        res.json({ logs: [] });
     }
 });
 
-// KEY ROTATION
+// KEY ROTATION (NO EMAIL - MANUAL RETURN)
 app.post('/api/keys/request-rotation', authenticateUser, async (req, res) => {
     if (!req.processor) return res.status(403).json({ error: 'Access denied' });
     try {
@@ -246,11 +243,11 @@ app.post('/api/keys/request-rotation', authenticateUser, async (req, res) => {
         const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString(); 
         await supabase.from('processors').update({ verification_code: verificationCode, verification_expires: expiresAt }).eq('id', req.processor.id);
         
-        await resend.emails.send({
-            from: 'security@auditorveritas.com', to: [req.user.email], subject: 'Security Code: Key Rotation',
-            html: `<p>Your code: <strong>${verificationCode}</strong></p>`
+        // NO EMAIL SENT. Return code for Manual/Secure Channel handling.
+        res.json({ 
+            message: 'Verification code generated. Please share via secure channel.', 
+            code: verificationCode // Returning code directly for No-Email MVP
         });
-        res.json({ message: 'Code sent', email: req.user.email });
     } catch (err) { res.status(500).json({ error: 'Verification error.' }); }
 });
 
@@ -267,11 +264,9 @@ app.post('/api/keys/rotate', authenticateUser, async (req, res) => {
 
         await supabase.from('processors').update({ api_key_hash: newHash, verification_code: null, last_rotation_date: rotationDate }).eq('id', req.processor.id);
         
-        // Audit this event
         const eventType = 'system.key_rotation';
         const userHash = sha256(req.user.email);
         
-        // Reuse or create user key logic omitted for brevity, ensure insert into audit_events happens
         await supabase.from('admin_audit_logs').insert([{
             processor_id: req.processor.id, user_email: req.user.email, action: 'KEY_ROTATION_SUCCESS'
         }]);
@@ -280,7 +275,7 @@ app.post('/api/keys/rotate', authenticateUser, async (req, res) => {
     } catch (err) { res.status(500).json({ error: 'Rotation failed.' }); }
 });
 
-// TEAM MANAGEMENT
+// TEAM MANAGEMENT (NO EMAIL - MANUAL RETURN)
 app.post('/api/team/invite', authenticateUser, authorizeOwner, async (req, res) => {
     try {
         const validated = inviteUserSchema.parse(req.body);
@@ -291,11 +286,12 @@ app.post('/api/team/invite', authenticateUser, authorizeOwner, async (req, res) 
         }]);
 
         const inviteLink = `https://auditorveritas.com/join?token=${inviteToken}`;
-        await resend.emails.send({
-            from: 'team@auditorveritas.com', to: [validated.email], subject: 'Team Invitation',
-            html: `<p>Click to join: <a href="${inviteLink}">${inviteLink}</a></p>`
+        
+        // NO EMAIL SENT. Return link for Manual Copy-Paste.
+        res.status(200).json({ 
+            message: 'Invitation link generated.', 
+            link: inviteLink // Returning link directly
         });
-        res.status(200).json({ message: 'Invitation sent.' });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -361,7 +357,7 @@ app.post('/api/events', authenticateApiKey, async (req, res) => {
 
         const { data: savedEvent } = await supabase.from('audit_events').insert([{
             processor_id: req.processor.id, event_type, user_identifier: userHash,
-            event_data: { encrypted: encryptedPayload }, event_timestamp: new Date().toISOString(), data_hash, leaf_index: 0 // Simplification: assume trigger handles index or manual logic
+            event_data: { encrypted: encryptedPayload }, event_timestamp: new Date().toISOString(), data_hash, leaf_index: 0 
         }]).select().single();
 
         if (savedEvent) await DBMerkleService.appendLeaf(data_hash, savedEvent.leaf_index || 0);
