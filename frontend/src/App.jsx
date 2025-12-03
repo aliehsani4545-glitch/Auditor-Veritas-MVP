@@ -366,6 +366,8 @@ const KeyRotationComponent = ({ token, onKeyUpdate, userRole }) => {
   );
 };
 
+// I App.jsx - Byt ut AuthScreen mot denna:
+
 const AuthScreen = ({ onLogin }) => {
   const [mode, setMode] = useState('login');
   const [email, setEmail] = useState('');
@@ -379,7 +381,9 @@ const AuthScreen = ({ onLogin }) => {
       if (mode === 'signup') {
         const { error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
-        alert('Check email for confirmation.');
+        // FIXAD TEXT HÄR:
+        alert('Konto registrerat! Du kan nu logga in med dina uppgifter.');
+        setMode('login'); // Byt automatiskt till login-fliken
       } else {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
@@ -393,7 +397,7 @@ const AuthScreen = ({ onLogin }) => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#020617] px-4 pt-20">
       <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full">
-        <h2 className="text-2xl font-bold text-center mb-6 text-slate-900">{mode === 'login' ? 'Secure Login' : 'Register Node'}</h2>
+        <h2 className="text-2xl font-bold text-center mb-6 text-slate-900">{mode === 'login' ? 'Secure Login' : 'Register Node / User'}</h2>
         <form onSubmit={handleAuth} className="space-y-4">
           <input type="email" required className="w-full p-3 border rounded-lg text-slate-900" placeholder="email@company.com" value={email} onChange={e => setEmail(e.target.value)} />
           <input type="password" required className="w-full p-3 border rounded-lg text-slate-900" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} />
@@ -408,7 +412,6 @@ const AuthScreen = ({ onLogin }) => {
     </div>
   );
 };
-
 const CreateProcessor = ({ token, onProcessorCreated }) => {
   const [companyName, setCompanyName] = useState('');
   const [loading, setLoading] = useState(false);
