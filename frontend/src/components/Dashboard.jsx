@@ -121,8 +121,8 @@ const Dashboard = ({ processor, stats, token, eventData, setEventData, onLogEven
 
     // Stats Memoization
     const usagePercent = useMemo(() => {
-        return Math.min((stats.monthlyEvents / (processor.events_limit || 100)) * 100, 100);
-    }, [stats.monthlyEvents, processor.events_limit]);
+        return Math.min((stats.monthlyEvents / (processor.monthly_events_limit || 100)) * 100, 100);
+    }, [stats.monthlyEvents, processor.monthly_events_limit]);
 
     return (
         <div className="max-w-7xl mx-auto px-4 md:px-6 pt-8 pb-12 animate-fade-in-up"> 
@@ -149,7 +149,7 @@ const Dashboard = ({ processor, stats, token, eventData, setEventData, onLogEven
                         </div>
                         <div className="text-right">
                              <div className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Monthly Quota</div>
-                             <div className="text-sm font-mono font-bold text-blue-600">{stats.monthlyEvents} / {processor.events_limit || 100}</div>
+                             <div className="text-sm font-mono font-bold text-blue-600">{stats.monthlyEvents} / {processor.monthly_events_limit || 100}</div>
                         </div>
                     </div>
                     <LiveActivityChart dataPoints={chartData} />

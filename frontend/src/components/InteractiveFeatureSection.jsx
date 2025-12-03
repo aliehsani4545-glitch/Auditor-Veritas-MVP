@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import StripePhoneDemo from './StripePhoneDemo';
+import EuroLedgerDemo from './EuroLedgerDemo';
 import { motion, useInView } from 'framer-motion';
 
 const FeatureBlock = ({ setStep, stepIndex, title, children }) => {
@@ -27,7 +27,7 @@ const InteractiveFeatureSection = () => {
     <div className="relative bg-white w-full border-t border-slate-100">
       <div className="max-w-7xl mx-auto flex flex-col lg:flex-row">
         
-        {/* LEFT SCROLL CONTENT - ORIGINAL */}
+        {/* LEFT SCROLL CONTENT */}
         <div className="w-full lg:w-1/2 relative z-10 pb-24">
           <FeatureBlock setStep={setActiveStep} stepIndex={0} title="Integrate in Minutes">
             <p className="mb-4">Get started with just a few lines of code. Our SDK is designed for developers who value speed and type safety.</p>
@@ -38,7 +38,7 @@ const InteractiveFeatureSection = () => {
           </FeatureBlock>
 
           <FeatureBlock setStep={setActiveStep} stepIndex={1} title="Real-time Verification">
-            <p className="mb-4">When a sensitive event occurs, Auditor Veritas intercepts and verifies the request instantly.</p>
+            <p className="mb-4">When a sensitive event occurs, EuroLedger intercepts and verifies the request instantly.</p>
             <p>The UI adapts automatically to the risk level, prompting users for authentication only when necessary.</p>
           </FeatureBlock>
 
@@ -50,15 +50,15 @@ const InteractiveFeatureSection = () => {
           </FeatureBlock>
         </div>
 
-        {/* RIGHT STICKY DEMO - EXAKT SOM GAMMALT */}
+        {/* RIGHT STICKY DEMO */}
         <div className="hidden lg:block w-1/2 h-screen sticky top-0 flex items-center justify-center bg-white overflow-hidden">
            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-to-tr from-[#635bff]/10 to-[#00d4ff]/10 rounded-full blur-3xl" />
-           <StripePhoneDemo activeStep={activeStep} />
+           <EuroLedgerDemo activeStep={activeStep} />
         </div>
         
         {/* MOBILE DEMO */}
         <div className="lg:hidden py-12 bg-slate-50">
-           <StripePhoneDemo activeStep={activeStep} />
+           <EuroLedgerDemo activeStep={activeStep} />
         </div>
       </div>
     </div>
