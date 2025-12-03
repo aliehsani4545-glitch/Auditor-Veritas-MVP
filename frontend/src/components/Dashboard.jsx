@@ -29,7 +29,8 @@ const apiCall = async (endpoint, options = {}, token = null, apiKey = null) => {
         if (!response.ok) throw new Error(data.error || `HTTP error! status: ${response.status}`);
         return data;
     } catch (e) {
-        throw new Error(`Server Error: ${text.substring(0, 100)}...`);
+        // Korrigerad: Lägger till valfri kedjning här också för säkerhet
+        throw new Error(`Server Error: ${text?.substring(0, 100) || 'Unknown error' }...`);
     }
 };
 
@@ -78,9 +79,16 @@ const RecentLogsTable = memo(({ logs = [] }) => {
                         {logs.map((log) => (
                             <tr key={log.id} className="hover:bg-slate-50/50 transition-colors">
                                 <td className="py-3 px-4 font-bold text-slate-700">{log.event_type}</td>
-                                <td className="py-3 px-4 font-mono text-blue-600 text-[10px] break-all max-w-[120px]">{log.data_hash.substring(0,16)}...</td>
+                                
+                                {/* KORRIGERAD RAD: Använd valfri kedjning för data_hash */}
+                                <td className="py-3 px-4 font-mono text-blue-600 text-[10px] break-all max-w-[120px]">{log.data_hash?.substring(0,16) || 'N/A'}...</td>
+                                
                                 <td className="py-3 px-4 font-mono text-slate-400 text-[10px]"><Lock size={10} className="inline mr-1"/> AES-256</td>
-                                <td className="py-3 px-4 text-right text-slate-400 font-mono">{new Date(log.event_timestamp).toLocaleTimeString()}</td>
+                                
+                                {/* KORRIGERAD RAD: Kontrollera timestamp innan formatering */}
+                                <td className="py-3 px-4 text-right text-slate-400 font-mono">
+                                    {log.event_timestamp ? new Date(log.event_timestamp).toLocaleTimeString() : 'N/A'}
+                                </td>
                             </tr>
                         ))}
                     </tbody>
@@ -121,8 +129,11 @@ const Dashboard = ({ processor, stats, token, eventData, setEventData, onLogEven
 
     // Stats Memoization
     const usagePercent = useMemo(() => {
-        return Math.min((stats.monthlyEvents / (processor.monthly_events_limit || 100)) * 100, 100);
-    }, [stats.monthlyEvents, processor.monthly_events_limit]);
+        // Kontrollera om processor eller dess properties är undefined innan beräkning
+        const limit = processor?.monthly_events_limit || 100;
+        const events = stats?.monthlyEvents || 0;
+        return Math.min((events / limit) * 100, 100);
+    }, [stats?.monthlyEvents, processor?.monthly_events_limit]); // Använd valfri kedjning här också
 
     return (
         <div className="max-w-7xl mx-auto px-4 md:px-6 pt-8 pb-12 animate-fade-in-up"> 
@@ -132,9 +143,13 @@ const Dashboard = ({ processor, stats, token, eventData, setEventData, onLogEven
                 <div>
                     <div className="flex items-center gap-2 mb-2">
                         <div className="px-2 py-0.5 rounded-full bg-emerald-100 border border-emerald-200 text-[10px] font-bold text-emerald-700 uppercase tracking-wider flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> EU-Frankfurt</div>
-                        <span className="text-xs text-slate-400 font-mono">ID: {processor.id.substring(0,8)}...</span>
+                        
+                        {/* KORRIGERAD: Använd valfri kedjning */}
+                        <span className="text-xs text-slate-400 font-mono">ID: {processor?.id?.substring(0,8) || 'N/A'}...</span>
+                        
                     </div>
-                    <h1 className="text-3xl font-bold text-slate-900">{processor.company_name}</h1>
+                    {/* KORRIGERAD: Använd valfri kedjning */}
+                    <h1 className="text-3xl font-bold text-slate-900">{processor?.company_name || 'Loading Node...'}</h1>
                 </div>
                 <button onClick={onLogout} className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-sm font-bold shadow-sm hover:bg-red-50 hover:text-red-600 hover:border-red-100 transition-all"><LogOut size={16} /> Secure Logout</button>
             </div>
@@ -145,18 +160,19 @@ const Dashboard = ({ processor, stats, token, eventData, setEventData, onLogEven
                     <div className="flex justify-between items-start">
                         <div>
                             <div className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Total Immutable Events</div>
-                            <div className="text-4xl font-bold text-slate-900">{stats.totalEvents.toLocaleString()}</div>
+                            <div className="text-4xl font-bold text-slate-900">{stats?.totalEvents?.toLocaleString() || 0}</div>
                         </div>
                         <div className="text-right">
                              <div className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Monthly Quota</div>
-                             <div className="text-sm font-mono font-bold text-blue-600">{stats.monthlyEvents} / {processor.monthly_events_limit || 100}</div>
+                             <div className="text-sm font-mono font-bold text-blue-600">{stats?.monthlyEvents || 0} / {processor?.monthly_events_limit || 100}</div>
                         </div>
                     </div>
                     <LiveActivityChart dataPoints={chartData} />
                 </div>
                 
                 <div className="space-y-4">
-                    <KeyRotationTimer lastRotationDate={processor.last_rotation_date} />
+                    {/* KORRIGERAD: Använd valfri kedjning */}
+                    <KeyRotationTimer lastRotationDate={processor?.last_rotation_date} />
                     {KeyRotation} {/* This component is passed from App.jsx */}
                 </div>
             </div>

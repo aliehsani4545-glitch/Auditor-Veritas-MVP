@@ -1,3 +1,8 @@
+// ============================================================
+// AUDITOR VERITAS - ZERO TRUST FRONTEND APPLICATION
+// Version: 2.0.0 - Privacy by Default
+// ============================================================
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import './App.css';
@@ -6,12 +11,12 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import {
-    ShieldCheck, RotateCw, RefreshCw, Eye, Copy, AlertTriangle,
-    Menu, X, Sparkles, Server, Cookie, Lock, LogOut, User, LayoutGrid,
-    CheckCircle2, Zap, ArrowRight, Download, UserPlus, Loader2, Mail, Shield, Trash2, XCircle, QrCode, Users, Link as LinkIcon, BadgeCheck, BookOpen
+  ShieldCheck, RotateCw, RefreshCw, Eye, Copy, AlertTriangle,
+  Menu, X, Sparkles, Server, Cookie, Lock, LogOut, User, LayoutGrid,
+  CheckCircle2, Zap, ArrowRight, Download, UserPlus, Loader2, Mail,
+  Shield, Trash2, XCircle, QrCode, Users, Link as LinkIcon, BadgeCheck, BookOpen
 } from 'lucide-react';
 
-// --- COMPONENTS (Importer antas vara korrekta) ---
 import InteractiveFeatureSection from './components/InteractiveFeatureSection';
 import DashboardPreview from './components/DashboardPreview';
 import CoreArchitecture from './components/CoreArchitecture';
@@ -19,460 +24,719 @@ import IntegrityEngine from './components/IntegrityEngine';
 import UseCases from './components/UseCases';
 import InteractiveHeroBackground from './components/InteractiveHeroBackground';
 import TypewriterEffect from './components/TypewriterEffect';
-import PrivacyPage from './components/PrivacyPage'; 
-import CookieConsent from './components/CookieConsent'; 
+import PrivacyPage from './components/PrivacyPage';
+import CookieConsent from './components/CookieConsent';
 import CodeIntegration from './components/CodeIntegration';
-import Dashboard from './components/Dashboard'; 
+import Dashboard from './components/Dashboard';
 import IntegrityFocusPage from './components/IntegrityFocusPage';
 import SecurityPage from './components/SecurityPage';
 import DocsModal from './components/DocsModal';
 import TrustCenter from './components/TrustCenter';
 import Footer from './components/Footer';
-import ContactPage from './components/ContactPage'; 
+import ContactPage from './components/ContactPage';
 import AboutPage from './components/AboutPage';
 import ServicesPage from './components/ServicesPage';
-import EuroLedgerDemo from './components/EuroLedgerDemo'; 
-import EnterpriseForm from './components/EnterpriseForm'; 
+import EuroLedgerDemo from './components/EuroLedgerDemo';
+import EnterpriseForm from './components/EnterpriseForm';
 
-// --- CONFIGURATION ---
 const API_BASE_URL = 'https://auditor-veritas-mvp.onrender.com';
 const SUPABASE_URL = 'https://ridpgvikvjreljwypbpj.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJpZHBndmlrdmpyZWxqd3lwYnBqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM0MDU5MDksImV4cCI6MjA3ODk4MTkwOX0.qP9Okdx8uroKpkWjoUNLNC9WcRSPD6S6AV7RasCCPHg';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
 if (typeof window !== 'undefined') gsap.registerPlugin(ScrollTrigger);
 
-// --- UNIFIED CONSENT KEY ---
-const UNIFIED_CONSENT_KEY = 'unified_cookie_consent_v2'; 
+const UNIFIED_CONSENT_KEY = 'unified_cookie_consent_v2';
 
-// --- API HELPER ---
 export const apiCall = async (endpoint, options = {}, token = null, apiKey = null) => {
-    const sanitize = (str) => str ? str.replace(/[^\x00-\x7F]/g, "") : str;
-    const headers = { 'Content-Type': 'application/json; charset=utf-8', ...options.headers }; 
-    if (token) headers['Authorization'] = `Bearer ${sanitize(token)}`;
-    if (apiKey) headers['x-api-key'] = sanitize(apiKey); 
-    
-    try {
-        const response = await fetch(`${API_BASE_URL}${endpoint}`, { headers, ...options, body: options.body ? JSON.stringify(options.body) : null });
-        if (response.status === 204) return null;
-        const text = await response.text();
-        let data;
-        try { data = text ? JSON.parse(text) : {}; } 
-        catch (e) { throw new Error(`Server connection error (${response.status}).`); }
-        if (!response.ok) throw new Error(data.error || `Server Error: ${response.status}`);
-        return data;
-    } catch (e) { throw new Error(e.message || "Connection failed."); }
+  const sanitize = (str) => str ? str.replace(/[^\x00-\x7F]/g, "") : str;
+  const headers = { 'Content-Type': 'application/json; charset=utf-8', ...options.headers };
+  if (token) headers['Authorization'] = `Bearer ${sanitize(token)}`;
+  if (apiKey) headers['x-api-key'] = sanitize(apiKey);
+
+  try {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      headers, ...options, body: options.body ? JSON.stringify(options.body) : null
+    });
+    if (response.status === 204) return null;
+    const text = await response.text();
+    let data;
+    try { data = text ? JSON.parse(text) : {}; }
+    catch (e) { throw new Error(`Server connection error (${response.status}).`); }
+    if (!response.ok) throw new Error(data.error || `Server Error: ${response.status}`);
+    return data;
+  } catch (e) { throw new Error(e.message || "Connection failed."); }
 };
 
 const isCorporateEmail = (email) => {
-    const blockedDomains = ['gmail.com', 'hotmail.com', 'outlook.com', 'yahoo.com', 'icloud.com', 'protonmail.com', 'live.com', 'msn.com'];
-    const domain = email.split('@').pop().toLowerCase();
-    return domain && !blockedDomains.includes(domain);
+  const blockedDomains = ['gmail.com', 'hotmail.com', 'outlook.com', 'yahoo.com', 'icloud.com', 'protonmail.com', 'live.com', 'msn.com'];
+  const domain = email.split('@').pop()?.toLowerCase();
+  return domain && !blockedDomains.includes(domain);
 };
 
-// --- Dashboard Cookie Consent Component (Dashboard Blockade) ---
-const DashboardCookieConsent = ({ onAccept, onReadPolicy }) => {
-    return (
-        <motion.div 
-            initial={{ opacity: 0, scale: 0.9 }} 
-            animate={{ opacity: 1, scale: 1 }} 
-            exit={{ opacity: 0, scale: 0.9 }} 
-            transition={{ type: "spring", stiffness: 100 }}
-            className="absolute inset-0 flex items-center justify-center bg-slate-50/95 backdrop-blur-sm p-6 rounded-lg z-50" 
-        >
-            <div className="bg-white p-8 rounded-2xl shadow-2xl border border-slate-200 max-w-md text-center text-slate-900">
-                <Lock size={32} className="text-red-500 mx-auto mb-3" />
-                <h4 className="text-2xl font-bold mb-2">Access Restricted</h4>
-                <p className="text-sm text-slate-600 mb-6">
-                    The Dashboard requires specific consent for data processing and event logging related to your node administration.
-                </p>
-                <div className="flex flex-col gap-3">
-                    <button 
-                        onClick={() => onAccept('accepted')} 
-                        className="bg-blue-600 text-white px-4 py-3 rounded-lg font-bold text-sm hover:bg-blue-700 transition-colors shadow-md"
-                    >
-                        Accept & Access Dashboard
-                    </button>
-                    <button 
-                        onClick={onReadPolicy} 
-                        className="bg-slate-100 text-slate-800 px-4 py-3 rounded-lg font-bold text-sm hover:bg-slate-200 transition-colors"
-                    >
-                        Read Privacy Policy
-                    </button>
-                </div>
-            </div>
-        </motion.div>
-    );
-};
-
-// --- INTERNAL COMPONENTS (Platsinnehavare) ---
+const DashboardCookieConsent = ({ onAccept, onReadPolicy }) => (
+  <motion.div
+    initial={{ opacity: 0, scale: 0.9 }}
+    animate={{ opacity: 1, scale: 1 }}
+    exit={{ opacity: 0, scale: 0.9 }}
+    className="absolute inset-0 flex items-center justify-center bg-slate-50/95 backdrop-blur-sm p-6 rounded-lg z-50"
+  >
+    <div className="bg-white p-8 rounded-2xl shadow-2xl border border-slate-200 max-w-md text-center text-slate-900">
+      <Lock size={32} className="text-red-500 mx-auto mb-3" />
+      <h4 className="text-2xl font-bold mb-2">Access Restricted</h4>
+      <p className="text-sm text-slate-600 mb-6">Dashboard requires consent for data processing.</p>
+      <div className="flex flex-col gap-3">
+        <button onClick={() => onAccept('accepted')} className="bg-blue-600 text-white px-4 py-3 rounded-lg font-bold text-sm hover:bg-blue-700">
+          Accept & Access Dashboard
+        </button>
+        <button onClick={onReadPolicy} className="bg-slate-100 text-slate-800 px-4 py-3 rounded-lg font-bold text-sm hover:bg-slate-200">
+          Read Privacy Policy
+        </button>
+      </div>
+    </div>
+  </motion.div>
+);
 
 const JoinTeamPage = ({ session, fetchDashboard }) => {
-    const [status, setStatus] = useState('loading');
-    const [message, setMessage] = useState('Validating invitation...');
-    
-    useEffect(() => {
-        const urlParams = new URLSearchParams(window.location.search);
-        const tokenFromUrl = urlParams.get('token');
-        if (!session) {
-            setStatus('login_required');
-            setMessage('Please sign in with the email address that received the invitation.');
-        } else if (tokenFromUrl) {
-             // Platsinnehavare för handleAcceptInvite
-        } else {
-            setStatus('error');
-            setMessage('No invitation token found.');
-        }
-    }, [session]);
+  const [status, setStatus] = useState('loading');
+  const [message, setMessage] = useState('Validating invitation...');
 
-    // Antar att AuthScreen är definierad/importerad
-    // if (status === 'login_required' && !session) return <AuthScreen onLogin={fetchDashboard} />;
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const tokenFromUrl = urlParams.get('token');
+    if (!session) { setStatus('login_required'); setMessage('Please sign in with the invited email.'); }
+    else if (tokenFromUrl) { handleAcceptInvite(session.access_token, tokenFromUrl); }
+    else { setStatus('error'); setMessage('No invitation token found.'); }
+  }, [session]);
 
-    return (
-        <div className="min-h-screen flex items-center justify-center bg-slate-50 pt-20">
-            <div className="bg-white p-10 rounded-2xl shadow-xl text-center max-w-md border border-slate-200">
-                {status === 'loading' && <Loader2 className="animate-spin mx-auto text-blue-600 mb-4" size={40} />}
-                {status === 'success' && <CheckCircle2 className="mx-auto text-green-500 mb-4" size={40} />}
-                {status === 'error' && <AlertTriangle className="mx-auto text-red-500 mb-4" size={40} />}
-                <h3 className="text-xl font-bold text-slate-900 mb-2">{status === 'error' ? 'Error' : 'Team Invitation'}</h3>
-                <p className="text-slate-600">{message}</p>
-            </div>
-        </div>
-    );
+  const handleAcceptInvite = async (accessToken, currentToken) => {
+    setStatus('loading');
+    try {
+      await apiCall('/api/team/accept', { method: 'POST', body: { token: currentToken } }, accessToken);
+      window.history.replaceState({}, document.title, window.location.pathname);
+      setStatus('success');
+      setMessage('Invitation accepted! Redirecting...');
+      setTimeout(() => fetchDashboard(), 1500);
+    } catch (err) { setStatus('error'); setMessage(err.message); }
+  };
+
+  if (status === 'login_required' && !session) return <AuthScreen onLogin={fetchDashboard} />;
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 pt-20">
+      <div className="bg-white p-10 rounded-2xl shadow-xl text-center max-w-md border border-slate-200">
+        {status === 'loading' && <Loader2 className="animate-spin mx-auto text-blue-600 mb-4" size={40} />}
+        {status === 'success' && <CheckCircle2 className="mx-auto text-green-500 mb-4" size={40} />}
+        {status === 'error' && <AlertTriangle className="mx-auto text-red-500 mb-4" size={40} />}
+        <h3 className="text-xl font-bold text-slate-900 mb-2">{status === 'error' ? 'Error' : 'Team Invitation'}</h3>
+        <p className="text-slate-600">{message}</p>
+      </div>
+    </div>
+  );
 };
 
-const TeamManagement = ({ token, processor, userRole }) => { return <div className="text-center p-10 bg-white rounded-xl shadow">Team Management Component (Placeholder)</div>;};
-const KeyRotationComponent = ({ token, onKeyUpdate, userRole, onRevoke }) => { return <div className="text-center p-6 bg-white rounded-xl shadow">Key Rotation Component (Placeholder)</div>;};
+const TeamManagement = ({ token, processor, userRole }) => {
+  const [team, setTeam] = useState([]);
+  const [pending, setPending] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState('reader');
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [generatedLink, setGeneratedLink] = useState(null);
+
+  const isOwner = userRole === 'owner';
+  const isAdmin = userRole === 'admin' || isOwner;
+
+  const fetchTeamData = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const data = await apiCall('/api/team', { method: 'GET' }, token);
+      setTeam(data.team || []);
+      setPending(data.pending || []);
+    } catch (err) { setError(err.message); }
+    finally { setIsLoading(false); }
+  }, [token]);
+
+  useEffect(() => { fetchTeamData(); }, [fetchTeamData]);
+
+  const handleInvite = async (e) => {
+    e.preventDefault();
+    if (!isAdmin) return;
+    if (!isCorporateEmail(inviteEmail)) { setError("Corporate email required."); return; }
+
+    setInviteLoading(true); setError(null); setSuccess(null); setGeneratedLink(null);
+    try {
+      const data = await apiCall('/api/team/invite', { method: 'POST', body: { email: inviteEmail, role: inviteRole } }, token);
+      setSuccess(`Invite created for ${inviteEmail}`);
+      setGeneratedLink(data.link);
+      setInviteEmail('');
+      fetchTeamData();
+    } catch (err) { setError(err.message); }
+    finally { setInviteLoading(false); }
+  };
+
+  const handleRemove = async (userId, email, role) => {
+    if (!isAdmin || role === 'owner') return;
+    if (!confirm(`Remove ${email}?`)) return;
+    try {
+      await apiCall(`/api/team/member/${userId}`, { method: 'DELETE' }, token);
+      setSuccess(`Removed ${email}`);
+      fetchTeamData();
+    } catch (err) { setError(err.message); }
+  };
+
+  return (
+    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+      <div className="flex justify-between items-center mb-6">
+        <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2"><Users className="text-blue-600" /> Organization & Roles</h3>
+        <span className="text-xs font-mono bg-slate-100 px-2 py-1 rounded text-slate-500">Role: <strong className="uppercase">{userRole}</strong></span>
+      </div>
+
+      {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-4 text-sm flex items-center gap-2"><XCircle size={16} />{error}</div>}
+      {success && <div className="bg-green-50 text-green-600 p-3 rounded-lg mb-4 text-sm flex items-center gap-2"><CheckCircle2 size={16} />{success}</div>}
+
+      {isAdmin && (
+        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-8">
+          <form onSubmit={handleInvite} className="flex flex-col md:flex-row gap-3">
+            <div className="flex-1">
+              <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Corporate Email</label>
+              <input type="email" placeholder="colleague@company.com" className="w-full p-2 border rounded-lg text-slate-900 text-sm" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} required />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Role</label>
+              <select value={inviteRole} onChange={e => setInviteRole(e.target.value)} className="p-2 border rounded-lg text-sm bg-white text-slate-900 w-32">
+                <option value="reader">Reader</option>
+                <option value="editor">Editor</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+            <div className="flex items-end">
+              <button disabled={inviteLoading} className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-blue-700 disabled:opacity-50 h-[38px]">
+                {inviteLoading ? 'Creating...' : 'Generate Invite'}
+              </button>
+            </div>
+          </form>
+
+          {generatedLink && (
+            <div className="mt-4 p-3 bg-blue-100 border border-blue-200 rounded-lg">
+              <p className="text-xs font-bold text-blue-800 mb-1">Invite Link:</p>
+              <div className="flex gap-2">
+                <input readOnly value={generatedLink} className="flex-1 p-1 text-xs bg-white border rounded" />
+                <button onClick={() => navigator.clipboard.writeText(generatedLink)} className="px-3 py-1 bg-blue-600 text-white text-xs rounded font-bold">Copy</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {isLoading ? <Loader2 className="animate-spin mx-auto text-slate-400" /> : (
+        <div className="border rounded-xl overflow-hidden">
+          {team.map((m, i) => (
+            <div key={m.user_id || `${m.email}-${i}`} className={`flex justify-between items-center p-4 bg-white ${i !== team.length - 1 ? 'border-b' : ''}`}>
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-sm font-bold text-slate-600">{m.email[0].toUpperCase()}</div>
+                <div>
+                  <div className="text-sm font-bold text-slate-900">{m.email}</div>
+                  <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">{m.role}</span>
+                </div>
+              </div>
+              {isAdmin && m.role !== 'owner' ? (
+                <button onClick={() => handleRemove(m.user_id, m.email, m.role)} className="text-slate-400 hover:text-red-500 p-2"><Trash2 size={16} /></button>
+              ) : m.role === 'owner' && <Shield size={16} className="text-purple-400 mr-2" />}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const KeyRotationComponent = ({ token, onKeyUpdate, userRole }) => {
+  const [step, setStep] = useState('idle');
+  const [code, setCode] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [newKeyData, setNewKeyData] = useState(null);
+  const [error, setError] = useState(null);
+  const [totpSetup, setTotpSetup] = useState(null);
+
+  const canRotate = userRole === 'owner';
+
+  useEffect(() => {
+    if (token && canRotate) {
+      apiCall('/api/keys/request-rotation', { method: 'POST' }, token)
+        .then(data => { if (data?.totpConfigured) setStep('verify'); })
+        .catch(() => {});
+    }
+  }, [token, canRotate]);
+
+  const setup2FA = async () => {
+    if (!canRotate) return;
+    setLoading(true); setError(null);
+    try {
+      const data = await apiCall('/api/keys/setup-2fa', { method: 'POST' }, token);
+      setTotpSetup({ secret: data.secret, otpAuthUrl: data.otpAuthUrl });
+      setStep('setup-2fa');
+    } catch (e) { setError(e.message); }
+    finally { setLoading(false); }
+  };
+
+  const confirmRotation = async (e) => {
+    e.preventDefault();
+    if (code.length !== 6) { setError('Code must be 6 digits'); return; }
+    setLoading(true); setError(null);
+    try {
+      const data = await apiCall('/api/keys/rotate', { method: 'POST', body: { code } }, token);
+      setNewKeyData(data.newApiKey);
+      if (onKeyUpdate) onKeyUpdate(data.newApiKey);
+      setStep('complete');
+      setCode(''); setTotpSetup(null);
+    } catch (e) { setError(e.message); }
+    finally { setLoading(false); }
+  };
+
+  return (
+    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4">
+      <div className="flex justify-between items-center">
+        <h3 className="font-bold flex items-center gap-2 text-slate-800 text-sm">
+          <ShieldCheck className="w-4 h-4 text-green-600" /> 2FA Key Management
+        </h3>
+        <span className="bg-emerald-50 text-emerald-700 text-[10px] px-2 py-1 rounded font-bold uppercase">
+          {step === 'verify' ? 'TOTP Active' : 'Setup Required'}
+        </span>
+      </div>
+
+      {error && <div className="text-xs text-red-600 bg-red-50 p-2 rounded border border-red-100">{error}</div>}
+
+      {step === 'idle' && (
+        <div className="space-y-3">
+          <p className="text-xs text-slate-500">Setup TOTP for secure key rotation.</p>
+          <button onClick={setup2FA} disabled={!canRotate || loading} className="w-full bg-slate-900 text-white py-2.5 rounded-xl text-xs font-bold hover:bg-slate-800 disabled:opacity-50 flex justify-center items-center gap-2">
+            {loading ? <Loader2 className="animate-spin w-3 h-3" /> : <><QrCode size={14} /> Setup 2FA & Rotate Key</>}
+          </button>
+          {!canRotate && <p className="text-[10px] text-amber-600">Only Owner can rotate keys.</p>}
+        </div>
+      )}
+
+      {step === 'setup-2fa' && totpSetup && (
+        <div className="space-y-4">
+          <p className="text-xs text-slate-600">Scan with authenticator app:</p>
+          <div className="bg-slate-100 p-4 rounded-xl text-center">
+            <img src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(totpSetup.otpAuthUrl)}`} alt="TOTP QR" className="mx-auto rounded" />
+          </div>
+          <div className="text-xs">
+            <p className="text-slate-500 mb-1">Manual entry:</p>
+            <code className="bg-slate-900 text-green-400 px-3 py-2 rounded block text-[10px] break-all">{totpSetup.secret}</code>
+          </div>
+          <button onClick={() => setStep('verify')} className="w-full bg-blue-600 text-white py-2.5 rounded-xl text-xs font-bold hover:bg-blue-500">
+            I've Saved This → Continue
+          </button>
+        </div>
+      )}
+
+      {step === 'verify' && (
+        <form onSubmit={confirmRotation} className="space-y-4">
+          <p className="text-xs text-slate-600">Enter 6-digit code from authenticator:</p>
+          <input
+            type="text" maxLength={6} pattern="[0-9]*" inputMode="numeric"
+            className="w-full text-center text-2xl tracking-[0.5em] font-mono p-3 border-2 border-slate-200 rounded-xl focus:border-blue-500 outline-none text-slate-900"
+            placeholder="000000" value={code} onChange={e => setCode(e.target.value.replace(/\D/g, ''))} autoFocus
+          />
+          <button type="submit" disabled={loading || code.length !== 6} className="w-full bg-green-600 text-white py-2.5 rounded-xl text-xs font-bold hover:bg-green-500 disabled:opacity-50">
+            {loading ? <Loader2 className="animate-spin w-3 h-3 mx-auto" /> : 'Verify & Rotate Key'}
+          </button>
+        </form>
+      )}
+
+      {step === 'complete' && newKeyData && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-green-600"><CheckCircle2 size={16} /><span className="text-sm font-bold">Key Rotated</span></div>
+          <div className="bg-slate-900 text-green-400 p-3 rounded-xl font-mono text-[10px] break-all">{newKeyData}</div>
+          <button onClick={() => { navigator.clipboard.writeText(newKeyData); alert('Copied!'); }} className="w-full bg-slate-100 py-2 rounded-lg text-xs font-bold text-slate-700 flex items-center justify-center gap-2">
+            <Copy size={12} /> Copy New Key
+          </button>
+          <button onClick={() => { setStep('verify'); setNewKeyData(null); }} className="w-full text-slate-400 text-xs hover:text-slate-600">Done</button>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const AuthScreen = ({ onLogin }) => {
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [loading, setLoading] = useState(false);
-    const [mode, setMode] = useState('login');
+  const [mode, setMode] = useState('login');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
 
-    const handleAuth = async (e) => {
-        e.preventDefault(); setLoading(true);
-        // Logik för autentisering utelämnad
-        setLoading(false);
-    };
+  const handleAuth = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      if (mode === 'signup') {
+        const { error } = await supabase.auth.signUp({ email, password });
+        if (error) throw error;
+        alert('Check email for confirmation.');
+      } else {
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        if (data?.session) onLogin(data.session);
+        else throw new Error("Session missing.");
+      }
+    } catch (error) { alert(error.message); }
+    finally { setLoading(false); }
+  };
 
-    return (
-        <div className="min-h-screen flex items-center justify-center bg-[#020617] px-4 pt-20">
-            <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full">
-                <h2 className="text-2xl font-bold text-center mb-6 text-slate-900">{mode === 'login' ? 'Secure Login' : 'Register Node'}</h2>
-                <form onSubmit={handleAuth} className="space-y-4">
-                    <input type="email" required className="w-full p-3 border rounded-lg text-slate-900" placeholder="email@company.com" value={email} onChange={e => setEmail(e.target.value)} />
-                    <input type="password" required className="w-full p-3 border rounded-lg text-slate-900" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} />
-                    <button disabled={loading} className="w-full bg-blue-600 text-white p-3 rounded-lg font-bold">{loading ? <Loader2 className="animate-spin mx-auto"/> : (mode === 'login' ? 'Access' : 'Register')}</button>
-                </form>
-                <div className="mt-6 text-center"><button onClick={() => setMode(mode === 'login' ? 'signup' : 'login')} className="text-sm text-slate-500 hover:text-blue-600">{mode === 'login' ? "Register New Node" : "Back to Login"}</button></div>
-            </div>
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-[#020617] px-4 pt-20">
+      <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full">
+        <h2 className="text-2xl font-bold text-center mb-6 text-slate-900">{mode === 'login' ? 'Secure Login' : 'Register Node'}</h2>
+        <form onSubmit={handleAuth} className="space-y-4">
+          <input type="email" required className="w-full p-3 border rounded-lg text-slate-900" placeholder="email@company.com" value={email} onChange={e => setEmail(e.target.value)} />
+          <input type="password" required className="w-full p-3 border rounded-lg text-slate-900" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} />
+          <button disabled={loading} className="w-full bg-blue-600 text-white p-3 rounded-lg font-bold">{loading ? <Loader2 className="animate-spin mx-auto" /> : (mode === 'login' ? 'Access' : 'Register')}</button>
+        </form>
+        <div className="mt-6 text-center">
+          <button onClick={() => setMode(mode === 'login' ? 'signup' : 'login')} className="text-sm text-slate-500 hover:text-blue-600">
+            {mode === 'login' ? "Register New Node" : "Back to Login"}
+          </button>
         </div>
-    );
+      </div>
+    </div>
+  );
 };
-const CreateProcessor = ({ token, onProcessorCreated }) => { return <div className="text-center p-8 bg-white rounded-xl shadow mt-20">Create Processor Component (Placeholder)</div>;};
 
+const CreateProcessor = ({ token, onProcessorCreated }) => {
+  const [companyName, setCompanyName] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [apiKey, setApiKey] = useState(null);
+  const [error, setError] = useState(null);
 
-// --- MAIN APP ---
+  const handleSubmit = async (e) => {
+    e.preventDefault(); setLoading(true); setError(null);
+    try {
+      const data = await apiCall('/api/processors', { method: 'POST', body: { companyName } }, token);
+      setApiKey(data.apiKey);
+      localStorage.setItem('av_active_key', data.apiKey);
+      localStorage.setItem('av_sim_key', data.apiKey);
+      setTimeout(() => {
+        onProcessorCreated({
+          id: data.processorId || 'new-id', api_key_raw: data.apiKey, company_name: companyName,
+          monthly_events_limit: 1000, monthly_events_used: 0, region: 'eu-west', tier: 'standard', status: 'active'
+        });
+      }, 2000);
+    } catch (err) { setError(err.message); setLoading(false); }
+  };
+
+  if (apiKey) return (
+    <div className="text-center p-10 bg-white shadow-xl rounded-2xl max-w-lg mx-auto mt-20">
+      <CheckCircle2 size={48} className="text-green-500 mx-auto mb-4" />
+      <h3 className="text-xl font-bold text-slate-900 mb-2">Node Initialized</h3>
+      <p className="text-sm text-slate-500 mb-6">Redirecting...</p>
+      <div className="bg-slate-100 p-4 rounded text-xs font-mono break-all">{apiKey}</div>
+    </div>
+  );
+
+  return (
+    <div className="max-w-xl mx-auto p-8 bg-white rounded-3xl shadow-2xl mt-20">
+      {error && <div className="bg-red-50 text-red-600 p-4 rounded-xl mb-6 text-sm flex items-center gap-2"><AlertTriangle size={18} />{error}</div>}
+      <h2 className="text-2xl font-bold text-center text-slate-900 mb-6">Initialize Node</h2>
+      <form onSubmit={handleSubmit}>
+        <input type="text" value={companyName} onChange={(e) => setCompanyName(e.target.value)} required className="w-full p-3 border rounded-xl mb-6 text-slate-900" placeholder="Company Legal Name" />
+        <button type="submit" disabled={loading} className="w-full bg-slate-900 text-white p-4 rounded-xl font-bold">{loading ? <Loader2 className="animate-spin mx-auto" /> : 'Create Node'}</button>
+      </form>
+    </div>
+  );
+};
+
 function App() {
-    // Initial Privacy Blocker (blocks whole app)
-    const [privacyAccepted, setPrivacyAccepted] = useState(localStorage.getItem('el_privacy_v1') === 'true'); 
-    
-    // NYCKEL: Globalt samtyckesstatus för alla interaktiva element/cookies
-    const [unifiedCookieStatus, setUnifiedCookieStatus] = useState(localStorage.getItem(UNIFIED_CONSENT_KEY) || null);
+  const [privacyAccepted, setPrivacyAccepted] = useState(localStorage.getItem('el_privacy_v1') === 'true');
+  const [unifiedCookieStatus, setUnifiedCookieStatus] = useState(localStorage.getItem(UNIFIED_CONSENT_KEY) || null);
+  const [session, setSession] = useState(null);
+  const [processor, setProcessor] = useState(null);
+  const [activeTab, setActiveTab] = useState('home');
+  const [dashboardSubTab, setDashboardSubTab] = useState('overview');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showDocs, setShowDocs] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [legalTab, setLegalTab] = useState('privacy');
+  const [showSecurity, setShowSecurity] = useState(false);
+  const [stats, setStats] = useState({ totalEvents: 0, monthlyEvents: 0 });
+  const [recentLogs, setRecentLogs] = useState([]);
+  const [chartData, setChartData] = useState([]);
+  const [userRole, setUserRole] = useState(null);
+  const [activeApiKey, setActiveApiKey] = useState(localStorage.getItem('av_sim_key') || localStorage.getItem('av_active_key'));
+  const [systemAuditLogs, setSystemAuditLogs] = useState([]);
+  const [eventData, setEventData] = useState({ event_type: 'user.login', event_data: '{"action": "login"}', user_identifier: 'user_123' });
 
-    const [session, setSession] = useState(null);
-    const [processor, setProcessor] = useState(null);
-    const [activeTab, setActiveTab] = useState('home');
-    const [dashboardSubTab, setDashboardSubTab] = useState('overview');
-    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-    
-    const [showDocs, setShowDocs] = useState(false);
-    const [showPrivacyModal, setShowPrivacyModal] = useState(false);
-    const [legalTab, setLegalTab] = useState('privacy');
-    const [showSecurity, setShowSecurity] = useState(false);
-    
-    const [stats, setStats] = useState({ totalEvents: 0, monthlyEvents: 0 });
-    const [recentLogs, setRecentLogs] = useState([]);
-    const [chartData, setChartData] = useState([]); 
-    const [userRole, setUserRole] = useState(null);
-    const [activeApiKey, setActiveApiKey] = useState(localStorage.getItem('av_sim_key') || localStorage.getItem('av_active_key'));
-    const [systemAuditLogs, setSystemAuditLogs] = useState([]); 
-    
-    const [eventData, setEventData] = useState({ event_type: 'user.login', event_data: '{"action": "login"}', user_identifier: 'user_123' });
+  const hasJoinToken = new URLSearchParams(window.location.search).has('token');
 
-    const hasJoinToken = new URLSearchParams(window.location.search).has('token');
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => setSession(session));
+    return () => subscription.unsubscribe();
+  }, []);
 
-    useEffect(() => {
-        supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => setSession(session));
-        return () => subscription.unsubscribe();
-    }, []);
+  const handleProcessorCreated = (newProcessorData) => {
+    setProcessor(newProcessorData);
+    setActiveTab('dashboard');
+    if (newProcessorData.api_key_raw) {
+      setActiveApiKey(newProcessorData.api_key_raw);
+      localStorage.setItem('av_active_key', newProcessorData.api_key_raw);
+      localStorage.setItem('av_sim_key', newProcessorData.api_key_raw);
+    }
+  };
 
-    const handleProcessorCreated = (newProcessorData) => {
-        setProcessor(newProcessorData);
-        setActiveTab('dashboard');
-        if (newProcessorData.api_key_raw) {
-            const key = newProcessorData.api_key_raw;
-            setActiveApiKey(key);
-            localStorage.setItem('av_active_key', key);
-            localStorage.setItem('av_sim_key', key);
-        }
-    };
+  const handleKeyUpdate = (newKey) => {
+    setActiveApiKey(newKey);
+    localStorage.setItem('av_active_key', newKey);
+    localStorage.setItem('av_sim_key', newKey);
+  };
 
-    const handleKeyUpdate = (newKey) => {
-        setActiveApiKey(newKey);
-        localStorage.setItem('av_active_key', newKey);
-        localStorage.setItem('av_sim_key', newKey);
-    };
+  const fetchSystemAuditLogs = useCallback(async () => {
+    if (!session?.access_token) return;
+    try {
+      const data = await apiCall('/api/system/audit', { method: 'GET' }, session.access_token);
+      setSystemAuditLogs(data.logs || []);
+    } catch (e) { setSystemAuditLogs([]); }
+  }, [session]);
 
-    const fetchSystemAuditLogs = useCallback(async () => {
-        if (!session?.access_token) return;
-        try {
-            // Placeholder för API-anrop
-        } catch (e) { setSystemAuditLogs([]); }
-    }, [session]);
+  const fetchDashboard = useCallback(async (newSession = null) => {
+    const token = newSession?.access_token || session?.access_token;
+    if (!token) return;
 
-    const fetchDashboard = useCallback(async () => {
-        if (!session?.access_token) return;
-        try {
-            // Placeholder för API-anrop
-            if (hasJoinToken) setActiveTab('dashboard');
-        } catch (e) { 
-            // setProcessor(false); // Simulera fel
-        }
-    }, [session, hasJoinToken]);
+    try {
+      const data = await apiCall('/api/dashboard', { method: 'GET' }, token);
+      setProcessor(data.processor);
+      setStats(data.stats);
+      setUserRole(data.userRole);
+      const logsData = await apiCall('/api/events/search?limit=10', { method: 'GET' }, token);
+      setRecentLogs(logsData.events || []);
+      setChartData([]);
+      if (hasJoinToken) setActiveTab('dashboard');
+    } catch (e) {
+      console.error("Dashboard API Error:", e.message);
+      if (e.message.includes('404') || e.message.includes('NO_PROCESSOR')) {
+        setProcessor(false);
+      } else {
+        setProcessor(null);
+        alert(`Connection Error: ${e.message}`);
+      }
+      setStats({ totalEvents: 0, monthlyEvents: 0 });
+      setRecentLogs([]);
+    }
+  }, [session, hasJoinToken]);
 
-    useEffect(() => { 
-        if (hasJoinToken) {
-            setActiveTab('dashboard');
-        } else if (activeTab === 'dashboard' && session) {
-            // Kontrollera att samtycke finns innan hämtning av data
-            if (unifiedCookieStatus === 'accepted' || unifiedCookieStatus === 'declined') {
-                if (processor === null) fetchDashboard();
-            }
-        }
-        if (activeTab === 'dashboard' && dashboardSubTab === 'system_audit' && session) {
-            fetchSystemAuditLogs();
-        }
-    }, [activeTab, session, hasJoinToken, processor, dashboardSubTab, fetchDashboard, fetchSystemAuditLogs, unifiedCookieStatus]); 
+  useEffect(() => {
+    if (hasJoinToken) { setActiveTab('dashboard'); }
+    else if (activeTab === 'dashboard' && session) {
+      if (unifiedCookieStatus === 'accepted' || unifiedCookieStatus === 'denied') {
+        if (processor === null) fetchDashboard();
+      }
+    }
+    if (activeTab === 'dashboard' && dashboardSubTab === 'system_audit' && session) {
+      fetchSystemAuditLogs();
+    }
+  }, [activeTab, session, hasJoinToken, processor, dashboardSubTab, fetchDashboard, fetchSystemAuditLogs, unifiedCookieStatus]);
 
-    const handleLogout = async () => {
-        await supabase.auth.signOut();
-        setSession(null); setProcessor(null); setActiveTab('home'); 
-        localStorage.removeItem('av_active_key'); 
-        localStorage.removeItem('av_sim_key');
-    };
-    
-    const handleLogEvent = async (e, dataFromForm) => {
-        if(e) e.preventDefault();
-        if (userRole === 'reader') return alert("Access Denied: Readers cannot log events.");
-        try {
-            const payloadData = dataFromForm || eventData;
-            const keyToUse = activeApiKey || processor?.api_key_raw || localStorage.getItem('av_sim_key');
-            if (!keyToUse) throw new Error("No Active API Key found.");
-            
-            // Logik för API-anropet...
-            
-            fetchDashboard();
-            alert("Event Logged Successfully!");
-        } catch (err) { alert(`Log Failed: ${err.message}`); }
-    };
-    
-    // --- UNIFIED CONSENT HANDLER ---
-    const handleUnifiedConsent = (status) => {
-        // 1. Sätt den enhetliga nyckeln
-        localStorage.setItem(UNIFIED_CONSENT_KEY, status);
-        setUnifiedCookieStatus(status);
-        
-        // 2. Tvinga bort alla gamla/separata nycklar (för att säkerställa att banners försvinner)
-        // Detta säkerställer att banners i Pricing/Contact/Dashboard döljs oavsett var samtycket gavs.
-        localStorage.setItem('cookie_consent', status === 'accepted' ? 'granted' : 'denied');
-        localStorage.removeItem('enterprise_cookie_consent');
-        localStorage.removeItem('contact_cookie_consent');
-        localStorage.removeItem('dashboard_cookie_consent');
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setSession(null); setProcessor(null); setActiveTab('home');
+    localStorage.removeItem('av_active_key');
+    localStorage.removeItem('av_sim_key');
+  };
 
-        if (status === 'accepted') {
-            fetchDashboard();
-        }
-    };
-    
-    // Kontrollera om PrivacyPage (initial blockering) visas
-    if (!privacyAccepted) return <PrivacyPage onAccept={() => { localStorage.setItem('el_privacy_v1', 'true'); setPrivacyAccepted(true); }} onClose={() => {}} />; 
+  const handleLogEvent = async (e, dataFromForm) => {
+    if (e) e.preventDefault();
+    if (userRole === 'reader') return alert("Readers cannot log events.");
 
-    // Status för att visa/dölja Dashboard-blockeraren
-    const showDashboardConsent = activeTab === 'dashboard' && session && unifiedCookieStatus === null;
-    
-    // Status för att blockera innehållet (Dashboard, Pricing, Contact)
-    const contentBlocked = unifiedCookieStatus !== 'accepted';
+    try {
+      const payloadData = dataFromForm || eventData;
+      const keyToUse = activeApiKey || localStorage.getItem('av_sim_key');
+      if (!keyToUse) throw new Error("No Active API Key.");
 
-    return (
-        <div className="min-h-screen font-sans bg-[#020617] text-white">
-             <AnimatePresence>
-                {showDocs && <DocsModal onClose={() => setShowDocs(false)} />}
-                {/* PrivacyPage som Modal när länkar klickas */}
-                {showPrivacyModal && (<PrivacyPage isFooterView={true} onClose={() => setShowPrivacyModal(false)} initialTab={legalTab} />)}
-                {showSecurity && <SecurityPage onClose={() => setShowSecurity(false)} />}
-            </AnimatePresence>
+      const realUserIdentifier = session?.user?.email || 'authenticated-user';
+      let finalEventData = payloadData.event_data;
+      if (typeof finalEventData === 'string') {
+        try { finalEventData = JSON.parse(finalEventData); }
+        catch { finalEventData = { raw: payloadData.event_data }; }
+      }
 
-             {/* HEADER */}
-             <header className="fixed w-full z-50 bg-[#020617]/90 border-b border-white/10 py-2 px-6 flex justify-between items-center backdrop-blur-md">
-                <div className="font-bold text-lg flex gap-2 cursor-pointer items-center hover:text-blue-400 transition-colors" onClick={()=>setActiveTab('home')}>
-                    <ShieldCheck className="text-blue-500"/> EuroLedger
-                </div>
-                <nav className="hidden md:flex gap-8 text-sm items-center font-medium">
-                    {['home', 'services', 'trust', 'pricing', 'about', 'contact'].map(tab => (
-                        <button key={tab} onClick={()=>setActiveTab(tab)} className={`capitalize transition-all relative hover:text-white ${activeTab===tab ? 'text-white after:content-[""] after:absolute after:-bottom-4 after:left-0 after:w-full after:h-0.5 after:bg-blue-500' : 'text-slate-400'}`}>{tab}</button>
-                    ))}
-                    {session ? <button onClick={()=>setActiveTab('dashboard')} className="bg-blue-600 px-4 py-1.5 rounded-full font-bold hover:bg-blue-500 transition-all shadow-lg shadow-blue-900/20 text-sm flex items-center gap-2">Dashboard <ArrowRight size={14}/></button> : <button onClick={()=>setActiveTab('dashboard')} className="text-slate-400 flex gap-2 hover:text-white items-center transition-colors"><Lock size={16}/> Login</button>}
-                </nav>
-                <button className="md:hidden p-2 text-slate-400 hover:text-white" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>{isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}</button>
-            </header>
-            
-            {/* MOBILE MENU */}
-            <AnimatePresence>
-                {isMobileMenuOpen && (
-                    <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="md:hidden fixed inset-0 top-[60px] bg-[#020617] z-40 overflow-y-auto pb-20 border-t border-white/10">
-                        <div className="p-6 flex flex-col gap-4">
-                            {['home', 'services', 'trust', 'pricing', 'about', 'contact'].map(tab => (
-                                <button key={tab} onClick={() => { setActiveTab(tab); setIsMobileMenuOpen(false); setIsMobileMenuOpen(false);}} className="text-left text-lg font-medium text-slate-300 capitalize border-b border-white/5 pb-2">{tab}</button>
-                            ))}
-                            <div className="mt-4">
-                                {session ? <button onClick={() => { setActiveTab('dashboard'); setIsMobileMenuOpen(false); }} className="bg-blue-600 w-full py-3 rounded-xl font-bold text-white">Go to Dashboard</button> : <button onClick={() => { setActiveTab('dashboard'); setIsMobileMenuOpen(false); }} className="bg-white/10 w-full py-3 rounded-xl font-bold text-white">Login</button>}
-                            </div>
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+      await apiCall('/api/events', {
+        method: 'POST',
+        body: { event_type: payloadData.event_type, event_data: finalEventData, user_identifier: realUserIdentifier }
+      }, null, keyToUse);
 
-            <main className="pt-0">
-                {activeTab === 'home' && (
-                    <div className="bg-[#020617] min-h-screen">
-                        <div className="relative min-h-[90vh] flex items-center justify-center overflow-hidden text-center z-10 pt-20">
-                            <InteractiveHeroBackground />
-                            <div className="relative z-10 max-w-5xl mx-auto px-4 mt-10">
-                                <h1 className="text-5xl md:text-8xl font-extrabold mb-8 tracking-tight">Compliance <br/> <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-blue-600">Engineered for Truth.</span></h1>
-                                <div className="text-lg text-slate-300 max-w-2xl mx-auto mb-12 h-auto min-h-[60px]"> 
-                                    <TypewriterEffect text=" The interactive standard for data integrity. Cryptographically verifiable audit logs that scale with your enterprise infrastructure." speed={30}/>
-                                </div>
-                                <button onClick={()=>setActiveTab('dashboard')} className="group bg-blue-600 px-8 py-4 rounded-full text-lg font-bold hover:bg-blue-500 transition-all shadow-xl shadow-blue-900/30 flex items-center gap-3 mx-auto">Get Started <ArrowRight className="group-hover:translate-x-1 transition-transform"/></button>
-                            </div>
-                        </div>
-                        <EuroLedgerDemo />
-                        <DashboardPreview />
-                        <UseCases />
-                        <CoreArchitecture />
-                    </div>
-                )}
+      fetchDashboard();
+      alert("Event Logged!");
+    } catch (err) { alert(`Log Failed: ${err.message}`); }
+  };
 
-                {activeTab === 'about' && <AboutPage />} 
-                {activeTab === 'services' && <ServicesPage setActiveTab={setActiveTab} />} 
-                {activeTab === 'contact' && <ContactPage unifiedCookieStatus={unifiedCookieStatus} onUnifiedConsent={handleUnifiedConsent} onOpenPrivacy={()=>{setLegalTab('privacy'); setShowPrivacyModal(true);}} />} 
-                {activeTab === 'trust' && <TrustCenter setActiveTab={setActiveTab} />} 
-                
-                {activeTab === 'pricing' && (<div className="pt-20"><EnterpriseForm unifiedCookieStatus={unifiedCookieStatus} onUnifiedConsent={handleUnifiedConsent} onOpenPrivacy={()=>{setLegalTab('privacy'); setShowPrivacyModal(true);}} /></div>)} 
+  const handleUnifiedConsent = (status) => {
+    localStorage.setItem(UNIFIED_CONSENT_KEY, status);
+    setUnifiedCookieStatus(status);
+    localStorage.removeItem('cookie_consent');
+    localStorage.removeItem('enterprise_cookie_consent');
+    localStorage.removeItem('contact_cookie_consent');
+    localStorage.removeItem('dashboard_cookie_consent');
+    if (status === 'accepted' && session) fetchDashboard();
+  };
 
-                {activeTab === 'dashboard' && (
-                    <div className="min-h-screen bg-slate-50 text-slate-900 pt-24 px-4 pb-20 relative">
-                        
-                        {/* 1. Dashboard Cookie Consent Blockade */}
-                        <AnimatePresence>
-                            {showDashboardConsent && (
-                                <DashboardCookieConsent 
-                                    onAccept={handleUnifiedConsent} // Använd Unified Handler
-                                    onReadPolicy={() => {
-                                        setLegalTab('privacy');
-                                        setShowPrivacyModal(true);
-                                    }}
-                                />
-                            )}
-                        </AnimatePresence>
-                        
-                        {/* 2. Content Rendering - Blurred or Blocked */}
-                        <motion.div
-                            initial={{ filter: 'none' }}
-                            animate={{ filter: contentBlocked && session ? 'blur(5px) grayscale(100%)' : 'none' }} // Använd unified status
-                            transition={{ duration: 0.3 }}
-                            className="h-full"
-                            // Förhindra klick när blockerad
-                            style={{ pointerEvents: contentBlocked && session ? 'none' : 'auto' }}
-                        >
+  const handleInitialPrivacyAccept = () => {
+    localStorage.setItem('el_privacy_v1', 'true');
+    setPrivacyAccepted(true);
+    handleUnifiedConsent('accepted');
+  };
 
-                            {hasJoinToken && session ? (
-                                <JoinTeamPage session={session} fetchDashboard={fetchDashboard} />
-                            ) : !session ? (
-                                <AuthScreen onLogin={fetchDashboard} /> 
-                            ) : !processor && processor !== false ? (
-                                <div className="text-center py-40"><RefreshCw className="animate-spin mx-auto w-8 h-8 text-blue-500" /><p className="text-slate-500 mt-4">Connecting to secure node...</p></div>
-                            ) : processor === false ? (
-                                <CreateProcessor token={session?.access_token} onProcessorCreated={handleProcessorCreated} /> 
-                            ) : (
-                                <div className="max-w-7xl mx-auto">
-                                    <div className="flex gap-6 mb-8 border-b border-slate-200 pb-1">
-                                        <button onClick={() => setDashboardSubTab('overview')} className={`pb-3 font-bold text-sm flex items-center gap-2 transition-colors ${dashboardSubTab === 'overview' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500 hover:text-slate-700'}`}><LayoutGrid size={18}/> Overview</button>
-                                        <button onClick={() => setDashboardSubTab('team')} className={`pb-3 font-bold text-sm flex items-center gap-2 transition-colors ${dashboardSubTab === 'team' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500 hover:text-slate-700'}`}><Users size={18}/> Team & Roles</button>
-                                        <button onClick={() => setDashboardSubTab('system_audit')} className={`pb-3 font-bold text-sm flex items-center gap-2 transition-colors ${dashboardSubTab === 'system_audit' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500 hover:text-slate-700'}`}><BookOpen size={18}/> System Audit</button>
-                                    </div>
+  if (!privacyAccepted) return <PrivacyPage onAccept={handleInitialPrivacyAccept} onClose={() => {}} />;
 
-                                    {dashboardSubTab === 'overview' && (
-                                        <Dashboard 
-                                            processor={processor} stats={stats} token={session?.access_token} recentLogs={recentLogs} onLogout={handleLogout}
-                                            KeyRotation={
-                                                <KeyRotationComponent 
-                                                    token={session?.access_token} 
-                                                    onKeyUpdate={handleKeyUpdate} 
-                                                    userRole={userRole} 
-                                                    onRevoke={handleLogout} 
-                                                />
-                                            } 
-                                            eventData={eventData} setEventData={setEventData} onLogEvent={handleLogEvent} chartData={chartData}
-                                        />
-                                    )}
+  const showDashboardConsent = activeTab === 'dashboard' && session && unifiedCookieStatus === null;
 
-                                    {dashboardSubTab === 'team' && (
-                                        <TeamManagement token={session?.access_token} processor={processor} userRole={userRole} />
-                                    )}
-                                    
-                                    {dashboardSubTab === 'system_audit' && (
-                                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                                            <h3 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2"><BookOpen className="text-blue-600"/> Access & System Logs</h3>
-                                            <p className="text-sm text-slate-500 mb-6">Audit of the Audit: Trace all access to this node.</p>
-                                            <div className="overflow-x-auto">
-                                                <table className="w-full text-left text-xs">
-                                                    <thead className="bg-slate-50 text-slate-500 border-b"><tr><th className="py-2 px-3">Timestamp</th><th className="py-2 px-3">User</th><th className="py-2 px-3">Action</th></tr></thead>
-                                                    <tbody>
-                                                        {systemAuditLogs.length > 0 ? systemAuditLogs.map((log, i) => (
-                                                            <tr key={i} className="border-b border-slate-50">
-                                                                <td className="py-2 px-3 font-mono text-[10px]">{log.timestamp?.substring(11, 19)}</td>
-                                                                <td className="py-2 px-3 font-medium">{log.user}</td>
-                                                                <td className="py-2 px-3 text-slate-700">{log.action}</td>
-                                                            </tr>
-                                                        )) : <tr><td colSpan="3" className="text-center py-6 text-slate-400 italic">No logs.</td></tr>}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                        </motion.div>
-                        
-                        {/* Visa "Decline" varning om Dashboard är blockerat */}
-                        {activeTab === 'dashboard' && session && unifiedCookieStatus === 'declined' && (
-                             <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="absolute bottom-5 left-1/2 -translate-x-1/2 p-3 bg-red-500/90 text-white rounded-lg shadow-xl text-center z-40 text-sm">
-                                <AlertTriangle size={16} className="inline mr-2"/> Access to the Dashboard is blocked because data processing consent was declined.
-                             </motion.div>
-                        )}
-                        
-                    </div>
-                )}
-            </main>
-            <Footer onOpenPrivacy={()=>{setLegalTab('privacy'); setShowPrivacyModal(true);}} onOpenTerms={()=>{setLegalTab('terms'); setShowPrivacyModal(true);}} onOpenSecurity={() => setShowSecurity(true)} onOpenDocs={() => setShowDocs(true)} onNavigate={setActiveTab} />
-            {/* Skickar med unified handler till den globala bannern */}
-            <CookieConsent unifiedCookieStatus={unifiedCookieStatus} onUnifiedConsent={handleUnifiedConsent} onOpenPrivacy={()=>{setLegalTab('privacy'); setShowPrivacyModal(true);}} />
+  return (
+    <div className="min-h-screen font-sans bg-[#020617] text-white">
+      <AnimatePresence>
+        {showDocs && <DocsModal onClose={() => setShowDocs(false)} />}
+        {showPrivacyModal && <PrivacyPage isFooterView={true} onClose={() => setShowPrivacyModal(false)} initialTab={legalTab} />}
+        {showSecurity && <SecurityPage onClose={() => setShowSecurity(false)} />}
+      </AnimatePresence>
+
+      <header className="fixed w-full z-50 bg-[#020617]/90 border-b border-white/10 py-2 px-6 flex justify-between items-center backdrop-blur-md">
+        <div className="font-bold text-lg flex gap-2 cursor-pointer items-center hover:text-blue-400" onClick={() => setActiveTab('home')}>
+          <ShieldCheck className="text-blue-500" /> EuroLedger
         </div>
-    );
+        <nav className="hidden md:flex gap-8 text-sm items-center font-medium">
+          {['home', 'services', 'trust', 'pricing', 'about', 'contact'].map(tab => (
+            <button key={tab} onClick={() => setActiveTab(tab)} className={`capitalize transition-all relative hover:text-white ${activeTab === tab ? 'text-white after:content-[""] after:absolute after:-bottom-4 after:left-0 after:w-full after:h-0.5 after:bg-blue-500' : 'text-slate-400'}`}>{tab}</button>
+          ))}
+          {session ? (
+            <button onClick={() => setActiveTab('dashboard')} className="bg-blue-600 px-4 py-1.5 rounded-full font-bold hover:bg-blue-500 shadow-lg text-sm flex items-center gap-2">Dashboard <ArrowRight size={14} /></button>
+          ) : (
+            <button onClick={() => setActiveTab('dashboard')} className="text-slate-400 flex gap-2 hover:text-white items-center"><Lock size={16} /> Login</button>
+          )}
+        </nav>
+        <button className="md:hidden p-2 text-slate-400 hover:text-white" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
+          {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+        </button>
+      </header>
+
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="md:hidden fixed inset-0 top-[60px] bg-[#020617] z-40 overflow-y-auto pb-20 border-t border-white/10">
+            <div className="p-6 flex flex-col gap-4">
+              {['home', 'services', 'trust', 'pricing', 'about', 'contact'].map(tab => (
+                <button key={tab} onClick={() => { setActiveTab(tab); setIsMobileMenuOpen(false); }} className="text-left text-lg font-medium text-slate-300 capitalize border-b border-white/5 pb-2">{tab}</button>
+              ))}
+              <div className="mt-4">
+                {session ? (
+                  <button onClick={() => { setActiveTab('dashboard'); setIsMobileMenuOpen(false); }} className="bg-blue-600 w-full py-3 rounded-xl font-bold text-white">Dashboard</button>
+                ) : (
+                  <button onClick={() => { setActiveTab('dashboard'); setIsMobileMenuOpen(false); }} className="bg-white/10 w-full py-3 rounded-xl font-bold text-white">Login</button>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <main className="pt-0">
+        {activeTab === 'home' && (
+          <div className="bg-[#020617] min-h-screen">
+            <div className="relative min-h-[90vh] flex items-center justify-center overflow-hidden text-center z-10 pt-20">
+              <InteractiveHeroBackground />
+              <div className="relative z-10 max-w-5xl mx-auto px-4 mt-10">
+                <h1 className="text-5xl md:text-8xl font-extrabold mb-8 tracking-tight">Compliance <br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-blue-600">Engineered for Truth.</span></h1>
+                <div className="text-lg text-slate-300 max-w-2xl mx-auto mb-12 h-auto min-h-[60px]">
+                  <TypewriterEffect text=" The interactive standard for data integrity. Cryptographically verifiable audit logs that scale with your enterprise." speed={30} />
+                </div>
+                <button onClick={() => setActiveTab('dashboard')} className="group bg-blue-600 px-8 py-4 rounded-full text-lg font-bold hover:bg-blue-500 shadow-xl flex items-center gap-3 mx-auto">
+                  Get Started <ArrowRight className="group-hover:translate-x-1 transition-transform" />
+                </button>
+              </div>
+            </div>
+            <EuroLedgerDemo />
+            <DashboardPreview />
+            <UseCases />
+            <CoreArchitecture />
+          </div>
+        )}
+
+        {activeTab === 'about' && <AboutPage />}
+        {activeTab === 'services' && <ServicesPage setActiveTab={setActiveTab} />}
+        {activeTab === 'contact' && <ContactPage unifiedCookieStatus={unifiedCookieStatus} onUnifiedConsent={handleUnifiedConsent} onOpenPrivacy={() => { setLegalTab('privacy'); setShowPrivacyModal(true); }} />}
+        {activeTab === 'trust' && <TrustCenter setActiveTab={setActiveTab} />}
+        {activeTab === 'pricing' && <div className="pt-20"><EnterpriseForm unifiedCookieStatus={unifiedCookieStatus} onUnifiedConsent={handleUnifiedConsent} onOpenPrivacy={() => { setLegalTab('privacy'); setShowPrivacyModal(true); }} /></div>}
+
+        {activeTab === 'dashboard' && (
+          <div className="min-h-screen bg-slate-50 text-slate-900 pt-24 px-4 pb-20 relative">
+            <AnimatePresence>
+              {showDashboardConsent && <DashboardCookieConsent onAccept={handleUnifiedConsent} onReadPolicy={() => { setLegalTab('privacy'); setShowPrivacyModal(true); }} />}
+            </AnimatePresence>
+
+            {hasJoinToken && <JoinTeamPage session={session} fetchDashboard={fetchDashboard} />}
+
+            {!hasJoinToken && !session && !showDashboardConsent && (
+              <AuthScreen onLogin={(newSession) => { setSession(newSession); fetchDashboard(newSession); }} />
+            )}
+
+            {!hasJoinToken && session && !showDashboardConsent && processor === null && (
+              <div className="text-center pt-20">
+                <Loader2 className="animate-spin mx-auto text-blue-600" size={40} />
+                <p className="mt-4 text-slate-500">Loading dashboard...</p>
+              </div>
+            )}
+
+            {!hasJoinToken && session && !showDashboardConsent && processor === false && (
+              <CreateProcessor token={session.access_token} onProcessorCreated={handleProcessorCreated} />
+            )}
+
+            {!hasJoinToken && session && !showDashboardConsent && processor && processor.id && (
+              <div className="max-w-7xl mx-auto">
+                <div className="flex gap-2 mb-6 flex-wrap">
+                  {['overview', 'team', 'system_audit'].map(tab => (
+                    <button key={tab} onClick={() => setDashboardSubTab(tab)} className={`px-4 py-2 rounded-lg text-sm font-bold capitalize ${dashboardSubTab === tab ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}`}>
+                      {tab.replace('_', ' ')}
+                    </button>
+                  ))}
+                </div>
+
+                {dashboardSubTab === 'overview' && (
+                  <Dashboard
+                    processor={processor} stats={stats} token={session.access_token}
+                    eventData={eventData} setEventData={setEventData} onLogEvent={handleLogEvent}
+                    KeyRotation={<KeyRotationComponent token={session.access_token} onKeyUpdate={handleKeyUpdate} userRole={userRole} />}
+                    recentLogs={recentLogs} chartData={chartData} onLogout={handleLogout} session={session}
+                  />
+                )}
+
+                {dashboardSubTab === 'team' && <TeamManagement token={session.access_token} processor={processor} userRole={userRole} />}
+
+                {dashboardSubTab === 'system_audit' && (
+                  <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                    <h3 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2"><Shield className="text-purple-600" /> System Audit Logs</h3>
+                    {systemAuditLogs.length === 0 ? (
+                      <p className="text-slate-500 text-sm">No audit logs available.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {systemAuditLogs.map((log, i) => (
+                          <div key={i} className="p-3 bg-slate-50 rounded-lg text-sm flex justify-between">
+                            <span className="text-slate-600">{log.action}</span>
+                            <span className="text-slate-400 text-xs font-mono">{new Date(log.timestamp).toLocaleString()}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </main>
+
+      <CookieConsent unifiedCookieStatus={unifiedCookieStatus} onUnifiedConsent={handleUnifiedConsent} onOpenPrivacy={() => { setLegalTab('privacy'); setShowPrivacyModal(true); }} />
+      <Footer setActiveTab={setActiveTab} setShowDocs={setShowDocs} setShowPrivacyModal={setShowPrivacyModal} setLegalTab={setLegalTab} setShowSecurity={setShowSecurity} />
+    </div>
+  );
 }
 
 export default App;
