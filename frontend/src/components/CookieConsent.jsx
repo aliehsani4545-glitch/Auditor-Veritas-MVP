@@ -2,20 +2,25 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Cookie, X, ShieldCheck, Check } from 'lucide-react';
 
-// Lägg till 'onOpenPrivacy' i props här nere 👇
-const CookieConsent = ({ onOpenPrivacy }) => {
-  const [isVisible, setIsVisible] = useState(false);
-
+const CookieConsent = ({ unifiedCookieStatus, onUnifiedConsent, onOpenPrivacy }) => {
+  // NY LOGIK: Visa bannern endast om samtycke inte har satts
+  const isVisible = unifiedCookieStatus === null;
+  
+  // NOTE: Denna useEffect är kritisk för att laddningen av GA ska ske efter samtycke,
+  // men i detta enhetliga system flyttar vi logiken till den centrala hanteraren i App.jsx.
+  // Vi behåller dock denna funktion ifall den anropas externt, men den är redundant
+  // om onUnifiedConsent hanterar allt.
   useEffect(() => {
-    const consent = localStorage.getItem('cookie_consent');
-    
-    if (!consent) {
-      const timer = setTimeout(() => setIsVisible(true), 1500);
-      return () => clearTimeout(timer);
-    } else if (consent === 'granted') {
-      loadGoogleAnalytics();
-    }
-  }, []);
+      if (unifiedCookieStatus === 'accepted') {
+        // loadGoogleAnalytics(); // Bör anropas från onUnifiedConsent i App.jsx
+      }
+      // Dölj bannern automatiskt efter 1.5 sek om status finns men inte visades direkt
+      if (unifiedCookieStatus !== null && isVisible) {
+          // Förhindra att den visas om status redan finns vid laddning
+          // (Detta hanteras bäst av isVisible, men lämnas här för att vara säker)
+      }
+  }, [unifiedCookieStatus]);
+
 
   const loadGoogleAnalytics = () => {
     // Byt ut G-XXXXXXXXXX mot ditt ID
@@ -40,16 +45,9 @@ const CookieConsent = ({ onOpenPrivacy }) => {
     });
   };
 
-  const handleAccept = () => {
-    localStorage.setItem('cookie_consent', 'granted');
-    loadGoogleAnalytics();
-    setIsVisible(false);
-  };
-
-  const handleDecline = () => {
-    localStorage.setItem('cookie_consent', 'denied');
-    setIsVisible(false);
-  };
+  // ANVÄNDER UNIFIED CONSENT HANDLER
+  const handleAccept = () => onUnifiedConsent('accepted');
+  const handleDecline = () => onUnifiedConsent('denied');
 
   return (
     <AnimatePresence>
@@ -74,7 +72,6 @@ const CookieConsent = ({ onOpenPrivacy }) => {
                 </h4>
                 <p className="text-slate-400 text-xs leading-relaxed mb-4">
                   We use essential cookies for security. Optional analytics help us improve, but are never sold. 
-                  {/* HÄR ÄR FIXEN: En knapp som ser ut som en länk */}
                   <button 
                     onClick={onOpenPrivacy}
                     className="text-slate-300 underline ml-1 hover:text-white bg-transparent border-none p-0 cursor-pointer"

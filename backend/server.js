@@ -7,12 +7,10 @@ import { v4 as uuidv4 } from 'uuid';
 import CryptoJS from 'crypto-js';
 import Stripe from 'stripe';
 import { config } from 'dotenv';
-// Resend removed
 import { z } from 'zod';
 import stringify from 'fast-json-stable-stringify';
 import winston from 'winston';
 import morgan from 'morgan';
-import archiver from 'archiver';
 
 // Load environment variables
 if (process.env.NODE_ENV !== 'production') {
@@ -27,7 +25,6 @@ const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 const MASTER_KEY = process.env.MASTER_ENCRYPTION_KEY;
 
-// Removed RESEND_API_KEY check
 if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY || !MASTER_KEY) {
   console.error('❌ FATAL: Missing Credentials (SUPABASE_URL, SUPABASE_SERVICE_KEY, or MASTER_ENCRYPTION_KEY).');
   process.exit(1);
@@ -161,6 +158,10 @@ const inviteUserSchema = z.object({
     role: z.enum(['reader', 'editor', 'admin']).default('reader'),
 });
 
+const privacyRequestSchema = z.object({
+    user_identifier: z.string().min(1).max(256)
+});
+
 // --- 6. AUTHENTICATION MIDDLEWARE ---
 const authenticateApiKey = async (req, res, next) => {
   const apiKey = req.headers['x-api-key'];
@@ -235,7 +236,7 @@ app.get('/api/system/audit', authenticateUser, async (req, res) => {
     }
 });
 
-// KEY ROTATION (NO EMAIL - MANUAL RETURN)
+// KEY ROTATION
 app.post('/api/keys/request-rotation', authenticateUser, async (req, res) => {
     if (!req.processor) return res.status(403).json({ error: 'Access denied' });
     try {
@@ -243,10 +244,9 @@ app.post('/api/keys/request-rotation', authenticateUser, async (req, res) => {
         const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString(); 
         await supabase.from('processors').update({ verification_code: verificationCode, verification_expires: expiresAt }).eq('id', req.processor.id);
         
-        // NO EMAIL SENT. Return code for Manual/Secure Channel handling.
         res.json({ 
             message: 'Verification code generated. Please share via secure channel.', 
-            code: verificationCode // Returning code directly for No-Email MVP
+            code: verificationCode 
         });
     } catch (err) { res.status(500).json({ error: 'Verification error.' }); }
 });
@@ -264,9 +264,6 @@ app.post('/api/keys/rotate', authenticateUser, async (req, res) => {
 
         await supabase.from('processors').update({ api_key_hash: newHash, verification_code: null, last_rotation_date: rotationDate }).eq('id', req.processor.id);
         
-        const eventType = 'system.key_rotation';
-        const userHash = sha256(req.user.email);
-        
         await supabase.from('admin_audit_logs').insert([{
             processor_id: req.processor.id, user_email: req.user.email, action: 'KEY_ROTATION_SUCCESS'
         }]);
@@ -275,7 +272,7 @@ app.post('/api/keys/rotate', authenticateUser, async (req, res) => {
     } catch (err) { res.status(500).json({ error: 'Rotation failed.' }); }
 });
 
-// TEAM MANAGEMENT (NO EMAIL - MANUAL RETURN)
+// TEAM MANAGEMENT
 app.post('/api/team/invite', authenticateUser, authorizeOwner, async (req, res) => {
     try {
         const validated = inviteUserSchema.parse(req.body);
@@ -287,10 +284,9 @@ app.post('/api/team/invite', authenticateUser, authorizeOwner, async (req, res) 
 
         const inviteLink = `https://auditorveritas.com/join?token=${inviteToken}`;
         
-        // NO EMAIL SENT. Return link for Manual Copy-Paste.
         res.status(200).json({ 
             message: 'Invitation link generated.', 
-            link: inviteLink // Returning link directly
+            link: inviteLink 
         });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -320,7 +316,6 @@ app.get('/api/team', authenticateUser, async (req, res) => {
             return { email: u?.user?.email || 'Unknown', role: m.role, status: 'Active', user_id: m.user_id };
         }));
         
-        // Add owner
         const { data: owner } = await supabase.auth.admin.getUserById(req.processor.owner_id);
         activeTeam.unshift({ email: owner?.user?.email, role: 'owner', status: 'Active', user_id: req.processor.owner_id });
 
@@ -342,7 +337,6 @@ app.post('/api/events', authenticateApiKey, async (req, res) => {
         const { event_type, user_identifier, event_data } = eventSubmissionSchema.parse(req.body);
         const userHash = sha256(user_identifier);
         
-        // Encryption Key Logic
         let { data: keyRow } = await supabase.from('encryption_keys').select('encrypted_key').eq('user_identifier_hash', userHash).maybeSingle();
         let userKey;
         if (!keyRow) {
@@ -351,6 +345,8 @@ app.post('/api/events', authenticateApiKey, async (req, res) => {
         } else {
             userKey = decryptData(keyRow.encrypted_key, MASTER_KEY);
         }
+
+        if (!userKey) throw new Error("Encryption Failure: Unable to retrieve or create key.");
 
         const encryptedPayload = encryptData(event_data, userKey);
         const data_hash = sha256(stringify({ pid: req.processor.id, type: event_type, uid: userHash, ts: new Date().toISOString() }));
@@ -366,6 +362,88 @@ app.post('/api/events', authenticateApiKey, async (req, res) => {
         res.status(201).json({ success: true, hash: data_hash });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
+
+// --- 8. GDPR & PRIVACY API ---
+
+// CRYPTO SHREDDING (GDPR Artikel 17)
+app.delete('/api/privacy/forget', authenticateApiKey, async (req, res) => {
+    try {
+        const { user_identifier } = privacyRequestSchema.parse(req.body);
+        const userHash = sha256(user_identifier);
+
+        // 1. Verifiera existens
+        const { data: keyRow } = await supabase.from('encryption_keys').select('id').eq('user_identifier_hash', userHash).maybeSingle();
+        if (!keyRow) return res.status(404).json({ error: 'User not found or already forgotten.' });
+
+        // 2. RADERA NYCKELN (Shredding)
+        const { error } = await supabase.from('encryption_keys').delete().eq('user_identifier_hash', userHash);
+        if (error) throw error;
+
+        // 3. Logga händelsen
+        const data_hash = sha256(`ERASED-${userHash}-${Date.now()}`);
+        await supabase.from('audit_events').insert([{
+            processor_id: req.processor.id,
+            event_type: 'gdpr.right_to_erasure',
+            user_identifier: userHash,
+            event_data: { status: 'KEYS_DESTROYED', method: 'crypto_shredding' },
+            event_timestamp: new Date().toISOString(),
+            data_hash, leaf_index: 0
+        }]);
+
+        res.json({ success: true, message: 'User keys destroyed. Data is now cryptographically unreadable.' });
+    } catch (err) {
+        logger.error(err);
+        res.status(500).json({ error: 'Erasure failed.' });
+    }
+});
+
+// EXPORT DATA (GDPR Artikel 15)
+app.post('/api/privacy/export', authenticateApiKey, async (req, res) => {
+    try {
+        const { user_identifier } = privacyRequestSchema.parse(req.body);
+        const userHash = sha256(user_identifier);
+
+        // 1. Hämta nyckel
+        const { data: keyRow } = await supabase.from('encryption_keys').select('encrypted_key').eq('user_identifier_hash', userHash).maybeSingle();
+        if (!keyRow) return res.status(404).json({ error: 'User not found.' });
+
+        const userKey = decryptData(keyRow.encrypted_key, MASTER_KEY);
+        if (!userKey) return res.status(500).json({ error: 'Key corruption.' });
+
+        // 2. Hämta alla events
+        const { data: events } = await supabase.from('audit_events')
+            .select('*')
+            .eq('processor_id', req.processor.id)
+            .eq('user_identifier', userHash)
+            .order('event_timestamp', { ascending: true });
+
+        // 3. Dekryptera
+        const exportedData = events.map(ev => {
+            let decryptedPayload = null;
+            if (ev.event_data && ev.event_data.encrypted) {
+                decryptedPayload = decryptData(ev.event_data.encrypted, userKey);
+            }
+            return {
+                timestamp: ev.event_timestamp,
+                type: ev.event_type,
+                hash: ev.data_hash,
+                data: decryptedPayload || 'DECRYPTION_FAILED'
+            };
+        });
+
+        res.json({ 
+            user: user_identifier,
+            record_count: exportedData.length,
+            generated_at: new Date().toISOString(),
+            records: exportedData 
+        });
+
+    } catch (err) {
+        logger.error(err);
+        res.status(500).json({ error: 'Export failed.' });
+    }
+});
+
 
 // PROCESSOR CREATION
 app.post('/api/processors', authenticateUser, async (req, res) => {
