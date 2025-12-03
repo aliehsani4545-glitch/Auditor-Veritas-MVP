@@ -1,6 +1,6 @@
 // ============================================================
 // AUDITOR VERITAS - ZERO TRUST FRONTEND APPLICATION
-// Version: 2.0.0 - Privacy by Default
+// Version: 2.1.0 - Privacy by Default (Secure QR)
 // ============================================================
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -253,6 +253,7 @@ const TeamManagement = ({ token, processor, userRole }) => {
   );
 };
 
+// --- KEY ROTATION (SÄKER FRONTEND MED DATA URL) ---
 const KeyRotationComponent = ({ token, onKeyUpdate, userRole }) => {
   const [step, setStep] = useState('idle');
   const [code, setCode] = useState('');
@@ -276,6 +277,7 @@ const KeyRotationComponent = ({ token, onKeyUpdate, userRole }) => {
     setLoading(true); setError(null);
     try {
       const data = await apiCall('/api/keys/setup-2fa', { method: 'POST' }, token);
+      // Data URL kommer nu direkt från backend. Säkert.
       setTotpSetup({ secret: data.secret, otpAuthUrl: data.otpAuthUrl });
       setStep('setup-2fa');
     } catch (e) { setError(e.message); }
@@ -323,7 +325,8 @@ const KeyRotationComponent = ({ token, onKeyUpdate, userRole }) => {
         <div className="space-y-4">
           <p className="text-xs text-slate-600">Scan with authenticator app:</p>
           <div className="bg-slate-100 p-4 rounded-xl text-center">
-            <img src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(totpSetup.otpAuthUrl)}`} alt="TOTP QR" className="mx-auto rounded" />
+            {/* HÄR ÄR FIXEN: Använd datan direkt från servern (base64) */}
+            <img src={totpSetup.otpAuthUrl} alt="TOTP QR" className="mx-auto rounded w-32 h-32" />
           </div>
           <div className="text-xs">
             <p className="text-slate-500 mb-1">Manual entry:</p>

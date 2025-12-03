@@ -1,6 +1,6 @@
 // ============================================================
 // AUDITOR VERITAS - ZERO TRUST BACKEND SERVER
-// Version: 2.0.0 - Production Ready
+// Version: 2.1.0 - Production Ready (Secure QR)
 // ============================================================
 
 import express from 'express';
@@ -17,6 +17,7 @@ import stringify from 'fast-json-stable-stringify';
 import winston from 'winston';
 import morgan from 'morgan';
 import { authenticator } from 'otplib';
+import QRCode from 'qrcode'; // NYTT: För säker lokal QR-generering
 
 if (process.env.NODE_ENV !== 'production') {
   config();
@@ -235,15 +236,21 @@ app.get('/api/system/audit', authenticateUser, authorizeAdmin, async (req, res) 
   } catch (err) { res.json({ logs: [] }); }
 });
 
+// --- KEY ROTATION & TOTP (SÄKER VERSION) ---
 app.post('/api/keys/setup-2fa', authenticateUser, authorizeOwner, async (req, res) => {
   if (!req.processor) return res.status(403).json({ error: 'No processor' });
 
   try {
+    // 1. Generera hemlighet
     const secret = authenticator.generateSecret();
     const otpAuthUrl = authenticator.keyuri(req.user.email, 'AuditorVeritas', secret);
     const encryptedSecret = encryptData(secret, MASTER_KEY);
 
+    // 2. Spara i DB
     await supabase.from('processors').update({ totp_secret: encryptedSecret }).eq('id', req.processor.id);
+
+    // 3. Generera QR-bild lokalt (Skickar inte hemligheten till externt API)
+    const qrCodeDataUrl = await QRCode.toDataURL(otpAuthUrl);
 
     await supabase.from('admin_audit_logs').insert([{
       processor_id: req.processor.id,
@@ -251,7 +258,11 @@ app.post('/api/keys/setup-2fa', authenticateUser, authorizeOwner, async (req, re
       action: 'TOTP_SETUP_INITIATED'
     }]);
 
-    res.json({ message: '2FA setup initiated', secret, otpAuthUrl });
+    res.json({ 
+        message: '2FA setup initiated', 
+        secret, 
+        otpAuthUrl: qrCodeDataUrl // Detta är nu en "data:image/png;base64..." sträng
+    });
   } catch (err) {
     logger.error(err);
     res.status(500).json({ error: 'TOTP setup failed' });
@@ -315,14 +326,12 @@ app.post('/api/keys/request-rotation', authenticateUser, async (req, res) => {
       return res.json({ message: '2FA configured. Use authenticator code.', step: 'verify', totpConfigured: true });
     }
 
-    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
-    await supabase.from('processors').update({ verification_code: verificationCode, verification_expires: expiresAt }).eq('id', req.processor.id);
-
-    res.json({ message: 'Verification code generated', code: verificationCode, totpConfigured: false });
+    // Om ingen 2FA finns än, låt dem initiera det
+    res.json({ message: 'Setup 2FA required', step: 'setup', totpConfigured: false });
   } catch (err) { res.status(500).json({ error: 'Verification error' }); }
 });
 
+// TEAM ROUTES
 app.post('/api/team/invite', authenticateUser, authorizeOwner, async (req, res) => {
   try {
     const validated = inviteUserSchema.parse(req.body);
@@ -381,6 +390,7 @@ app.delete('/api/team/member/:userId', authenticateUser, authorizeOwner, async (
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// EVENT LOGGING
 app.post('/api/events', authenticateAny, async (req, res) => {
   if (!req.processor) return res.status(403).json({ error: 'No processor associated', code: 'NO_PROCESSOR' });
 
@@ -423,6 +433,7 @@ app.post('/api/events', authenticateAny, async (req, res) => {
   }
 });
 
+// PRIVACY & EXPORT
 app.delete('/api/privacy/forget', authenticateApiKey, async (req, res) => {
   try {
     const { user_identifier } = privacyRequestSchema.parse(req.body);
@@ -484,6 +495,7 @@ app.post('/api/privacy/export', authenticateApiKey, async (req, res) => {
   }
 });
 
+// ADMIN/PROCESSOR MGMT
 app.post('/api/processors', authenticateUser, async (req, res) => {
   const { companyName, plan } = req.body;
   if (req.processor) return res.status(409).json({ error: 'User has processor' });
@@ -534,7 +546,7 @@ app.get('/api/dashboard', authenticateUser, async (req, res) => {
         region: data.region,
         owner_id: data.owner_id,
         last_rotation_date: data.last_rotation_date,
-        totp_configured: !!data.totp_secret
+        totp_configured: !!data.totp_secret // Boolean flag till frontend
       },
       stats: { totalEvents: count || 0, monthlyEvents: data.monthly_events_used || 0, eventsLimit: data.events_limit },
       userRole: req.userRole
