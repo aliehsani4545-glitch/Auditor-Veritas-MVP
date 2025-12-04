@@ -1,13 +1,13 @@
 // ============================================================
 // AUDITOR VERITAS - DASHBOARD COMPONENT
-// Version: 4.1.0 - PRODUCTION (Polished UI & Strict Logic)
+// Version: 4.2.0 - PRODUCTION (Improved UI & GDPR Compliance)
 // ============================================================
 
 import React, { useState, useEffect, useMemo, memo } from 'react';
 import {
   Search, CheckCircle2, RefreshCw, Zap, LogOut,
   Trash2, ShieldAlert, AlertTriangle, Network, Shield,
-  Copy, Loader2, QrCode, ShieldCheck
+  Copy, Loader2, QrCode, ShieldCheck, Eye
 } from 'lucide-react';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://auditor-veritas-mvp.onrender.com';
@@ -16,23 +16,43 @@ export const apiCall = async (endpoint, options = {}, token = null, apiKey = nul
   const headers = { 'Content-Type': 'application/json', ...options.headers };
   if (token) headers['Authorization'] = `Bearer ${token}`;
   if (apiKey) headers['x-api-key'] = apiKey;
-  
   const config = { headers, ...options };
-  if (options.body && typeof options.body === 'object') {
-      config.body = JSON.stringify(options.body);
-  }
-
+  if (options.body && typeof options.body === 'object') config.body = JSON.stringify(options.body);
   const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
   if (response.status === 204) return null;
-
   const text = await response.text();
   try {
     const data = JSON.parse(text);
     if (!response.ok) throw new Error(data.error || `Error ${response.status}`);
     return data;
-  } catch (e) {
-    throw new Error(text || `Server Error: ${response.status}`);
-  }
+  } catch (e) { throw new Error(text || `Server Error: ${response.status}`); }
+};
+
+// --- HELPER: HASH DISPLAY COMPONENT (Fixar "Half Hash" problemet) ---
+const HashDisplay = ({ hash }) => {
+    const [copied, setCopied] = useState(false);
+    if (!hash) return <span className="text-slate-300">-</span>;
+
+    const copy = () => {
+        navigator.clipboard.writeText(hash);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
+    return (
+        <div className="flex items-center gap-2 group relative">
+            <code className="bg-slate-50 px-2 py-1 rounded text-[10px] font-mono text-blue-600 border border-slate-100" title={hash}>
+                {hash.substring(0, 6)}...{hash.substring(hash.length - 6)}
+            </code>
+            <button onClick={copy} className="text-slate-300 hover:text-blue-500 transition-colors" title="Copy Full Hash">
+                {copied ? <CheckCircle2 size={12} className="text-green-500"/> : <Copy size={12}/>}
+            </button>
+            {/* Tooltip on Hover */}
+            <div className="absolute bottom-full left-0 mb-2 w-64 p-2 bg-slate-800 text-white text-[10px] rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none break-all z-10">
+                {hash}
+            </div>
+        </div>
+    );
 };
 
 const KeyRotationTimer = ({ lastRotationDate }) => {
@@ -44,10 +64,8 @@ const KeyRotationTimer = ({ lastRotationDate }) => {
   }, [lastRotationDate]);
 
   let config = { color: 'blue', bg: 'bg-blue-50', text: 'Secure', icon: CheckCircle2 };
-  
   if (daysLeft < 15) config = { color: 'amber', bg: 'bg-amber-50', text: 'Rotation Soon', icon: AlertTriangle };
   if (daysLeft < 0) config = { color: 'red', bg: 'bg-red-50', text: 'Expired - Rotate Now', icon: ShieldAlert };
-  
   const Icon = config.icon;
 
   return (
@@ -56,9 +74,7 @@ const KeyRotationTimer = ({ lastRotationDate }) => {
         <Icon size={20} className={`text-${config.color}-600`} />
         <div>
           <h4 className={`font-bold text-sm text-${config.color}-900`}>Security Key Status</h4>
-          <p className={`text-xs text-${config.color}-700`}>
-            {daysLeft < 0 ? 'Mandatory Rotation Required' : `${daysLeft} days until rotation.`}
-          </p>
+          <p className={`text-xs text-${config.color}-700`}>{daysLeft < 0 ? 'Mandatory Rotation Required' : `${daysLeft} days until rotation.`}</p>
         </div>
       </div>
     </div>
@@ -73,15 +89,10 @@ const KeyRotationAction = ({ token, onKeyUpdate, userRole }) => {
     const [newKey, setNewKey] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
-
     const isOwner = userRole === 'owner';
 
     useEffect(() => {
-        if (token && isOwner) {
-            apiCall('/api/keys/request-rotation', { method: 'POST' }, token)
-                .then(data => setHas2FA(data.totpConfigured))
-                .catch(console.error);
-        }
+        if (token && isOwner) apiCall('/api/keys/request-rotation', { method: 'POST' }, token).then(data => setHas2FA(data.totpConfigured)).catch(console.error);
     }, [token, isOwner]);
 
     const startRotation = async () => {
@@ -89,92 +100,57 @@ const KeyRotationAction = ({ token, onKeyUpdate, userRole }) => {
             setLoading(true);
             try {
                 const data = await apiCall('/api/keys/setup-2fa', { method: 'POST' }, token);
-                setQrData(data);
-                setStep('setup');
-            } catch (e) { setError(e.message); }
-            finally { setLoading(false); }
-        } else {
-            setStep('verify');
-        }
+                setQrData(data); setStep('setup');
+            } catch (e) { setError(e.message); } finally { setLoading(false); }
+        } else setStep('verify');
     };
 
     const confirm = async (e) => {
-        e.preventDefault();
-        setLoading(true); setError(null);
+        e.preventDefault(); setLoading(true); setError(null);
         try {
             const data = await apiCall('/api/keys/rotate', { method: 'POST', body: { code } }, token);
-            setNewKey(data.newApiKey);
-            if (onKeyUpdate) onKeyUpdate(data.newApiKey);
-            setHas2FA(true);
-            setStep('complete');
-        } catch (e) { setError(e.message); }
-        finally { setLoading(false); }
+            setNewKey(data.newApiKey); if (onKeyUpdate) onKeyUpdate(data.newApiKey); setHas2FA(true); setStep('complete');
+        } catch (e) { setError(e.message); } finally { setLoading(false); }
     };
 
     return (
         <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
              <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-                <h3 className="font-bold flex items-center gap-2 text-slate-800 text-sm">
-                    <ShieldCheck className="w-4 h-4 text-emerald-600" /> Key Management
-                </h3>
-                <span className={`text-[10px] px-2 py-1 rounded font-bold uppercase ${has2FA ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
-                    {has2FA ? '2FA Active' : 'No 2FA'}
-                </span>
+                <h3 className="font-bold flex items-center gap-2 text-slate-800 text-sm"><ShieldCheck className="w-4 h-4 text-emerald-600" /> Key Management</h3>
+                <span className={`text-[10px] px-2 py-1 rounded font-bold uppercase ${has2FA ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{has2FA ? '2FA Active' : 'No 2FA'}</span>
             </div>
-
             {error && <div className="p-2 bg-red-50 text-red-600 text-xs rounded border border-red-100">{error}</div>}
-
             {step === 'idle' && (
                 <div className="text-center space-y-3">
-                    <p className="text-xs text-slate-500">
-                        Rotate API keys every 90 days.
-                    </p>
-                    <button 
-                        onClick={startRotation} 
-                        disabled={!isOwner}
-                        className="w-full bg-slate-900 text-white py-2 rounded-lg text-xs font-bold hover:bg-slate-800 disabled:opacity-50 flex items-center justify-center gap-2"
-                    >
-                        {has2FA ? <RefreshCw size={14}/> : <QrCode size={14}/>}
-                        {has2FA ? 'Rotate API Key' : 'Setup 2FA & Rotate'}
+                    <p className="text-xs text-slate-500">Rotate API keys every 90 days.</p>
+                    <button onClick={startRotation} disabled={!isOwner} className="w-full bg-slate-900 text-white py-2 rounded-lg text-xs font-bold hover:bg-slate-800 disabled:opacity-50 flex items-center justify-center gap-2">
+                        {has2FA ? <RefreshCw size={14}/> : <QrCode size={14}/>} {has2FA ? 'Rotate API Key' : 'Setup 2FA & Rotate'}
                     </button>
                     {!isOwner && <p className="text-[10px] text-red-400">Only Owner can rotate keys.</p>}
                 </div>
             )}
-
             {step === 'setup' && qrData && (
                 <div className="space-y-3 text-center animate-fade-in">
                     <p className="text-xs text-slate-600 font-bold">Scan with Authenticator App</p>
-                    <div className="bg-slate-100 p-2 rounded-lg inline-block">
-                        <img src={qrData.otpAuthUrl} alt="QR" className="w-32 h-32" />
-                    </div>
+                    <div className="bg-slate-100 p-2 rounded-lg inline-block"><img src={qrData.otpAuthUrl} alt="QR" className="w-32 h-32" /></div>
                     <div className="text-[10px] font-mono bg-slate-50 p-1 rounded break-all">{qrData.secret}</div>
                     <button onClick={() => setStep('verify')} className="w-full bg-blue-600 text-white py-2 rounded-lg text-xs font-bold">I have scanned it</button>
                 </div>
             )}
-
             {step === 'verify' && (
                  <form onSubmit={confirm} className="space-y-3 animate-fade-in">
                     <p className="text-xs text-slate-600">Enter code:</p>
                     <input autoFocus type="text" maxLength={6} className="w-full text-center text-xl tracking-widest p-2 border rounded font-mono" placeholder="000000" value={code} onChange={e => setCode(e.target.value.replace(/\D/g,''))} />
                     <div className="flex gap-2">
                         <button type="button" onClick={() => {setStep('idle'); setCode('');}} className="flex-1 bg-slate-100 text-slate-600 py-2 rounded-lg text-xs font-bold">Cancel</button>
-                        <button disabled={loading || code.length !== 6} className="flex-1 bg-emerald-600 text-white py-2 rounded-lg text-xs font-bold">
-                            {loading ? <Loader2 className="animate-spin mx-auto w-4 h-4"/> : 'Verify'}
-                        </button>
+                        <button disabled={loading || code.length !== 6} className="flex-1 bg-emerald-600 text-white py-2 rounded-lg text-xs font-bold">{loading ? <Loader2 className="animate-spin mx-auto w-4 h-4"/> : 'Verify'}</button>
                     </div>
                  </form>
             )}
-
             {step === 'complete' && newKey && (
                 <div className="space-y-3 animate-fade-in">
-                    <div className="p-3 bg-emerald-50 border border-emerald-100 rounded text-center">
-                        <CheckCircle2 className="mx-auto text-emerald-500 mb-2" size={24}/>
-                        <h4 className="text-sm font-bold text-emerald-800">Key Rotated</h4>
-                    </div>
-                    <div className="bg-slate-900 p-3 rounded group relative">
-                        <code className="text-emerald-400 font-mono text-xs break-all">{newKey}</code>
-                        <button onClick={() => navigator.clipboard.writeText(newKey)} className="absolute top-2 right-2 text-slate-400 hover:text-white"><Copy size={14}/></button>
-                    </div>
+                    <div className="p-3 bg-emerald-50 border border-emerald-100 rounded text-center"><CheckCircle2 className="mx-auto text-emerald-500 mb-2" size={24}/><h4 className="text-sm font-bold text-emerald-800">Key Rotated</h4></div>
+                    <div className="bg-slate-900 p-3 rounded group relative"><code className="text-emerald-400 font-mono text-xs break-all">{newKey}</code><button onClick={() => navigator.clipboard.writeText(newKey)} className="absolute top-2 right-2 text-slate-400 hover:text-white"><Copy size={14}/></button></div>
                     <button onClick={() => {setStep('idle'); setNewKey(null); setCode('');}} className="w-full bg-slate-200 text-slate-700 py-2 rounded-lg text-xs font-bold">Done</button>
                 </div>
             )}
@@ -186,17 +162,10 @@ const MerkleProofViewer = ({ token }) => {
     const [id, setId] = useState('');
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(false);
-    
     const verify = async (e) => {
-        e.preventDefault();
-        if(!id.trim()) return;
-        setLoading(true); setData(null);
-        try {
-            const res = await apiCall(`/api/merkle/proof/${id.trim()}`, {method:'GET'}, token);
-            setData(res);
-        } catch(e) { alert(e.message); } finally { setLoading(false); }
+        e.preventDefault(); if(!id.trim()) return; setLoading(true); setData(null);
+        try { const res = await apiCall(`/api/merkle/proof/${id.trim()}`, {method:'GET'}, token); setData(res); } catch(e) { alert(e.message); } finally { setLoading(false); }
     };
-
     return (
         <div className="bg-white p-6 rounded-xl border border-slate-200">
              <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-slate-900"><Network className="text-blue-600" size={20}/> Cryptographic Verification</h3>
@@ -219,21 +188,17 @@ const MerkleProofViewer = ({ token }) => {
 const EventSearch = ({ token }) => {
     const [logs, setLogs] = useState([]);
     const [term, setTerm] = useState('');
-    
-    useEffect(() => {
-        apiCall('/api/events/search?limit=50', {method:'GET'}, token).then(d => setLogs(d.events || [])).catch(console.error);
-    }, [token]);
-
+    useEffect(() => { apiCall('/api/events/search?limit=50', {method:'GET'}, token).then(d => setLogs(d.events || [])).catch(console.error); }, [token]);
     const filtered = logs.filter(l => JSON.stringify(l).toLowerCase().includes(term.toLowerCase()));
-
     return (
         <div className="space-y-4">
              <div className="bg-white p-3 rounded-xl border flex gap-2"><Search className="text-slate-400"/><input value={term} onChange={e=>setTerm(e.target.value)} placeholder="Search..." className="flex-1 outline-none text-sm"/></div>
              <div className="bg-white rounded-xl border overflow-hidden">
                  {filtered.map(l => (
-                     <div key={l.id} className="p-3 border-b flex justify-between text-xs hover:bg-slate-50">
-                         <span className="font-bold">{l.event_type}</span>
-                         <span className="font-mono text-slate-500">{l.id.substring(0,8)}...</span>
+                     <div key={l.id} className="p-3 border-b flex justify-between text-xs hover:bg-slate-50 items-center">
+                         <span className="font-bold w-1/3">{l.event_type}</span>
+                         <span className="w-1/3"><HashDisplay hash={l.data_hash} /></span>
+                         <span className="font-mono text-slate-500 w-1/3 text-right">{l.id.substring(0,8)}...</span>
                      </div>
                  ))}
                  {filtered.length === 0 && <div className="p-4 text-center text-xs text-slate-400">No events found.</div>}
@@ -246,7 +211,6 @@ const ErasureForm = () => {
     const [uid, setUid] = useState('');
     const [msg, setMsg] = useState(null);
     const apiKey = localStorage.getItem('av_active_key') || localStorage.getItem('av_sim_key');
-
     const handle = async (e) => {
         e.preventDefault();
         if(!apiKey) return alert("Missing API Key");
@@ -256,14 +220,13 @@ const ErasureForm = () => {
             setMsg(res.message); setUid('');
         } catch(e) { alert(e.message); }
     };
-
     return (
         <div className="space-y-3">
             <p className="text-xs text-slate-500 bg-slate-50 p-2 rounded">
-                <strong>Instruction:</strong> Enter the EXACT <code>User ID</code> used when logging events. Hashed keys will be destroyed.
+                <strong>Instruction:</strong> System auto-converts to lowercase. e.g. "User123" becomes "user123".
             </p>
             <form onSubmit={handle} className="flex gap-2">
-                <input value={uid} onChange={e=>setUid(e.target.value)} placeholder="e.g. user_123" className="flex-1 p-2 border rounded text-sm"/>
+                <input value={uid} onChange={e=>setUid(e.target.value.toLowerCase())} placeholder="e.g. user_123" className="flex-1 p-2 border rounded text-sm"/>
                 <button className="bg-red-600 text-white px-4 rounded text-sm font-bold">Shred Keys</button>
             </form>
             {msg && <div className="text-xs text-emerald-600 font-bold flex items-center gap-2"><CheckCircle2 size={12}/> {msg}</div>}
@@ -271,30 +234,16 @@ const ErasureForm = () => {
     );
 };
 
-// --- UPDATED CHART (Thinner, cleaner) ---
 const LiveActivityChart = memo(({ dataPoints = [] }) => {
     const points = dataPoints.length === 24 ? dataPoints : new Array(24).fill(0);
     const max = Math.max(...points, 5); 
-    
-    // Smooth bezier-like curve using simple lines for clarity
-    const path = points.map((p,i) => {
-        const x = (i / (points.length - 1)) * 100;
-        const y = 100 - (p / max) * 80; // Uses 80% height to leave headroom
-        return `${x},${y}`;
-    }).join(' L ');
-
+    const path = points.map((p,i) => { const x = (i / (points.length - 1)) * 100; const y = 100 - (p / max) * 80; return `${x},${y}`; }).join(' L ');
     return (
         <div className="h-40 w-full bg-slate-50/50 rounded-lg relative border border-slate-100 overflow-hidden mt-4">
              <div className="absolute top-2 left-2 text-[10px] text-slate-400 font-bold tracking-wider">24H TRAFFIC</div>
              <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 w-full h-full">
-                 <defs>
-                     <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.1" />
-                        <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
-                     </linearGradient>
-                 </defs>
+                 <defs><linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#3b82f6" stopOpacity="0.1" /><stop offset="100%" stopColor="#3b82f6" stopOpacity="0" /></linearGradient></defs>
                  <path d={`M 0,100 L ${path} L 100,100 Z`} fill="url(#chartGradient)"/>
-                 {/* Stroke width set to 0.5 for a very thin, elegant line */}
                  <path d={`M 0,100 L ${path}`} fill="none" stroke="#3b82f6" strokeWidth="0.5" strokeLinecap="round" strokeLinejoin="round"/>
              </svg>
         </div>
@@ -308,7 +257,7 @@ const RecentLogsTable = ({ logs }) => (
             <tbody className="divide-y">{logs.map(l => (
                 <tr key={l.id} className="hover:bg-slate-50 transition-colors">
                     <td className="p-3 font-bold">{l.event_type}</td>
-                    <td className="p-3 font-mono text-blue-600">{l.data_hash?.substring(0,12)}...</td>
+                    <td className="p-3"><HashDisplay hash={l.data_hash} /></td>
                     <td className="p-3 text-right text-slate-400">{new Date(l.event_timestamp).toLocaleTimeString()}</td>
                 </tr>
             ))}</tbody>
@@ -326,16 +275,13 @@ const Dashboard = ({ processor, stats, token, eventData, setEventData, onLogEven
       <div className="flex justify-between items-center mb-8">
         <div>
             <div className="flex items-center gap-2 mb-1">
-                <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-[10px] font-bold text-emerald-700 flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> EU-Frankfurt
-                </span>
+                <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-[10px] font-bold text-emerald-700 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> EU-Frankfurt</span>
                 <span className="text-xs text-slate-400 font-mono">Node ID: {processor?.id?.substring(0,8)}</span>
             </div>
             <h1 className="text-2xl font-bold text-slate-900">{processor?.company_name || session?.user?.email}</h1>
         </div>
         <button onClick={onLogout} className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-sm font-bold hover:text-red-600 transition-colors flex items-center gap-2"><LogOut size={14}/> Logout</button>
       </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 p-6 shadow-sm flex flex-col justify-between">
              <div className="flex justify-between items-start">
@@ -344,26 +290,16 @@ const Dashboard = ({ processor, stats, token, eventData, setEventData, onLogEven
              </div>
              <LiveActivityChart dataPoints={chartData} />
         </div>
-
         <div className="space-y-4">
             <KeyRotationTimer lastRotationDate={lastRotation} />
-            <KeyRotationAction 
-                token={token} 
-                userRole={processor?.owner_id === session?.user?.id ? 'owner' : 'member'} 
-                onKeyUpdate={(k) => {
-                    if (onKeyUpdate) onKeyUpdate(k);
-                    alert("Key Rotated! Update your .env file.");
-                }} 
-            />
+            <KeyRotationAction token={token} userRole={processor?.owner_id === session?.user?.id ? 'owner' : 'member'} onKeyUpdate={(k) => {if (onKeyUpdate) onKeyUpdate(k); alert("Key Rotated! Update your .env file.");}} />
         </div>
       </div>
-
       <div className="flex gap-1 bg-slate-100 p-1 rounded-xl mb-6 w-fit">
         {['logs', 'search', 'verify', 'compliance'].map(t => (
           <button key={t} onClick={()=>setActiveTab(t)} className={`px-4 py-2 rounded-lg text-xs font-bold capitalize ${activeTab===t?'bg-white shadow-sm text-slate-900':'text-slate-500 hover:text-slate-700'}`}>{t}</button>
         ))}
       </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
               {activeTab === 'logs' && <RecentLogsTable logs={recentLogs} />}
@@ -377,23 +313,13 @@ const Dashboard = ({ processor, stats, token, eventData, setEventData, onLogEven
                   </div>
               )}
           </div>
-
           <div className="space-y-6">
               <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
                   <div className="flex items-center gap-2 mb-4 border-b pb-2"><Zap size={16} className="text-amber-500"/><h3 className="font-bold text-slate-800 text-sm">Event Injector</h3></div>
                   <form onSubmit={(e) => onLogEvent(e, eventData)} className="space-y-3">
-                      <div>
-                          <label className="text-[10px] font-bold text-slate-500 uppercase">Event Type</label>
-                          <input className="w-full text-xs p-2 border rounded" value={eventData.event_type} onChange={e=>setEventData({...eventData, event_type:e.target.value})} placeholder="e.g. user.login"/>
-                      </div>
-                      <div>
-                          <label className="text-[10px] font-bold text-slate-500 uppercase">User ID</label>
-                          <input className="w-full text-xs p-2 border rounded" value={eventData.user_identifier} onChange={e=>setEventData({...eventData, user_identifier:e.target.value})} placeholder="e.g. user_123"/>
-                      </div>
-                      <div>
-                          <label className="text-[10px] font-bold text-slate-500 uppercase">Payload (JSON)</label>
-                          <textarea className="w-full text-xs p-2 border rounded font-mono h-20" value={eventData.event_data} onChange={e=>setEventData({...eventData, event_data:e.target.value})} placeholder='{"status": "success"}'/>
-                      </div>
+                      <div><label className="text-[10px] font-bold text-slate-500 uppercase">Event Type</label><input className="w-full text-xs p-2 border rounded" value={eventData.event_type} onChange={e=>setEventData({...eventData, event_type:e.target.value})} placeholder="e.g. user.login"/></div>
+                      <div><label className="text-[10px] font-bold text-slate-500 uppercase">User ID</label><input className="w-full text-xs p-2 border rounded" value={eventData.user_identifier} onChange={e=>setEventData({...eventData, user_identifier:e.target.value})} placeholder="e.g. user_123"/></div>
+                      <div><label className="text-[10px] font-bold text-slate-500 uppercase">Payload (JSON)</label><textarea className="w-full text-xs p-2 border rounded font-mono h-20" value={eventData.event_data} onChange={e=>setEventData({...eventData, event_data:e.target.value})} placeholder='{"status": "success"}'/></div>
                       <button className="w-full bg-slate-900 text-white text-xs font-bold py-2 rounded hover:bg-slate-700">Log Event</button>
                   </form>
               </div>
