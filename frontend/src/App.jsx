@@ -1,6 +1,6 @@
 // ============================================================
 // AUDITOR VERITAS - ZERO TRUST FRONTEND APPLICATION
-// Version: 2.1.0 - Privacy by Default (Secure QR)
+// Version: 2.1.1 - Privacy by Default (Production Optimized)
 // ============================================================
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -253,121 +253,6 @@ const TeamManagement = ({ token, processor, userRole }) => {
   );
 };
 
-// --- KEY ROTATION (SÄKER FRONTEND MED DATA URL) ---
-const KeyRotationComponent = ({ token, onKeyUpdate, userRole }) => {
-  const [step, setStep] = useState('idle');
-  const [code, setCode] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [newKeyData, setNewKeyData] = useState(null);
-  const [error, setError] = useState(null);
-  const [totpSetup, setTotpSetup] = useState(null);
-
-  const canRotate = userRole === 'owner';
-
-  useEffect(() => {
-    if (token && canRotate) {
-      apiCall('/api/keys/request-rotation', { method: 'POST' }, token)
-        .then(data => { if (data?.totpConfigured) setStep('verify'); })
-        .catch(() => {});
-    }
-  }, [token, canRotate]);
-
-  const setup2FA = async () => {
-    if (!canRotate) return;
-    setLoading(true); setError(null);
-    try {
-      const data = await apiCall('/api/keys/setup-2fa', { method: 'POST' }, token);
-      // Data URL kommer nu direkt från backend. Säkert.
-      setTotpSetup({ secret: data.secret, otpAuthUrl: data.otpAuthUrl });
-      setStep('setup-2fa');
-    } catch (e) { setError(e.message); }
-    finally { setLoading(false); }
-  };
-
-  const confirmRotation = async (e) => {
-    e.preventDefault();
-    if (code.length !== 6) { setError('Code must be 6 digits'); return; }
-    setLoading(true); setError(null);
-    try {
-      const data = await apiCall('/api/keys/rotate', { method: 'POST', body: { code } }, token);
-      setNewKeyData(data.newApiKey);
-      if (onKeyUpdate) onKeyUpdate(data.newApiKey);
-      setStep('complete');
-      setCode(''); setTotpSetup(null);
-    } catch (e) { setError(e.message); }
-    finally { setLoading(false); }
-  };
-
-  return (
-    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4">
-      <div className="flex justify-between items-center">
-        <h3 className="font-bold flex items-center gap-2 text-slate-800 text-sm">
-          <ShieldCheck className="w-4 h-4 text-green-600" /> 2FA Key Management
-        </h3>
-        <span className="bg-emerald-50 text-emerald-700 text-[10px] px-2 py-1 rounded font-bold uppercase">
-          {step === 'verify' ? 'TOTP Active' : 'Setup Required'}
-        </span>
-      </div>
-
-      {error && <div className="text-xs text-red-600 bg-red-50 p-2 rounded border border-red-100">{error}</div>}
-
-      {step === 'idle' && (
-        <div className="space-y-3">
-          <p className="text-xs text-slate-500">Setup TOTP for secure key rotation.</p>
-          <button onClick={setup2FA} disabled={!canRotate || loading} className="w-full bg-slate-900 text-white py-2.5 rounded-xl text-xs font-bold hover:bg-slate-800 disabled:opacity-50 flex justify-center items-center gap-2">
-            {loading ? <Loader2 className="animate-spin w-3 h-3" /> : <><QrCode size={14} /> Setup 2FA & Rotate Key</>}
-          </button>
-          {!canRotate && <p className="text-[10px] text-amber-600">Only Owner can rotate keys.</p>}
-        </div>
-      )}
-
-      {step === 'setup-2fa' && totpSetup && (
-        <div className="space-y-4">
-          <p className="text-xs text-slate-600">Scan with authenticator app:</p>
-          <div className="bg-slate-100 p-4 rounded-xl text-center">
-            {/* HÄR ÄR FIXEN: Använd datan direkt från servern (base64) */}
-            <img src={totpSetup.otpAuthUrl} alt="TOTP QR" className="mx-auto rounded w-32 h-32" />
-          </div>
-          <div className="text-xs">
-            <p className="text-slate-500 mb-1">Manual entry:</p>
-            <code className="bg-slate-900 text-green-400 px-3 py-2 rounded block text-[10px] break-all">{totpSetup.secret}</code>
-          </div>
-          <button onClick={() => setStep('verify')} className="w-full bg-blue-600 text-white py-2.5 rounded-xl text-xs font-bold hover:bg-blue-500">
-            I've Saved This → Continue
-          </button>
-        </div>
-      )}
-
-      {step === 'verify' && (
-        <form onSubmit={confirmRotation} className="space-y-4">
-          <p className="text-xs text-slate-600">Enter 6-digit code from authenticator:</p>
-          <input
-            type="text" maxLength={6} pattern="[0-9]*" inputMode="numeric"
-            className="w-full text-center text-2xl tracking-[0.5em] font-mono p-3 border-2 border-slate-200 rounded-xl focus:border-blue-500 outline-none text-slate-900"
-            placeholder="000000" value={code} onChange={e => setCode(e.target.value.replace(/\D/g, ''))} autoFocus
-          />
-          <button type="submit" disabled={loading || code.length !== 6} className="w-full bg-green-600 text-white py-2.5 rounded-xl text-xs font-bold hover:bg-green-500 disabled:opacity-50">
-            {loading ? <Loader2 className="animate-spin w-3 h-3 mx-auto" /> : 'Verify & Rotate Key'}
-          </button>
-        </form>
-      )}
-
-      {step === 'complete' && newKeyData && (
-        <div className="space-y-3">
-          <div className="flex items-center gap-2 text-green-600"><CheckCircle2 size={16} /><span className="text-sm font-bold">Key Rotated</span></div>
-          <div className="bg-slate-900 text-green-400 p-3 rounded-xl font-mono text-[10px] break-all">{newKeyData}</div>
-          <button onClick={() => { navigator.clipboard.writeText(newKeyData); alert('Copied!'); }} className="w-full bg-slate-100 py-2 rounded-lg text-xs font-bold text-slate-700 flex items-center justify-center gap-2">
-            <Copy size={12} /> Copy New Key
-          </button>
-          <button onClick={() => { setStep('verify'); setNewKeyData(null); }} className="w-full text-slate-400 text-xs hover:text-slate-600">Done</button>
-        </div>
-      )}
-    </div>
-  );
-};
-
-// I App.jsx - Byt ut AuthScreen mot denna:
-
 const AuthScreen = ({ onLogin }) => {
   const [mode, setMode] = useState('login');
   const [email, setEmail] = useState('');
@@ -381,9 +266,8 @@ const AuthScreen = ({ onLogin }) => {
       if (mode === 'signup') {
         const { error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
-        // FIXAD TEXT HÄR:
         alert('Konto registrerat! Du kan nu logga in med dina uppgifter.');
-        setMode('login'); // Byt automatiskt till login-fliken
+        setMode('login'); 
       } else {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
@@ -412,6 +296,7 @@ const AuthScreen = ({ onLogin }) => {
     </div>
   );
 };
+
 const CreateProcessor = ({ token, onProcessorCreated }) => {
   const [companyName, setCompanyName] = useState('');
   const [loading, setLoading] = useState(false);
@@ -608,7 +493,7 @@ function App() {
 
       <header className="fixed w-full z-50 bg-[#020617]/90 border-b border-white/10 py-2 px-6 flex justify-between items-center backdrop-blur-md">
         <div className="font-bold text-lg flex gap-2 cursor-pointer items-center hover:text-blue-400" onClick={() => setActiveTab('home')}>
-          <ShieldCheck className="text-blue-500" /> EuroLedger
+          <ShieldCheck className="text-blue-500" /> AuditorVeritas
         </div>
         <nav className="hidden md:flex gap-8 text-sm items-center font-medium">
           {['home', 'services', 'trust', 'pricing', 'about', 'contact'].map(tab => (
@@ -707,10 +592,17 @@ function App() {
 
                 {dashboardSubTab === 'overview' && (
                   <Dashboard
-                    processor={processor} stats={stats} token={session.access_token}
-                    eventData={eventData} setEventData={setEventData} onLogEvent={handleLogEvent}
-                    KeyRotation={<KeyRotationComponent token={session.access_token} onKeyUpdate={handleKeyUpdate} userRole={userRole} />}
-                    recentLogs={recentLogs} chartData={chartData} onLogout={handleLogout} session={session}
+                    processor={processor} 
+                    stats={stats} 
+                    token={session.access_token}
+                    eventData={eventData} 
+                    setEventData={setEventData} 
+                    onLogEvent={handleLogEvent}
+                    onKeyUpdate={handleKeyUpdate}
+                    recentLogs={recentLogs} 
+                    chartData={chartData} 
+                    onLogout={handleLogout} 
+                    session={session}
                   />
                 )}
 

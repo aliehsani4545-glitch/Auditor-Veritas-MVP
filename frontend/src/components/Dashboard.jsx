@@ -1,15 +1,16 @@
 // ============================================================
-// AUDITOR VERITAS - DASHBOARD FRONTEND
-// Version: 2.4.0 - Trimmed Inputs & Fixed UI
+// AUDITOR VERITAS - DASHBOARD COMPONENT
+// Version: 3.1.0 - PRODUCTION READY (Cleaned & Optimized)
 // ============================================================
 
 import React, { useState, useEffect, useMemo, memo } from 'react';
 import {
   Search, CheckCircle2, RefreshCw, Zap, LogOut,
-  Trash2, ShieldAlert, AlertTriangle, Network, Shield
+  Trash2, ShieldAlert, AlertTriangle, Network, Shield,
+  Copy, Loader2, QrCode, ShieldCheck
 } from 'lucide-react';
 
-// API Configuration
+// --- API HELPER ---
 const API_BASE_URL = 'https://auditor-veritas-mvp.onrender.com';
 
 const apiCall = async (endpoint, options = {}, token = null, apiKey = null) => {
@@ -17,187 +18,378 @@ const apiCall = async (endpoint, options = {}, token = null, apiKey = null) => {
   if (token) headers['Authorization'] = `Bearer ${token}`;
   if (apiKey) headers['x-api-key'] = apiKey;
   
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    ...options, headers, body: options.body ? JSON.stringify(options.body) : null
-  });
+  const config = { headers, ...options };
+  if (options.body && typeof options.body === 'object') {
+      config.body = JSON.stringify(options.body);
+  }
 
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
   if (response.status === 204) return null;
+
   const text = await response.text();
   try {
     const data = JSON.parse(text);
     if (!response.ok) throw new Error(data.error || `Error ${response.status}`);
     return data;
-  } catch (e) { throw new Error(text || `Server Error: ${response.status}`); }
+  } catch (e) {
+    throw new Error(text || `Server Error: ${response.status}`);
+  }
 };
 
-// --- MERKLE COMPONENT (Fix för 404) ---
-const MerkleProofViewer = ({ token }) => {
-    const [eventId, setEventId] = useState('');
-    const [proofData, setProofData] = useState(null);
+// --- SUB-COMPONENT: KEY ROTATION TIMER ---
+const KeyRotationTimer = ({ lastRotationDate }) => {
+  const daysLeft = useMemo(() => {
+    const rotation = lastRotationDate ? new Date(lastRotationDate) : new Date();
+    const diffTime = Math.abs(new Date() - rotation);
+    const daysPassed = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return 90 - daysPassed;
+  }, [lastRotationDate]);
+
+  let config = { color: 'blue', bg: 'bg-blue-50', text: 'Secure', icon: CheckCircle2 };
+  
+  if (daysLeft < 15) config = { color: 'amber', bg: 'bg-amber-50', text: 'Rotation Soon', icon: AlertTriangle };
+  if (daysLeft < 0) config = { color: 'red', bg: 'bg-red-50', text: 'Expired - Rotate Now', icon: ShieldAlert };
+  
+  const Icon = config.icon;
+
+  return (
+    <div className={`p-4 rounded-xl shadow-sm border border-${config.color}-100 ${config.bg} flex items-center justify-between`}>
+      <div className="flex items-center gap-3">
+        <Icon size={20} className={`text-${config.color}-600`} />
+        <div>
+          <h4 className={`font-bold text-sm text-${config.color}-900`}>Security Key Status</h4>
+          <p className={`text-xs text-${config.color}-700`}>
+            {daysLeft < 0 ? 'Mandatory Rotation Required' : `${daysLeft} days until rotation.`}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- SUB-COMPONENT: KEY ROTATION ACTION ---
+const KeyRotationAction = ({ token, onKeyUpdate, userRole, lastRotationDate }) => {
+    const [step, setStep] = useState('idle'); // idle | setup | verify | complete
+    const [has2FA, setHas2FA] = useState(false);
+    const [qrData, setQrData] = useState(null);
+    const [code, setCode] = useState('');
+    const [newKey, setNewKey] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
-    const handleVerify = async (e) => {
+    const isOwner = userRole === 'owner';
+
+    useEffect(() => {
+        if (token && isOwner) {
+            apiCall('/api/keys/request-rotation', { method: 'POST' }, token)
+                .then(data => setHas2FA(data.totpConfigured))
+                .catch(console.error);
+        }
+    }, [token, isOwner]);
+
+    const startRotation = async () => {
+        if (!has2FA) {
+            setLoading(true);
+            try {
+                const data = await apiCall('/api/keys/setup-2fa', { method: 'POST' }, token);
+                setQrData(data);
+                setStep('setup');
+            } catch (e) { setError(e.message); }
+            finally { setLoading(false); }
+        } else {
+            setStep('verify');
+        }
+    };
+
+    const confirm = async (e) => {
         e.preventDefault();
-        const trimmedId = eventId.trim(); // VIKTIGT: Tar bort mellanslag
-        if (!trimmedId) return;
-        
-        setLoading(true); setError(null); setProofData(null);
+        setLoading(true); setError(null);
         try {
-            const data = await apiCall(`/api/merkle/proof/${trimmedId}`, { method: 'GET' }, token);
-            setProofData(data);
-        } catch (err) { setError(err.message); } 
+            const data = await apiCall('/api/keys/rotate', { method: 'POST', body: { code } }, token);
+            setNewKey(data.newApiKey);
+            if (onKeyUpdate) onKeyUpdate(data.newApiKey);
+            setHas2FA(true);
+            setStep('complete');
+        } catch (e) { setError(e.message); }
         finally { setLoading(false); }
     };
 
     return (
-        <div className="bg-white p-6 rounded-xl border border-slate-200">
-            <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-slate-900"><Network className="text-blue-600" size={20}/> Cryptographic Verification</h3>
-            <form onSubmit={handleVerify} className="flex gap-2 mb-6">
-                <input type="text" placeholder="Paste Event ID (UUID)" className="flex-1 p-2 border rounded-lg text-sm font-mono text-slate-900 bg-slate-50" value={eventId} onChange={(e) => setEventId(e.target.value)} />
-                <button disabled={loading} className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold text-sm disabled:opacity-50">{loading ? <RefreshCw className="animate-spin" size={16}/> : 'Verify'}</button>
-            </form>
-            {error && <div className="p-3 bg-red-50 text-red-600 rounded-lg text-xs mb-4">{error}</div>}
-            {proofData && (
-                <div className="space-y-4 animate-fade-in">
-                    <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-lg">
-                        <div className="flex items-center gap-2 text-emerald-700 font-bold mb-2"><CheckCircle2 size={18}/> Valid Proof</div>
-                        <div className="text-xs space-y-2">
-                             <div><span className="font-bold text-emerald-600">HASH:</span> <span className="font-mono break-all text-slate-700">{proofData.data_hash}</span></div>
-                             <div><span className="font-bold text-emerald-600">ROOT:</span> <span className="font-mono break-all text-slate-700">{proofData.merkle_root}</span></div>
-                        </div>
+        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
+             <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                <h3 className="font-bold flex items-center gap-2 text-slate-800 text-sm">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600" /> Key Management
+                </h3>
+                <span className={`text-[10px] px-2 py-1 rounded font-bold uppercase ${has2FA ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                    {has2FA ? '2FA Active' : 'No 2FA'}
+                </span>
+            </div>
+
+            {error && <div className="p-2 bg-red-50 text-red-600 text-xs rounded border border-red-100">{error}</div>}
+
+            {step === 'idle' && (
+                <div className="text-center space-y-3">
+                    <p className="text-xs text-slate-500">
+                        API Keys allow your systems to log events. Rotate this key every 90 days for security.
+                    </p>
+                    <button 
+                        onClick={startRotation} 
+                        disabled={!isOwner}
+                        className="w-full bg-slate-900 text-white py-2 rounded-lg text-xs font-bold hover:bg-slate-800 disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                        {has2FA ? <RefreshCw size={14}/> : <QrCode size={14}/>}
+                        {has2FA ? 'Rotate API Key' : 'Setup 2FA & Rotate'}
+                    </button>
+                    {!isOwner && <p className="text-[10px] text-red-400">Only Owner can rotate keys.</p>}
+                </div>
+            )}
+
+            {step === 'setup' && qrData && (
+                <div className="space-y-3 text-center animate-fade-in">
+                    <p className="text-xs text-slate-600 font-bold">Scan with Authenticator App</p>
+                    <div className="bg-slate-100 p-2 rounded-lg inline-block">
+                        <img src={qrData.otpAuthUrl} alt="QR" className="w-32 h-32" />
                     </div>
+                    <div className="text-[10px] font-mono bg-slate-50 p-1 rounded break-all">{qrData.secret}</div>
+                    <button onClick={() => setStep('verify')} className="w-full bg-blue-600 text-white py-2 rounded-lg text-xs font-bold">I have scanned it</button>
+                </div>
+            )}
+
+            {step === 'verify' && (
+                 <form onSubmit={confirm} className="space-y-3 animate-fade-in">
+                    <p className="text-xs text-slate-600">Enter 6-digit code from your app to authorize rotation:</p>
+                    <input autoFocus type="text" maxLength={6} className="w-full text-center text-xl tracking-widest p-2 border rounded font-mono" placeholder="000000" value={code} onChange={e => setCode(e.target.value.replace(/\D/g,''))} />
+                    <div className="flex gap-2">
+                        <button type="button" onClick={() => {setStep('idle'); setCode('');}} className="flex-1 bg-slate-100 text-slate-600 py-2 rounded-lg text-xs font-bold">Cancel</button>
+                        <button disabled={loading || code.length !== 6} className="flex-1 bg-emerald-600 text-white py-2 rounded-lg text-xs font-bold">
+                            {loading ? <Loader2 className="animate-spin mx-auto w-4 h-4"/> : 'Verify & Rotate'}
+                        </button>
+                    </div>
+                 </form>
+            )}
+
+            {step === 'complete' && newKey && (
+                <div className="space-y-3 animate-fade-in">
+                    <div className="p-3 bg-emerald-50 border border-emerald-100 rounded text-center">
+                        <CheckCircle2 className="mx-auto text-emerald-500 mb-2" size={24}/>
+                        <h4 className="text-sm font-bold text-emerald-800">New Key Generated</h4>
+                    </div>
+                    <div className="bg-slate-900 p-3 rounded group relative">
+                        <code className="text-emerald-400 font-mono text-xs break-all">{newKey}</code>
+                        <button onClick={() => navigator.clipboard.writeText(newKey)} className="absolute top-2 right-2 text-slate-400 hover:text-white"><Copy size={14}/></button>
+                    </div>
+                    <p className="text-[10px] text-red-500 font-bold text-center">⚠️ Update your .env file immediately. The old key is now dead.</p>
+                    <button onClick={() => {setStep('idle'); setNewKey(null); setCode('');}} className="w-full bg-slate-200 text-slate-700 py-2 rounded-lg text-xs font-bold">Done</button>
                 </div>
             )}
         </div>
     );
 };
 
-// --- SEARCH COMPONENT ---
+// --- SUB-COMPONENT: MERKLE VIEWER ---
+const MerkleProofViewer = ({ token }) => {
+    const [id, setId] = useState('');
+    const [data, setData] = useState(null);
+    const [loading, setLoading] = useState(false);
+    
+    const verify = async (e) => {
+        e.preventDefault();
+        if(!id.trim()) return;
+        setLoading(true); setData(null);
+        try {
+            const res = await apiCall(`/api/merkle/proof/${id.trim()}`, {method:'GET'}, token);
+            setData(res);
+        } catch(e) { alert(e.message); } finally { setLoading(false); }
+    };
+
+    return (
+        <div className="bg-white p-6 rounded-xl border border-slate-200">
+             <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-slate-900"><Network className="text-blue-600" size={20}/> Cryptographic Verification</h3>
+             <form onSubmit={verify} className="flex gap-2 mb-4">
+                <input value={id} onChange={e=>setId(e.target.value)} placeholder="Event ID" className="flex-1 p-2 border rounded text-sm font-mono"/>
+                <button disabled={loading} className="bg-blue-600 text-white px-4 rounded text-sm font-bold">{loading ? '...' : 'Verify'}</button>
+             </form>
+             {data && (
+                 <div className="p-3 bg-emerald-50 border border-emerald-100 rounded text-xs space-y-1">
+                     <div className="font-bold text-emerald-700 flex items-center gap-2"><CheckCircle2 size={14}/> Proof Valid</div>
+                     <div><span className="font-bold">Root:</span> <span className="font-mono">{data.merkle_root.substring(0,20)}...</span></div>
+                     <div><span className="font-bold">Proof Depth:</span> {data.proof.length} nodes</div>
+                 </div>
+             )}
+        </div>
+    );
+};
+
+// --- SUB-COMPONENT: SEARCH ---
 const EventSearch = ({ token }) => {
     const [logs, setLogs] = useState([]);
-    const [filteredLogs, setFilteredLogs] = useState([]);
-    const [loading, setLoading] = useState(false);
-    const [searchTerm, setSearchTerm] = useState('');
-
+    const [term, setTerm] = useState('');
+    
     useEffect(() => {
-        const fetchLogs = async () => {
-            setLoading(true);
-            try {
-                const data = await apiCall('/api/events/search?limit=100', { method: 'GET' }, token);
-                setLogs(data.events || []); setFilteredLogs(data.events || []);
-            } catch (e) { console.error(e); } finally { setLoading(false); }
-        };
-        fetchLogs();
+        apiCall('/api/events/search?limit=50', {method:'GET'}, token).then(d => setLogs(d.events || [])).catch(console.error);
     }, [token]);
 
-    useEffect(() => {
-        const lower = searchTerm.toLowerCase();
-        setFilteredLogs(logs.filter(l => l.event_type.toLowerCase().includes(lower) || l.id.toLowerCase().includes(lower) || l.user_identifier?.toLowerCase().includes(lower)));
-    }, [searchTerm, logs]);
+    const filtered = logs.filter(l => JSON.stringify(l).toLowerCase().includes(term.toLowerCase()));
 
     return (
         <div className="space-y-4">
-            <div className="bg-white p-4 rounded-xl border border-slate-200 flex gap-2"><Search className="text-slate-400"/><input type="text" placeholder="Search events..." className="flex-1 outline-none text-slate-900 text-sm" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}/></div>
-            {loading ? <div className="text-center py-10"><RefreshCw className="animate-spin mx-auto text-blue-500"/></div> : (
-                <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-                    <table className="w-full text-left text-xs">
-                        <thead className="bg-slate-50 text-slate-500 border-b"><tr><th className="p-3">Type</th><th className="p-3">ID</th><th className="p-3 text-right">Time</th></tr></thead>
-                        <tbody className="divide-y divide-slate-100">{filteredLogs.map(log => (<tr key={log.id} className="hover:bg-slate-50"><td className="p-3 font-bold text-slate-700">{log.event_type}</td><td className="p-3 font-mono text-blue-600 cursor-pointer select-all" onClick={() => navigator.clipboard.writeText(log.id)}>{log.id.substring(0,8)}...</td><td className="p-3 text-right text-slate-400">{new Date(log.event_timestamp).toLocaleTimeString()}</td></tr>))}</tbody>
-                    </table>
-                </div>
-            )}
+             <div className="bg-white p-3 rounded-xl border flex gap-2"><Search className="text-slate-400"/><input value={term} onChange={e=>setTerm(e.target.value)} placeholder="Search..." className="flex-1 outline-none text-sm"/></div>
+             <div className="bg-white rounded-xl border overflow-hidden">
+                 {filtered.map(l => (
+                     <div key={l.id} className="p-3 border-b flex justify-between text-xs hover:bg-slate-50">
+                         <span className="font-bold">{l.event_type}</span>
+                         <span className="font-mono text-slate-500">{l.id.substring(0,8)}...</span>
+                     </div>
+                 ))}
+                 {filtered.length === 0 && <div className="p-4 text-center text-xs text-slate-400">No events found.</div>}
+             </div>
         </div>
     );
 };
 
-// --- ERASURE COMPONENT ---
+// --- SUB-COMPONENT: ERASURE ---
 const ErasureForm = () => {
-  const [uid, setUid] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [res, setRes] = useState(null);
-  const apiKey = localStorage.getItem('av_active_key') || localStorage.getItem('av_sim_key');
+    const [uid, setUid] = useState('');
+    const [msg, setMsg] = useState(null);
+    const apiKey = localStorage.getItem('av_active_key') || localStorage.getItem('av_sim_key');
 
-  const handle = async (e) => {
-    e.preventDefault();
-    if (!apiKey) return alert("Missing API Key");
-    if (!window.confirm(`Destroy keys for ${uid}?`)) return;
-    setLoading(true);
-    try {
-        const data = await apiCall('/api/privacy/forget', { method: 'DELETE', body: { user_identifier: uid } }, null, apiKey);
-        setRes(data); setUid('');
-    } catch (e) { alert(e.message); } finally { setLoading(false); }
-  };
+    const handle = async (e) => {
+        e.preventDefault();
+        if(!apiKey) return alert("Missing API Key");
+        if(!confirm(`Destroy keys for ${uid}?`)) return;
+        try {
+            const res = await apiCall('/api/privacy/forget', {method:'DELETE', body:{user_identifier:uid}}, null, apiKey);
+            setMsg(res.message); setUid('');
+        } catch(e) { alert(e.message); }
+    };
 
-  return (
-    <form onSubmit={handle} className="space-y-3">
-        <input type="text" value={uid} onChange={e => setUid(e.target.value)} placeholder="User ID" className="w-full p-2 border rounded text-sm text-slate-900" required />
-        <button disabled={loading} className="w-full bg-red-600 text-white py-2 rounded text-sm font-bold">{loading ? 'Shredding...' : 'Crypto Shredding'}</button>
-        {res && <div className="p-2 bg-green-50 text-green-700 text-xs rounded">{res.message}</div>}
-    </form>
-  );
+    return (
+        <div className="space-y-2">
+            <form onSubmit={handle} className="flex gap-2">
+                <input value={uid} onChange={e=>setUid(e.target.value)} placeholder="User ID to Shred" className="flex-1 p-2 border rounded text-sm"/>
+                <button className="bg-red-600 text-white px-4 rounded text-sm font-bold">Shred</button>
+            </form>
+            {msg && <div className="text-xs text-emerald-600 font-bold">{msg}</div>}
+        </div>
+    );
 };
 
-// --- HELPERS ---
-const RecentLogsTable = memo(({ logs = [] }) => (
-    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-      <table className="w-full text-left text-xs">
-        <thead className="bg-slate-50 text-slate-500 border-b"><tr><th className="p-3">Event</th><th className="p-3">Hash</th><th className="p-3 text-right">Time</th></tr></thead>
-        <tbody className="divide-y divide-slate-50">{logs.map(log => (<tr key={log.id}><td className="p-3 font-bold text-slate-700">{log.event_type}</td><td className="p-3 font-mono text-blue-600">{log.data_hash?.substring(0,16)}...</td><td className="p-3 text-right text-slate-400">{new Date(log.event_timestamp).toLocaleTimeString()}</td></tr>))}</tbody>
-      </table>
+// --- SUB-COMPONENT: CHARTS & TABLES ---
+const LiveActivityChart = memo(({ dataPoints = [] }) => {
+    const points = dataPoints.length < 10 ? [...Array(10-dataPoints.length).fill(0), ...dataPoints] : dataPoints;
+    const max = Math.max(...points, 10);
+    const path = points.map((p,i) => `${(i/(points.length-1))*100},${100-(p/max)*80}`).join(' L ');
+    return (
+        <div className="h-40 w-full bg-blue-50/20 rounded-lg relative border border-blue-100 overflow-hidden mt-4">
+             <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 w-full h-full">
+                 <path d={`M 0,100 L ${path} L 100,100 Z`} fill="rgba(37,99,235,0.1)"/>
+                 <path d={`M 0,100 L ${path}`} fill="none" stroke="#2563eb" strokeWidth="1"/>
+             </svg>
+        </div>
+    );
+});
+
+const RecentLogsTable = ({ logs }) => (
+    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <table className="w-full text-left text-xs">
+            <thead className="bg-slate-50 border-b text-slate-500"><tr><th className="p-3">Event</th><th className="p-3">Hash</th><th className="p-3 text-right">Time</th></tr></thead>
+            <tbody className="divide-y">{logs.map(l => (
+                <tr key={l.id} className="hover:bg-slate-50">
+                    <td className="p-3 font-bold">{l.event_type}</td>
+                    <td className="p-3 font-mono text-blue-600">{l.data_hash?.substring(0,12)}...</td>
+                    <td className="p-3 text-right text-slate-400">{new Date(l.event_timestamp).toLocaleTimeString()}</td>
+                </tr>
+            ))}</tbody>
+        </table>
+        {logs.length===0 && <div className="p-8 text-center text-xs text-slate-400">No events logged yet.</div>}
     </div>
-));
+);
 
 // --- MAIN DASHBOARD ---
-const Dashboard = ({ processor, stats, token, eventData, setEventData, onLogEvent, KeyRotation, recentLogs, chartData, onLogout, session }) => {
+const Dashboard = ({ processor, stats, token, eventData, setEventData, onLogEvent, recentLogs, chartData, onLogout, session, onKeyUpdate }) => {
   const [activeTab, setActiveTab] = useState('logs');
+
+  // Hämta last_rotation_date från processorn för timern
+  const lastRotation = processor?.last_rotation_date;
 
   return (
     <div className="max-w-7xl mx-auto px-4 pt-8 pb-12 animate-fade-in-up">
+      {/* Header */}
       <div className="flex justify-between items-center mb-8">
         <div>
-            <div className="flex items-center gap-2 mb-1"><span className="px-2 py-0.5 rounded-full bg-emerald-100 text-[10px] font-bold text-emerald-700">EU-Frankfurt</span><span className="text-xs text-slate-400 font-mono">ID: {processor?.id?.substring(0,8)}</span></div>
-            <h1 className="text-3xl font-bold text-slate-900">{processor?.company_name}</h1>
+            <div className="flex items-center gap-2 mb-1">
+                <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-[10px] font-bold text-emerald-700 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> EU-Frankfurt
+                </span>
+                <span className="text-xs text-slate-400 font-mono">Node ID: {processor?.id?.substring(0,8)}</span>
+            </div>
+            <h1 className="text-2xl font-bold text-slate-900">{processor?.company_name || session?.user?.email}</h1>
         </div>
-        <button onClick={onLogout} className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-sm font-bold hover:bg-red-50 hover:text-red-600"><LogOut size={16} /> Logout</button>
+        <button onClick={onLogout} className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-sm font-bold hover:text-red-600 transition-colors flex items-center gap-2"><LogOut size={14}/> Logout</button>
       </div>
 
+      {/* Metrics & Sidebar Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 p-6 flex flex-col justify-between">
-             <div><div className="text-xs text-slate-400 font-bold uppercase">Total Events</div><div className="text-4xl font-bold text-slate-900">{stats?.totalEvents || 0}</div></div>
+        
+        {/* Main Stats Area */}
+        <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 p-6 shadow-sm flex flex-col justify-between">
+             <div className="flex justify-between items-start">
+                 <div><div className="text-xs text-slate-400 font-bold uppercase mb-1">Total Immutable Events</div><div className="text-4xl font-bold text-slate-900">{stats?.totalEvents?.toLocaleString() || 0}</div></div>
+                 <div className="text-right"><div className="text-xs text-slate-400 font-bold uppercase mb-1">Monthly Quota</div><div className="text-sm font-mono font-bold text-blue-600">{stats?.monthlyEvents || 0} / {processor?.monthly_events_limit || 1000}</div></div>
+             </div>
+             <LiveActivityChart dataPoints={chartData} />
         </div>
-        <div className="space-y-4">{KeyRotation}</div>
+
+        {/* Security Sidebar */}
+        <div className="space-y-4">
+            <KeyRotationTimer lastRotationDate={lastRotation} />
+            <KeyRotationAction 
+                token={token} 
+                userRole={processor?.owner_id === session?.user?.id ? 'owner' : 'member'} 
+                onKeyUpdate={(k) => {
+                    // Update parent state (App.jsx)
+                    if (onKeyUpdate) onKeyUpdate(k);
+                    // Local feedback
+                    alert("Key Rotated! Update your .env file.");
+                }} 
+            />
+        </div>
       </div>
 
+      {/* Tabs */}
       <div className="flex gap-1 bg-slate-100 p-1 rounded-xl mb-6 w-fit">
-        {['logs', 'search', 'verify', 'compliance'].map(tab => (
-          <button key={tab} onClick={() => setActiveTab(tab)} className={`px-4 py-2 rounded-lg text-sm font-bold capitalize ${activeTab === tab ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}>{tab}</button>
+        {['logs', 'search', 'verify', 'compliance'].map(t => (
+          <button key={t} onClick={()=>setActiveTab(t)} className={`px-4 py-2 rounded-lg text-xs font-bold capitalize ${activeTab===t?'bg-white shadow-sm text-slate-900':'text-slate-500 hover:text-slate-700'}`}>{t}</button>
         ))}
       </div>
 
+      {/* Content Area */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
-          {activeTab === 'logs' && <RecentLogsTable logs={recentLogs} />}
-          {activeTab === 'search' && <EventSearch token={token} />}
-          {activeTab === 'verify' && <MerkleProofViewer token={token} />}
-          {activeTab === 'compliance' && (
-            <div className="bg-white p-6 rounded-xl border border-slate-200">
-                <h3 className="font-bold text-lg mb-2 flex items-center gap-2 text-slate-900"><Trash2 size={20} className="text-red-500"/> Right to Erasure</h3>
-                <ErasureForm />
-            </div>
-          )}
-        </div>
-        <div className="space-y-6">
-          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-            <div className="flex items-center gap-2 mb-4 border-b pb-2"><Zap size={16} className="text-amber-500"/><h3 className="font-bold text-slate-800 text-sm">Event Injector</h3></div>
-            <form onSubmit={(e) => onLogEvent(e, eventData)} className="space-y-3">
-              <input type="text" className="w-full text-xs p-2 border rounded bg-slate-50 text-slate-900" value={eventData.event_type} onChange={e => setEventData({...eventData, event_type: e.target.value})} placeholder="Event Type" />
-              <input type="text" className="w-full text-xs p-2 border rounded bg-slate-50 text-slate-900" value={eventData.user_identifier} onChange={e => setEventData({...eventData, user_identifier: e.target.value})} placeholder="User ID" />
-              <textarea className="w-full text-xs p-2 border rounded bg-slate-50 font-mono h-20 text-slate-900" value={eventData.event_data} onChange={e => setEventData({...eventData, event_data: e.target.value})} placeholder='{"data": "value"}' />
-              <button className="w-full bg-slate-900 text-white text-xs font-bold py-2 rounded hover:bg-slate-800">Log Event</button>
-            </form>
+          <div className="lg:col-span-2 space-y-6">
+              {activeTab === 'logs' && <RecentLogsTable logs={recentLogs} />}
+              {activeTab === 'search' && <EventSearch token={token} />}
+              {activeTab === 'verify' && <MerkleProofViewer token={token} />}
+              {activeTab === 'compliance' && (
+                  <div className="bg-white p-6 rounded-xl border border-slate-200">
+                      <h3 className="font-bold text-lg mb-2 flex items-center gap-2 text-slate-900"><Trash2 size={20} className="text-red-500"/> Right to Erasure</h3>
+                      <p className="text-sm text-slate-500 mb-4">Execute Crypto-Shredding. This is irreversible.</p>
+                      <ErasureForm />
+                  </div>
+              )}
           </div>
-        </div>
+
+          {/* Event Injector Sidebar */}
+          <div className="space-y-6">
+              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                  <div className="flex items-center gap-2 mb-4 border-b pb-2"><Zap size={16} className="text-amber-500"/><h3 className="font-bold text-slate-800 text-sm">Event Injector</h3></div>
+                  <form onSubmit={(e) => onLogEvent(e, eventData)} className="space-y-3">
+                      <input className="w-full text-xs p-2 border rounded" value={eventData.event_type} onChange={e=>setEventData({...eventData, event_type:e.target.value})} placeholder="Event Type (e.g. user.login)"/>
+                      <input className="w-full text-xs p-2 border rounded" value={eventData.user_identifier} onChange={e=>setEventData({...eventData, user_identifier:e.target.value})} placeholder="User ID / Email"/>
+                      <textarea className="w-full text-xs p-2 border rounded font-mono h-20" value={eventData.event_data} onChange={e=>setEventData({...eventData, event_data:e.target.value})} placeholder='{"status": "success"}'/>
+                      <button className="w-full bg-slate-900 text-white text-xs font-bold py-2 rounded hover:bg-slate-700">Log Event</button>
+                  </form>
+              </div>
+          </div>
       </div>
     </div>
   );
