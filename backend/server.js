@@ -237,37 +237,58 @@ app.post('/api/events', authenticateAny, async (req, res) => {
   }
 });
 
-// 2. ERASURE (Strict Matching)
+// 2. ERASURE (DEBUG MODE)
 app.delete('/api/privacy/forget', authenticateApiKey, async (req, res) => {
     try {
         const { user_identifier } = privacyRequestSchema.parse(req.body);
-        const cleanUid = normalizeUserId(user_identifier);
+        
+        // Vi loggar exakt vad som kommer in
+        const cleanUid = String(user_identifier).trim().toLowerCase();
         const userHash = sha256(cleanUid);
         
-        const { data: keyRow } = await supabase.from('encryption_keys').select('id').eq('user_identifier_hash', userHash).maybeSingle();
-        
-        if (!keyRow) {
-             console.warn(`GDPR 404: Hash not found for ${cleanUid}`);
-             return res.status(404).json({ error: "Identity not found. Ensure ID matches exactly." });
+        console.log(`DEBUG: Mottog ID: '${cleanUid}'`);
+        console.log(`DEBUG: Genererad Hash: '${userHash}'`);
+
+        // Försök radera och returnera resultat
+        const { error: delError, count } = await supabase
+            .from('encryption_keys')
+            .delete()
+            .eq('user_identifier_hash', userHash)
+            .select('*');
+
+        // OM DET MISSLYCKAS: Skicka tillbaka hashen till dig i webbläsaren
+        if (count === 0 || delError) {
+             console.warn(`GDPR 404: Hash not found: ${userHash}`);
+             
+             return res.status(404).json({ 
+                 error: "Identity not found.",
+                 debug_details: {
+                     sent_id: cleanUid,
+                     server_generated_hash: userHash,
+                     database_message: delError ? delError.message : "No rows deleted"
+                 }
+             });
         }
 
-        const { error: delError } = await supabase.from('encryption_keys').delete().eq('user_identifier_hash', userHash);
-        if (delError) throw delError;
-        
+        // ... Resten av loggningen (om det lyckas) ...
         const data_hash = sha256(`ERASED-${userHash}-${Date.now()}`);
-        const { count } = await supabase.from('audit_events').select('*', { count: 'exact', head: true }).eq('processor_id', req.processor.id);
+        const { count: totalEvents } = await supabase.from('audit_events').select('*', { count: 'exact', head: true }).eq('processor_id', req.processor.id);
 
         await supabase.from('audit_events').insert([{ 
             processor_id: req.processor.id, event_type: 'gdpr.right_to_erasure', 
             user_identifier: userHash, event_data: { status: 'KEYS_DESTROYED' }, 
-            event_timestamp: new Date().toISOString(), data_hash, leaf_index: count || 0
+            event_timestamp: new Date().toISOString(), data_hash, leaf_index: totalEvents || 0
         }]);
 
         await logSystemEvent(req.processor.id, 'gdpr_erasure', 'API_AUTOMATION', { target_hash: userHash });
 
-        res.json({ success: true, message: 'Cryptographic keys destroyed.' });
-    } catch (err) { res.status(500).json({ error: 'Erasure failed' }); }
+        res.json({ success: true, message: `Success! Destroyed key for hash: ${userHash.substring(0, 10)}...` });
+    } catch (err) { 
+        console.error("Erasure failed:", err.message);
+        res.status(500).json({ error: 'Erasure failed', details: err.message }); 
+    }
 });
+
 
 // 3. DASHBOARD ROUTES
 app.get('/api/dashboard', authenticateUser, async (req, res) => {
