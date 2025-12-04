@@ -342,28 +342,36 @@ const LiveActivityChart = memo(({ dataPoints = [] }) => {
     );
 });
 
-// --- LOGS TABLE ---
+// --- UPDATED LOGS TABLE (With Scroll & Sticky Header) ---
 const RecentLogsTable = ({ logs }) => (
-    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-        <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 border-b text-slate-500">
-                <tr>
-                    <th className="p-3">Event</th>
-                    <th className="p-3">User Hash (GDPR Key)</th>
-                    <th className="p-3">Data Hash (Merkle Leaf)</th>
-                    <th className="p-3 text-right">Time</th>
-                </tr>
-            </thead>
-            <tbody className="divide-y">{logs.map(l => (
-                <tr key={l.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="p-3 font-bold">{l.event_type}</td>
-                    <td className="p-3"><HashDisplay hash={l.user_identifier} /></td>
-                    <td className="p-3"><HashDisplay hash={l.data_hash} /></td>
-                    <td className="p-3 text-right text-slate-400">{new Date(l.event_timestamp).toLocaleTimeString()}</td>
-                </tr>
-            ))}</tbody>
-        </table>
-        {logs.length===0 && <div className="p-8 text-center text-xs text-slate-400">No events logged yet. Use the Injector to start.</div>}
+    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden flex flex-col max-h-[500px]">
+        <div className="overflow-y-auto custom-scrollbar">
+            <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 border-b text-slate-500 sticky top-0 z-10 shadow-sm">
+                    <tr>
+                        <th className="p-3 bg-slate-50">Event</th>
+                        <th className="p-3 bg-slate-50">User Hash (GDPR Key)</th>
+                        <th className="p-3 bg-slate-50">Data Hash (Merkle Leaf)</th>
+                        <th className="p-3 text-right bg-slate-50">Time</th>
+                    </tr>
+                </thead>
+                <tbody className="divide-y">
+                    {logs.map(l => (
+                        <tr key={l.id} className="hover:bg-slate-50 transition-colors">
+                            <td className="p-3 font-bold">{l.event_type}</td>
+                            <td className="p-3"><HashDisplay hash={l.user_identifier} /></td>
+                            <td className="p-3"><HashDisplay hash={l.data_hash} /></td>
+                            <td className="p-3 text-right text-slate-400">{new Date(l.event_timestamp).toLocaleTimeString()}</td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+            {logs.length === 0 && (
+                <div className="p-8 text-center text-xs text-slate-400">
+                    No events logged yet. Use the Injector to start.
+                </div>
+            )}
+        </div>
     </div>
 );
 
