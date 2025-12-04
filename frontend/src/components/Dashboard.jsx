@@ -1,6 +1,6 @@
 // ============================================================
 // AUDITOR VERITAS - DASHBOARD COMPONENT
-// Version: 3.1.0 - PRODUCTION READY (Cleaned & Optimized)
+// Version: 4.0.0 - PRODUCTION (Real 24h Analytics)
 // ============================================================
 
 import React, { useState, useEffect, useMemo, memo } from 'react';
@@ -10,10 +10,10 @@ import {
   Copy, Loader2, QrCode, ShieldCheck
 } from 'lucide-react';
 
-// --- API HELPER ---
-const API_BASE_URL = 'https://auditor-veritas-mvp.onrender.com';
+// PRODUCTION CONFIG: Use Env Var or Fallback
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://auditor-veritas-mvp.onrender.com';
 
-const apiCall = async (endpoint, options = {}, token = null, apiKey = null) => {
+export const apiCall = async (endpoint, options = {}, token = null, apiKey = null) => {
   const headers = { 'Content-Type': 'application/json', ...options.headers };
   if (token) headers['Authorization'] = `Bearer ${token}`;
   if (apiKey) headers['x-api-key'] = apiKey;
@@ -36,7 +36,6 @@ const apiCall = async (endpoint, options = {}, token = null, apiKey = null) => {
   }
 };
 
-// --- SUB-COMPONENT: KEY ROTATION TIMER ---
 const KeyRotationTimer = ({ lastRotationDate }) => {
   const daysLeft = useMemo(() => {
     const rotation = lastRotationDate ? new Date(lastRotationDate) : new Date();
@@ -67,9 +66,8 @@ const KeyRotationTimer = ({ lastRotationDate }) => {
   );
 };
 
-// --- SUB-COMPONENT: KEY ROTATION ACTION ---
-const KeyRotationAction = ({ token, onKeyUpdate, userRole, lastRotationDate }) => {
-    const [step, setStep] = useState('idle'); // idle | setup | verify | complete
+const KeyRotationAction = ({ token, onKeyUpdate, userRole }) => {
+    const [step, setStep] = useState('idle');
     const [has2FA, setHas2FA] = useState(false);
     const [qrData, setQrData] = useState(null);
     const [code, setCode] = useState('');
@@ -186,7 +184,6 @@ const KeyRotationAction = ({ token, onKeyUpdate, userRole, lastRotationDate }) =
     );
 };
 
-// --- SUB-COMPONENT: MERKLE VIEWER ---
 const MerkleProofViewer = ({ token }) => {
     const [id, setId] = useState('');
     const [data, setData] = useState(null);
@@ -213,6 +210,7 @@ const MerkleProofViewer = ({ token }) => {
                  <div className="p-3 bg-emerald-50 border border-emerald-100 rounded text-xs space-y-1">
                      <div className="font-bold text-emerald-700 flex items-center gap-2"><CheckCircle2 size={14}/> Proof Valid</div>
                      <div><span className="font-bold">Root:</span> <span className="font-mono">{data.merkle_root.substring(0,20)}...</span></div>
+                     <div><span className="font-bold">Leaf Index:</span> {data.leaf_index}</div>
                      <div><span className="font-bold">Proof Depth:</span> {data.proof.length} nodes</div>
                  </div>
              )}
@@ -220,7 +218,6 @@ const MerkleProofViewer = ({ token }) => {
     );
 };
 
-// --- SUB-COMPONENT: SEARCH ---
 const EventSearch = ({ token }) => {
     const [logs, setLogs] = useState([]);
     const [term, setTerm] = useState('');
@@ -247,7 +244,6 @@ const EventSearch = ({ token }) => {
     );
 };
 
-// --- SUB-COMPONENT: ERASURE ---
 const ErasureForm = () => {
     const [uid, setUid] = useState('');
     const [msg, setMsg] = useState(null);
@@ -256,7 +252,7 @@ const ErasureForm = () => {
     const handle = async (e) => {
         e.preventDefault();
         if(!apiKey) return alert("Missing API Key");
-        if(!confirm(`Destroy keys for ${uid}?`)) return;
+        if(!confirm(`Destroy keys for ${uid}? This cannot be undone.`)) return;
         try {
             const res = await apiCall('/api/privacy/forget', {method:'DELETE', body:{user_identifier:uid}}, null, apiKey);
             setMsg(res.message); setUid('');
@@ -264,26 +260,43 @@ const ErasureForm = () => {
     };
 
     return (
-        <div className="space-y-2">
+        <div className="space-y-3">
+            <p className="text-xs text-slate-500 bg-slate-50 p-2 rounded">
+                <strong>Instruction:</strong> Enter the EXACT <code>User ID</code> used when logging events. Hashed keys will be located and destroyed.
+            </p>
             <form onSubmit={handle} className="flex gap-2">
-                <input value={uid} onChange={e=>setUid(e.target.value)} placeholder="User ID to Shred" className="flex-1 p-2 border rounded text-sm"/>
-                <button className="bg-red-600 text-white px-4 rounded text-sm font-bold">Shred</button>
+                <input value={uid} onChange={e=>setUid(e.target.value)} placeholder="e.g. user_123" className="flex-1 p-2 border rounded text-sm"/>
+                <button className="bg-red-600 text-white px-4 rounded text-sm font-bold">Shred Keys</button>
             </form>
-            {msg && <div className="text-xs text-emerald-600 font-bold">{msg}</div>}
+            {msg && <div className="text-xs text-emerald-600 font-bold flex items-center gap-2"><CheckCircle2 size={12}/> {msg}</div>}
         </div>
     );
 };
 
-// --- SUB-COMPONENT: CHARTS & TABLES ---
 const LiveActivityChart = memo(({ dataPoints = [] }) => {
-    const points = dataPoints.length < 10 ? [...Array(10-dataPoints.length).fill(0), ...dataPoints] : dataPoints;
-    const max = Math.max(...points, 10);
-    const path = points.map((p,i) => `${(i/(points.length-1))*100},${100-(p/max)*80}`).join(' L ');
+    // Expect 24 data points (one for each hour)
+    const points = dataPoints.length === 24 ? dataPoints : new Array(24).fill(0);
+    const max = Math.max(...points, 5); 
+    
+    // Create path for SVG
+    const path = points.map((p,i) => {
+        const x = (i / (points.length - 1)) * 100;
+        const y = 100 - (p / max) * 90; // 90% usage height
+        return `${x},${y}`;
+    }).join(' L ');
+
     return (
         <div className="h-40 w-full bg-blue-50/20 rounded-lg relative border border-blue-100 overflow-hidden mt-4">
+             <div className="absolute top-2 left-2 text-[10px] text-blue-400 font-bold">LAST 24 HOURS ACTIVITY</div>
              <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 w-full h-full">
-                 <path d={`M 0,100 L ${path} L 100,100 Z`} fill="rgba(37,99,235,0.1)"/>
-                 <path d={`M 0,100 L ${path}`} fill="none" stroke="#2563eb" strokeWidth="1"/>
+                 <defs>
+                     <linearGradient id="gradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="rgba(37,99,235,0.2)" />
+                        <stop offset="100%" stopColor="rgba(37,99,235,0)" />
+                     </linearGradient>
+                 </defs>
+                 <path d={`M 0,100 L ${path} L 100,100 Z`} fill="url(#gradient)"/>
+                 <path d={`M 0,100 L ${path}`} fill="none" stroke="#2563eb" strokeWidth="1.5"/>
              </svg>
         </div>
     );
@@ -294,22 +307,19 @@ const RecentLogsTable = ({ logs }) => (
         <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 border-b text-slate-500"><tr><th className="p-3">Event</th><th className="p-3">Hash</th><th className="p-3 text-right">Time</th></tr></thead>
             <tbody className="divide-y">{logs.map(l => (
-                <tr key={l.id} className="hover:bg-slate-50">
+                <tr key={l.id} className="hover:bg-slate-50 transition-colors">
                     <td className="p-3 font-bold">{l.event_type}</td>
                     <td className="p-3 font-mono text-blue-600">{l.data_hash?.substring(0,12)}...</td>
                     <td className="p-3 text-right text-slate-400">{new Date(l.event_timestamp).toLocaleTimeString()}</td>
                 </tr>
             ))}</tbody>
         </table>
-        {logs.length===0 && <div className="p-8 text-center text-xs text-slate-400">No events logged yet.</div>}
+        {logs.length===0 && <div className="p-8 text-center text-xs text-slate-400">No events logged yet. Use the Injector to start.</div>}
     </div>
 );
 
-// --- MAIN DASHBOARD ---
 const Dashboard = ({ processor, stats, token, eventData, setEventData, onLogEvent, recentLogs, chartData, onLogout, session, onKeyUpdate }) => {
   const [activeTab, setActiveTab] = useState('logs');
-
-  // Hämta last_rotation_date från processorn för timern
   const lastRotation = processor?.last_rotation_date;
 
   return (
@@ -347,9 +357,7 @@ const Dashboard = ({ processor, stats, token, eventData, setEventData, onLogEven
                 token={token} 
                 userRole={processor?.owner_id === session?.user?.id ? 'owner' : 'member'} 
                 onKeyUpdate={(k) => {
-                    // Update parent state (App.jsx)
                     if (onKeyUpdate) onKeyUpdate(k);
-                    // Local feedback
                     alert("Key Rotated! Update your .env file.");
                 }} 
             />
@@ -383,9 +391,18 @@ const Dashboard = ({ processor, stats, token, eventData, setEventData, onLogEven
               <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
                   <div className="flex items-center gap-2 mb-4 border-b pb-2"><Zap size={16} className="text-amber-500"/><h3 className="font-bold text-slate-800 text-sm">Event Injector</h3></div>
                   <form onSubmit={(e) => onLogEvent(e, eventData)} className="space-y-3">
-                      <input className="w-full text-xs p-2 border rounded" value={eventData.event_type} onChange={e=>setEventData({...eventData, event_type:e.target.value})} placeholder="Event Type (e.g. user.login)"/>
-                      <input className="w-full text-xs p-2 border rounded" value={eventData.user_identifier} onChange={e=>setEventData({...eventData, user_identifier:e.target.value})} placeholder="User ID / Email"/>
-                      <textarea className="w-full text-xs p-2 border rounded font-mono h-20" value={eventData.event_data} onChange={e=>setEventData({...eventData, event_data:e.target.value})} placeholder='{"status": "success"}'/>
+                      <div>
+                          <label className="text-[10px] font-bold text-slate-500 uppercase">Event Type</label>
+                          <input className="w-full text-xs p-2 border rounded" value={eventData.event_type} onChange={e=>setEventData({...eventData, event_type:e.target.value})} placeholder="e.g. user.login"/>
+                      </div>
+                      <div>
+                          <label className="text-[10px] font-bold text-slate-500 uppercase">User ID / Email</label>
+                          <input className="w-full text-xs p-2 border rounded" value={eventData.user_identifier} onChange={e=>setEventData({...eventData, user_identifier:e.target.value})} placeholder="e.g. user_123"/>
+                      </div>
+                      <div>
+                          <label className="text-[10px] font-bold text-slate-500 uppercase">Payload (JSON)</label>
+                          <textarea className="w-full text-xs p-2 border rounded font-mono h-20" value={eventData.event_data} onChange={e=>setEventData({...eventData, event_data:e.target.value})} placeholder='{"status": "success"}'/>
+                      </div>
                       <button className="w-full bg-slate-900 text-white text-xs font-bold py-2 rounded hover:bg-slate-700">Log Event</button>
                   </form>
               </div>

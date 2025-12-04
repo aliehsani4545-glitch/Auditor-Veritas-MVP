@@ -1,6 +1,6 @@
 // ============================================================
-// AUDITOR VERITAS - ZERO TRUST FRONTEND APPLICATION
-// Version: 2.1.1 - Privacy by Default (Production Optimized)
+// AUDITOR VERITAS - PRODUCTION FRONTEND
+// Version: 3.0.0 - PRODUCTION
 // ============================================================
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -27,7 +27,9 @@ import TypewriterEffect from './components/TypewriterEffect';
 import PrivacyPage from './components/PrivacyPage';
 import CookieConsent from './components/CookieConsent';
 import CodeIntegration from './components/CodeIntegration';
+// Cleaned-up and fixed import:
 import Dashboard from './components/Dashboard';
+import { apiCall } from './components/Dashboard'; // Import the named export separately
 import IntegrityFocusPage from './components/IntegrityFocusPage';
 import SecurityPage from './components/SecurityPage';
 import DocsModal from './components/DocsModal';
@@ -39,7 +41,7 @@ import ServicesPage from './components/ServicesPage';
 import EuroLedgerDemo from './components/EuroLedgerDemo';
 import EnterpriseForm from './components/EnterpriseForm';
 
-const API_BASE_URL = 'https://auditor-veritas-mvp.onrender.com';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://auditor-veritas-mvp.onrender.com';
 const SUPABASE_URL = 'https://ridpgvikvjreljwypbpj.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJpZHBndmlrdmpyZWxqd3lwYnBqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM0MDU5MDksImV4cCI6MjA3ODk4MTkwOX0.qP9Okdx8uroKpkWjoUNLNC9WcRSPD6S6AV7RasCCPHg';
 
@@ -48,25 +50,7 @@ if (typeof window !== 'undefined') gsap.registerPlugin(ScrollTrigger);
 
 const UNIFIED_CONSENT_KEY = 'unified_cookie_consent_v2';
 
-export const apiCall = async (endpoint, options = {}, token = null, apiKey = null) => {
-  const sanitize = (str) => str ? str.replace(/[^\x00-\x7F]/g, "") : str;
-  const headers = { 'Content-Type': 'application/json; charset=utf-8', ...options.headers };
-  if (token) headers['Authorization'] = `Bearer ${sanitize(token)}`;
-  if (apiKey) headers['x-api-key'] = sanitize(apiKey);
-
-  try {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      headers, ...options, body: options.body ? JSON.stringify(options.body) : null
-    });
-    if (response.status === 204) return null;
-    const text = await response.text();
-    let data;
-    try { data = text ? JSON.parse(text) : {}; }
-    catch (e) { throw new Error(`Server connection error (${response.status}).`); }
-    if (!response.ok) throw new Error(data.error || `Server Error: ${response.status}`);
-    return data;
-  } catch (e) { throw new Error(e.message || "Connection failed."); }
-};
+// --- SHARED HELPER COMPONENTS ---
 
 const isCorporateEmail = (email) => {
   const blockedDomains = ['gmail.com', 'hotmail.com', 'outlook.com', 'yahoo.com', 'icloud.com', 'protonmail.com', 'live.com', 'msn.com'];
@@ -340,6 +324,8 @@ const CreateProcessor = ({ token, onProcessorCreated }) => {
   );
 };
 
+// --- MAIN APP ---
+
 function App() {
   const [privacyAccepted, setPrivacyAccepted] = useState(localStorage.getItem('el_privacy_v1') === 'true');
   const [unifiedCookieStatus, setUnifiedCookieStatus] = useState(localStorage.getItem(UNIFIED_CONSENT_KEY) || null);
@@ -401,9 +387,13 @@ function App() {
       setProcessor(data.processor);
       setStats(data.stats);
       setUserRole(data.userRole);
+      
       const logsData = await apiCall('/api/events/search?limit=10', { method: 'GET' }, token);
       setRecentLogs(logsData.events || []);
-      setChartData([]);
+      
+      // Update with REAL 24h data from backend
+      setChartData(data.chartData || []); 
+      
       if (hasJoinToken) setActiveTab('dashboard');
     } catch (e) {
       console.error("Dashboard API Error:", e.message);
@@ -455,7 +445,7 @@ function App() {
 
       await apiCall('/api/events', {
         method: 'POST',
-        body: { event_type: payloadData.event_type, event_data: finalEventData, user_identifier: realUserIdentifier }
+        body: { event_type: payloadData.event_type, event_data: finalEventData, user_identifier: payloadData.user_identifier }
       }, null, keyToUse);
 
       fetchDashboard();
