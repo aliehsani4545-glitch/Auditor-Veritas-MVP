@@ -1,6 +1,6 @@
 // ============================================================
 // AUDITOR VERITAS - DASHBOARD COMPONENT
-// Version: 4.6.0 - PRODUCTION (Debug & Export Fixed)
+// Version: 4.9.0 - PRODUCTION (Polished Search UI)
 // ============================================================
 
 import React, { useState, useEffect, useMemo, memo } from 'react';
@@ -187,34 +187,7 @@ const MerkleProofViewer = ({ token }) => {
     );
 };
 
-// --- EVENT SEARCH ---
-const EventSearch = ({ token }) => {
-    const [logs, setLogs] = useState([]);
-    const [term, setTerm] = useState('');
-    useEffect(() => { 
-        if(token) apiCall('/api/events/search?limit=50', {method:'GET'}, token).then(d => setLogs(d.events || [])).catch(console.error); 
-    }, [token]);
-    
-    const filtered = logs.filter(l => JSON.stringify(l).toLowerCase().includes(term.toLowerCase()));
-    
-    return (
-        <div className="space-y-4">
-             <div className="bg-white p-3 rounded-xl border flex gap-2"><Search className="text-slate-400"/><input value={term} onChange={e=>setTerm(e.target.value)} placeholder="Search..." className="flex-1 outline-none text-sm"/></div>
-             <div className="bg-white rounded-xl border overflow-hidden">
-                 {filtered.map(l => (
-                     <div key={l.id} className="p-3 border-b flex justify-between text-xs hover:bg-slate-50 items-center">
-                         <span className="font-bold w-1/3">{l.event_type}</span>
-                         <span className="w-1/3"><HashDisplay hash={l.data_hash} /></span>
-                         <span className="font-mono text-slate-500 w-1/3 text-right">{l.id.substring(0,8)}...</span>
-                     </div>
-                 ))}
-                 {filtered.length === 0 && <div className="p-4 text-center text-xs text-slate-400">No events found.</div>}
-             </div>
-        </div>
-    );
-};
-
-// --- GDPR ERASURE FORM (Debugged) ---
+// --- GDPR ERASURE FORM (Strict) ---
 const ErasureForm = () => {
     const [uid, setUid] = useState('');
     const [msg, setMsg] = useState(null);
@@ -223,17 +196,13 @@ const ErasureForm = () => {
     const handle = async (e) => {
         e.preventDefault();
         
-        console.log("[Erasure] Initiating request for:", uid);
-        console.log("[Erasure] Using API Key:", apiKey ? `${apiKey.substring(0,5)}...` : 'MISSING');
-
         if(!apiKey) return alert("Missing API Key. Please verify you are logged in correctly.");
         if(!confirm(`Destroy keys for ${uid}? This cannot be undone.`)) return;
         
         try {
-            const payload = { user_identifier: uid.trim().toLowerCase() };
+            const payload = { user_identifier: uid.trim() };
             const res = await apiCall('/api/privacy/forget', { method: 'DELETE', body: payload }, null, apiKey);
             
-            console.log("[Erasure] Success response:", res);
             setMsg(res.message); 
             setUid('');
         } catch(e) { 
@@ -261,46 +230,38 @@ const ErasureForm = () => {
     );
 };
 
-// --- GDPR EXPORT TOOL (Debugged) ---
+// --- GDPR EXPORT TOOL ---
 const DataAccessSection = ({ token }) => {
     const [loading, setLoading] = useState(false);
 
     const handleExport = async () => {
-        console.log("[Export] Starting export...");
         if (!token) {
-            console.error("[Export] No token provided to component.");
             alert("Auth error: No token found. Try reloading.");
             return;
         }
 
         setLoading(true);
         try {
-            // Hämta data
             const data = await apiCall('/api/events/search?limit=100', { method: 'GET' }, token);
-            console.log("[Export] Fetched data:", data);
-
+            
             if (!data || !data.events || data.events.length === 0) {
-                alert("No data found to export. Try creating some events first.");
+                alert("No data found to export.");
                 setLoading(false);
                 return;
             }
 
-            // Skapa fil
             const jsonString = JSON.stringify(data.events, null, 2);
             const blob = new Blob([jsonString], { type: "application/json" });
             const url = URL.createObjectURL(blob);
             
-            // Ladda ner
             const link = document.createElement('a');
             link.href = url;
             link.download = `gdpr_export_${new Date().toISOString().split('T')[0]}.json`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-            console.log("[Export] Download trigger sent.");
 
         } catch (e) {
-            console.error("[Export] Failed:", e);
             alert(`Export failed: ${e.message}`);
         } finally {
             setLoading(false);
@@ -345,7 +306,7 @@ const LiveActivityChart = memo(({ dataPoints = [] }) => {
 // --- UPDATED LOGS TABLE (With Scroll & Sticky Header) ---
 const RecentLogsTable = ({ logs }) => (
     <div className="bg-white rounded-xl border border-slate-200 overflow-hidden flex flex-col max-h-[500px]">
-        <div className="overflow-y-auto custom-scrollbar">
+        <div className="overflow-y-auto custom-scrollbar relative">
             <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 border-b text-slate-500 sticky top-0 z-10 shadow-sm">
                     <tr>
@@ -375,10 +336,33 @@ const RecentLogsTable = ({ logs }) => (
     </div>
 );
 
-// --- MAIN DASHBOARD ---
+// --- MAIN DASHBOARD (Updated: Search Integrated Next to Tabs) ---
 const Dashboard = ({ processor, stats, token, eventData, setEventData, onLogEvent, recentLogs, chartData, onLogout, session, onKeyUpdate }) => {
   const [activeTab, setActiveTab] = useState('logs');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchableLogs, setSearchableLogs] = useState([]);
   const lastRotation = processor?.last_rotation_date;
+
+  // Hämta en större mängd loggar för sökning
+  useEffect(() => {
+    if(token) {
+        apiCall('/api/events/search?limit=100', {method:'GET'}, token)
+        .then(d => setSearchableLogs(d.events || []))
+        .catch(console.error);
+    }
+  }, [token, recentLogs]); // Uppdatera när nya loggar kommer in
+
+  // Filtrera loggar baserat på sökordet
+  const displayedLogs = useMemo(() => {
+    if (!searchTerm.trim()) return recentLogs;
+    const lowerTerm = searchTerm.toLowerCase();
+    return searchableLogs.filter(l => 
+        l.event_type.toLowerCase().includes(lowerTerm) || 
+        l.user_identifier.toLowerCase().includes(lowerTerm) ||
+        l.data_hash.toLowerCase().includes(lowerTerm) ||
+        l.id.toLowerCase().includes(lowerTerm)
+    );
+  }, [searchTerm, recentLogs, searchableLogs]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 pt-8 pb-12 animate-fade-in-up">
@@ -405,15 +389,33 @@ const Dashboard = ({ processor, stats, token, eventData, setEventData, onLogEven
             <KeyRotationAction token={token} userRole={processor?.owner_id === session?.user?.id ? 'owner' : 'member'} onKeyUpdate={(k) => {if (onKeyUpdate) onKeyUpdate(k); alert("Key Rotated! Update your .env file.");}} />
         </div>
       </div>
-      <div className="flex gap-1 bg-slate-100 p-1 rounded-xl mb-6 w-fit">
-        {['logs', 'search', 'verify', 'compliance'].map(t => (
-          <button key={t} onClick={()=>setActiveTab(t)} className={`px-4 py-2 rounded-lg text-xs font-bold capitalize ${activeTab===t?'bg-white shadow-sm text-slate-900':'text-slate-500 hover:text-slate-700'}`}>{t}</button>
-        ))}
+
+      {/* TABS + SEARCH ROW (Adjusted Layout) */}
+      <div className="flex flex-col md:flex-row items-start md:items-center mb-6 gap-6">
+        <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-full md:w-auto">
+            {['logs', 'verify', 'compliance'].map(t => (
+            <button key={t} onClick={()=>setActiveTab(t)} className={`px-4 py-2 rounded-lg text-xs font-bold capitalize ${activeTab===t?'bg-white shadow-sm text-slate-900':'text-slate-500 hover:text-slate-700'}`}>{t}</button>
+            ))}
+        </div>
+        
+        {/* Search Input - Placed next to tabs with some spacing */}
+        <div className="relative w-full md:w-auto flex-1 md:flex-none md:max-w-xs">
+             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+             <input 
+                value={searchTerm}
+                onChange={e => {
+                    setSearchTerm(e.target.value);
+                    if(activeTab !== 'logs') setActiveTab('logs');
+                }}
+                placeholder="Search logs..." 
+                className="pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 w-full md:w-64 transition-all shadow-sm"
+             />
+        </div>
       </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
-              {activeTab === 'logs' && <RecentLogsTable logs={recentLogs} />}
-              {activeTab === 'search' && <EventSearch token={token} />}
+              {activeTab === 'logs' && <RecentLogsTable logs={displayedLogs} />}
               {activeTab === 'verify' && <MerkleProofViewer token={token} />}
               {activeTab === 'compliance' && (
                   <div className="bg-white p-6 rounded-xl border border-slate-200 space-y-6">
