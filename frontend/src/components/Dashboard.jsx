@@ -1,6 +1,6 @@
 // ============================================================
 // AUDITOR VERITAS - DASHBOARD COMPONENT
-// Version: 4.0.0 - PRODUCTION (Real 24h Analytics)
+// Version: 4.1.0 - PRODUCTION (Polished UI & Strict Logic)
 // ============================================================
 
 import React, { useState, useEffect, useMemo, memo } from 'react';
@@ -10,7 +10,6 @@ import {
   Copy, Loader2, QrCode, ShieldCheck
 } from 'lucide-react';
 
-// PRODUCTION CONFIG: Use Env Var or Fallback
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://auditor-veritas-mvp.onrender.com';
 
 export const apiCall = async (endpoint, options = {}, token = null, apiKey = null) => {
@@ -128,7 +127,7 @@ const KeyRotationAction = ({ token, onKeyUpdate, userRole }) => {
             {step === 'idle' && (
                 <div className="text-center space-y-3">
                     <p className="text-xs text-slate-500">
-                        API Keys allow your systems to log events. Rotate this key every 90 days for security.
+                        Rotate API keys every 90 days.
                     </p>
                     <button 
                         onClick={startRotation} 
@@ -155,12 +154,12 @@ const KeyRotationAction = ({ token, onKeyUpdate, userRole }) => {
 
             {step === 'verify' && (
                  <form onSubmit={confirm} className="space-y-3 animate-fade-in">
-                    <p className="text-xs text-slate-600">Enter 6-digit code from your app to authorize rotation:</p>
+                    <p className="text-xs text-slate-600">Enter code:</p>
                     <input autoFocus type="text" maxLength={6} className="w-full text-center text-xl tracking-widest p-2 border rounded font-mono" placeholder="000000" value={code} onChange={e => setCode(e.target.value.replace(/\D/g,''))} />
                     <div className="flex gap-2">
                         <button type="button" onClick={() => {setStep('idle'); setCode('');}} className="flex-1 bg-slate-100 text-slate-600 py-2 rounded-lg text-xs font-bold">Cancel</button>
                         <button disabled={loading || code.length !== 6} className="flex-1 bg-emerald-600 text-white py-2 rounded-lg text-xs font-bold">
-                            {loading ? <Loader2 className="animate-spin mx-auto w-4 h-4"/> : 'Verify & Rotate'}
+                            {loading ? <Loader2 className="animate-spin mx-auto w-4 h-4"/> : 'Verify'}
                         </button>
                     </div>
                  </form>
@@ -170,13 +169,12 @@ const KeyRotationAction = ({ token, onKeyUpdate, userRole }) => {
                 <div className="space-y-3 animate-fade-in">
                     <div className="p-3 bg-emerald-50 border border-emerald-100 rounded text-center">
                         <CheckCircle2 className="mx-auto text-emerald-500 mb-2" size={24}/>
-                        <h4 className="text-sm font-bold text-emerald-800">New Key Generated</h4>
+                        <h4 className="text-sm font-bold text-emerald-800">Key Rotated</h4>
                     </div>
                     <div className="bg-slate-900 p-3 rounded group relative">
                         <code className="text-emerald-400 font-mono text-xs break-all">{newKey}</code>
                         <button onClick={() => navigator.clipboard.writeText(newKey)} className="absolute top-2 right-2 text-slate-400 hover:text-white"><Copy size={14}/></button>
                     </div>
-                    <p className="text-[10px] text-red-500 font-bold text-center">⚠️ Update your .env file immediately. The old key is now dead.</p>
                     <button onClick={() => {setStep('idle'); setNewKey(null); setCode('');}} className="w-full bg-slate-200 text-slate-700 py-2 rounded-lg text-xs font-bold">Done</button>
                 </div>
             )}
@@ -262,7 +260,7 @@ const ErasureForm = () => {
     return (
         <div className="space-y-3">
             <p className="text-xs text-slate-500 bg-slate-50 p-2 rounded">
-                <strong>Instruction:</strong> Enter the EXACT <code>User ID</code> used when logging events. Hashed keys will be located and destroyed.
+                <strong>Instruction:</strong> Enter the EXACT <code>User ID</code> used when logging events. Hashed keys will be destroyed.
             </p>
             <form onSubmit={handle} className="flex gap-2">
                 <input value={uid} onChange={e=>setUid(e.target.value)} placeholder="e.g. user_123" className="flex-1 p-2 border rounded text-sm"/>
@@ -273,30 +271,31 @@ const ErasureForm = () => {
     );
 };
 
+// --- UPDATED CHART (Thinner, cleaner) ---
 const LiveActivityChart = memo(({ dataPoints = [] }) => {
-    // Expect 24 data points (one for each hour)
     const points = dataPoints.length === 24 ? dataPoints : new Array(24).fill(0);
     const max = Math.max(...points, 5); 
     
-    // Create path for SVG
+    // Smooth bezier-like curve using simple lines for clarity
     const path = points.map((p,i) => {
         const x = (i / (points.length - 1)) * 100;
-        const y = 100 - (p / max) * 90; // 90% usage height
+        const y = 100 - (p / max) * 80; // Uses 80% height to leave headroom
         return `${x},${y}`;
     }).join(' L ');
 
     return (
-        <div className="h-40 w-full bg-blue-50/20 rounded-lg relative border border-blue-100 overflow-hidden mt-4">
-             <div className="absolute top-2 left-2 text-[10px] text-blue-400 font-bold">LAST 24 HOURS ACTIVITY</div>
+        <div className="h-40 w-full bg-slate-50/50 rounded-lg relative border border-slate-100 overflow-hidden mt-4">
+             <div className="absolute top-2 left-2 text-[10px] text-slate-400 font-bold tracking-wider">24H TRAFFIC</div>
              <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 w-full h-full">
                  <defs>
-                     <linearGradient id="gradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="rgba(37,99,235,0.2)" />
-                        <stop offset="100%" stopColor="rgba(37,99,235,0)" />
+                     <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.1" />
+                        <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
                      </linearGradient>
                  </defs>
-                 <path d={`M 0,100 L ${path} L 100,100 Z`} fill="url(#gradient)"/>
-                 <path d={`M 0,100 L ${path}`} fill="none" stroke="#2563eb" strokeWidth="1.5"/>
+                 <path d={`M 0,100 L ${path} L 100,100 Z`} fill="url(#chartGradient)"/>
+                 {/* Stroke width set to 0.5 for a very thin, elegant line */}
+                 <path d={`M 0,100 L ${path}`} fill="none" stroke="#3b82f6" strokeWidth="0.5" strokeLinecap="round" strokeLinejoin="round"/>
              </svg>
         </div>
     );
@@ -324,7 +323,6 @@ const Dashboard = ({ processor, stats, token, eventData, setEventData, onLogEven
 
   return (
     <div className="max-w-7xl mx-auto px-4 pt-8 pb-12 animate-fade-in-up">
-      {/* Header */}
       <div className="flex justify-between items-center mb-8">
         <div>
             <div className="flex items-center gap-2 mb-1">
@@ -338,10 +336,7 @@ const Dashboard = ({ processor, stats, token, eventData, setEventData, onLogEven
         <button onClick={onLogout} className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-sm font-bold hover:text-red-600 transition-colors flex items-center gap-2"><LogOut size={14}/> Logout</button>
       </div>
 
-      {/* Metrics & Sidebar Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        
-        {/* Main Stats Area */}
         <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 p-6 shadow-sm flex flex-col justify-between">
              <div className="flex justify-between items-start">
                  <div><div className="text-xs text-slate-400 font-bold uppercase mb-1">Total Immutable Events</div><div className="text-4xl font-bold text-slate-900">{stats?.totalEvents?.toLocaleString() || 0}</div></div>
@@ -350,7 +345,6 @@ const Dashboard = ({ processor, stats, token, eventData, setEventData, onLogEven
              <LiveActivityChart dataPoints={chartData} />
         </div>
 
-        {/* Security Sidebar */}
         <div className="space-y-4">
             <KeyRotationTimer lastRotationDate={lastRotation} />
             <KeyRotationAction 
@@ -364,14 +358,12 @@ const Dashboard = ({ processor, stats, token, eventData, setEventData, onLogEven
         </div>
       </div>
 
-      {/* Tabs */}
       <div className="flex gap-1 bg-slate-100 p-1 rounded-xl mb-6 w-fit">
         {['logs', 'search', 'verify', 'compliance'].map(t => (
           <button key={t} onClick={()=>setActiveTab(t)} className={`px-4 py-2 rounded-lg text-xs font-bold capitalize ${activeTab===t?'bg-white shadow-sm text-slate-900':'text-slate-500 hover:text-slate-700'}`}>{t}</button>
         ))}
       </div>
 
-      {/* Content Area */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
               {activeTab === 'logs' && <RecentLogsTable logs={recentLogs} />}
@@ -386,7 +378,6 @@ const Dashboard = ({ processor, stats, token, eventData, setEventData, onLogEven
               )}
           </div>
 
-          {/* Event Injector Sidebar */}
           <div className="space-y-6">
               <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
                   <div className="flex items-center gap-2 mb-4 border-b pb-2"><Zap size={16} className="text-amber-500"/><h3 className="font-bold text-slate-800 text-sm">Event Injector</h3></div>
@@ -396,7 +387,7 @@ const Dashboard = ({ processor, stats, token, eventData, setEventData, onLogEven
                           <input className="w-full text-xs p-2 border rounded" value={eventData.event_type} onChange={e=>setEventData({...eventData, event_type:e.target.value})} placeholder="e.g. user.login"/>
                       </div>
                       <div>
-                          <label className="text-[10px] font-bold text-slate-500 uppercase">User ID / Email</label>
+                          <label className="text-[10px] font-bold text-slate-500 uppercase">User ID</label>
                           <input className="w-full text-xs p-2 border rounded" value={eventData.user_identifier} onChange={e=>setEventData({...eventData, user_identifier:e.target.value})} placeholder="e.g. user_123"/>
                       </div>
                       <div>

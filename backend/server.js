@@ -1,6 +1,6 @@
 // ============================================================
 // AUDITOR VERITAS - ENTERPRISE BACKEND
-// Version: 3.0.0 - PRODUCTION (Strict CORS, Real Aggregation)
+// Version: 3.1.0 - PRODUCTION (Strict DB & Logging Fixed)
 // ============================================================
 
 import express from 'express';
@@ -51,18 +51,15 @@ app.use(morgan('combined', { stream: { write: message => logger.info(message.tri
 // --- SECURITY MIDDLEWARE ---
 app.use(helmet());
 
-// PRODUCTION CORS CONFIGURATION
 const allowedOrigins = process.env.ALLOWED_ORIGINS 
   ? process.env.ALLOWED_ORIGINS.split(',') 
-  : ['http://localhost:5173', 'https://auditorveritas.com']; // Fallbacks
+  : ['http://localhost:5173', 'https://auditorveritas.com'];
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
     if (allowedOrigins.indexOf(origin) === -1) {
-      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
-      return callback(new Error(msg), false);
+      return callback(new Error('CORS Not Allowed'), false);
     }
     return callback(null, true);
   },
@@ -72,7 +69,7 @@ app.use(cors({
 app.use(express.json({ limit: '2mb' }));
 
 const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 15 * 60 * 1000, 
   max: 1000,
   keyGenerator: (req) => req.headers['x-api-key'] || req.ip,
   message: { error: 'Rate limit exceeded' }
@@ -90,17 +87,16 @@ const decryptData = (ciphertext, key) => {
 };
 const sha256 = (data) => CryptoJS.SHA256(data).toString();
 
-// --- MERKLE ENGINE (REAL IMPLEMENTATION) ---
+// --- MERKLE ENGINE ---
 class DBMerkleService {
   static async appendLeaf(leafHash, leafIndex) {
-    // 1. Insert Leaf (Level 0)
+    // 1. Insert Leaf
     await supabase.from('merkle_nodes').upsert({ level: 0, node_index: leafIndex, hash: leafHash });
     
     let currentLevel = 0;
     let currentIndex = leafIndex;
     let currentHash = leafHash;
 
-    // 2. Compute path to root
     while (true) {
       const isRightNode = currentIndex % 2 === 1;
       const siblingIndex = isRightNode ? currentIndex - 1 : currentIndex + 1;
@@ -115,7 +111,6 @@ class DBMerkleService {
       let parentHash;
 
       if (!siblingNode) {
-        // If no sibling, duplicate self (standard practice for odd nodes)
         parentHash = sha256(currentHash + currentHash);
       } else {
         const leftHash = isRightNode ? siblingNode.hash : currentHash;
@@ -128,8 +123,6 @@ class DBMerkleService {
       currentLevel++;
       currentIndex = parentIndex;
       currentHash = parentHash;
-      
-      // Safety break at level 20 (~1M items)
       if (currentLevel > 20) break;
     }
   }
@@ -168,7 +161,22 @@ class DBMerkleService {
   }
 }
 
-// --- ZOD SCHEMAS ---
+// --- SYSTEM LOGGING HELPER ---
+const logSystemEvent = async (processorId, action, actorEmail, details = {}) => {
+  try {
+    await supabase.from('system_audit_logs').insert([{
+      processor_id: processorId,
+      action,
+      actor_email: actorEmail,
+      details,
+      timestamp: new Date().toISOString()
+    }]);
+  } catch (e) { 
+    console.error("Failed to log system event:", e); 
+  }
+};
+
+// --- SCHEMAS ---
 const eventSubmissionSchema = z.object({
   event_type: z.string().min(1).max(64),
   user_identifier: z.string().min(1).max(256),
@@ -183,7 +191,7 @@ const totpCodeSchema = z.object({
   code: z.string().length(6).regex(/^\d+$/)
 });
 
-// --- AUTH MIDDLEWARE ---
+// --- MIDDLEWARE ---
 const authenticateApiKey = async (req, res, next) => {
   const apiKey = req.headers['x-api-key'];
   if (!apiKey) return res.status(401).json({ error: 'API key required' });
@@ -207,10 +215,7 @@ const authenticateUser = async (req, res, next) => {
     if (!user) throw new Error('Invalid Token');
     req.user = user;
 
-    // Check for processor ownership
     let { data: processor } = await supabase.from('processors').select('*').eq('owner_id', user.id).single();
-    
-    // Check for team membership
     if (!processor) {
       const { data: membership } = await supabase.from('processor_users').select('processor_id, role').eq('user_id', user.id).single();
       if (membership) {
@@ -245,7 +250,7 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'healthy', env: process.env.NODE_ENV });
 });
 
-// 1. EVENT INJECTION (Production Grade)
+// 1. EVENT INJECTION
 app.post('/api/events', authenticateAny, async (req, res) => {
   if (!req.processor) return res.status(403).json({ error: 'No processor associated' });
 
@@ -253,10 +258,12 @@ app.post('/api/events', authenticateAny, async (req, res) => {
     const validation = eventSubmissionSchema.safeParse(req.body);
     if (!validation.success) return res.status(400).json({ error: 'Invalid payload', details: validation.error.errors });
 
+    // TRIM INPUTS FOR CONSISTENCY
     const { event_type, user_identifier, event_data } = validation.data;
-    const userHash = sha256(user_identifier);
+    const cleanUid = user_identifier.trim();
+    const userHash = sha256(cleanUid);
 
-    // Key Management (Get or Create)
+    // Key Management
     let { data: keyRow } = await supabase.from('encryption_keys').select('encrypted_key').eq('user_identifier_hash', userHash).maybeSingle();
     let userKey;
 
@@ -270,7 +277,6 @@ app.post('/api/events', authenticateAny, async (req, res) => {
     const encryptedPayload = encryptData(event_data, userKey);
     const data_hash = sha256(stringify({ pid: req.processor.id, type: event_type, uid: userHash, ts: new Date().toISOString() }));
 
-    // Get strictly correct next index
     const { count } = await supabase.from('audit_events')
         .select('*', { count: 'exact', head: true })
         .eq('processor_id', req.processor.id);
@@ -289,11 +295,13 @@ app.post('/api/events', authenticateAny, async (req, res) => {
 
     if (insertError) throw insertError;
 
-    // Merkle Append
-    await DBMerkleService.appendLeaf(data_hash, nextIndex);
-    
-    // Async usage update
-    supabase.rpc('increment_processor_usage', { pid: req.processor.id }).catch(() => {});
+    // Secondary Operations (Non-blocking response if they fail)
+    try {
+        await DBMerkleService.appendLeaf(data_hash, nextIndex);
+        await supabase.rpc('increment_processor_usage', { pid: req.processor.id });
+    } catch (secErr) {
+        console.warn("Secondary op warning:", secErr.message);
+    }
 
     res.status(201).json({ success: true, hash: data_hash, index: nextIndex });
 
@@ -329,14 +337,15 @@ app.get('/api/merkle/proof/:eventId', authenticateAny, async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Verification failed' }); }
 });
 
-// 3. GDPR ERASURE (Real Crypto-Shredding)
+// 3. GDPR ERASURE (FIXED)
 app.delete('/api/privacy/forget', authenticateApiKey, async (req, res) => {
     try {
         const { user_identifier } = privacyRequestSchema.parse(req.body);
-        const userHash = sha256(user_identifier);
+        const cleanUid = user_identifier.trim();
+        const userHash = sha256(cleanUid);
         
         const { data: keyRow } = await supabase.from('encryption_keys').select('id').eq('user_identifier_hash', userHash).maybeSingle();
-        if (!keyRow) return res.status(404).json({ error: 'Identity not found. Use exact original ID.' });
+        if (!keyRow) return res.status(404).json({ error: 'Identity not found. Ensure exact ID matching.' });
 
         await supabase.from('encryption_keys').delete().eq('user_identifier_hash', userHash);
         
@@ -353,37 +362,35 @@ app.delete('/api/privacy/forget', authenticateApiKey, async (req, res) => {
             leaf_index: count || 0
         }]);
 
+        await logSystemEvent(req.processor.id, 'gdpr_erasure', 'API_AUTOMATION', { target_hash: userHash });
+
         res.json({ success: true, message: 'Cryptographic keys destroyed.' });
     } catch (err) { res.status(500).json({ error: 'Erasure failed' }); }
 });
 
-// 4. DASHBOARD & REAL ANALYTICS
+// 4. DASHBOARD & SYSTEM AUDIT
 app.get('/api/dashboard', authenticateUser, async (req, res) => {
     if (!req.processor) return res.status(404).json({ error: 'Processor not found' });
     
     const { data: procData } = await supabase.from('processors').select('*').eq('id', req.processor.id).single();
     const { count } = await supabase.from('audit_events').select('*', { count: 'exact', head: true }).eq('processor_id', req.processor.id);
     
-    // --- REAL ANALYTICS: Last 24 Hours Aggregation ---
+    // 24h Aggregation
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    
     const { data: events } = await supabase.from('audit_events')
         .select('event_timestamp')
         .eq('processor_id', req.processor.id)
-        .gte('event_timestamp', oneDayAgo) // Only fetch last 24h
+        .gte('event_timestamp', oneDayAgo)
         .order('event_timestamp', { ascending: true });
 
-    // Aggregate by hour (00-23)
     const buckets = new Array(24).fill(0);
     const now = new Date();
     
     if (events) {
         events.forEach(e => {
             const t = new Date(e.event_timestamp);
-            // Calculate hours difference from now (0 = current hour, 23 = 23 hours ago)
             const diffHours = Math.floor((now - t) / (1000 * 60 * 60));
             if (diffHours >= 0 && diffHours < 24) {
-                // We want the graph to show [24h ago -> Now], so we reverse the index
                 buckets[23 - diffHours]++;
             }
         });
@@ -392,9 +399,22 @@ app.get('/api/dashboard', authenticateUser, async (req, res) => {
     res.json({
         processor: { ...procData, totp_configured: !!procData.totp_secret },
         stats: { totalEvents: count || 0, monthlyEvents: procData.monthly_events_used || 0, eventsLimit: procData.events_limit },
-        chartData: buckets, // Sends exactly 24 integers representing per-hour activity
+        chartData: buckets,
         userRole: req.userRole
     });
+});
+
+app.get('/api/system/audit', authenticateUser, async (req, res) => {
+    if (!req.processor) return res.status(403).json({ error: 'Denied' });
+    
+    const { data: logs } = await supabase
+        .from('system_audit_logs')
+        .select('*')
+        .eq('processor_id', req.processor.id)
+        .order('timestamp', { ascending: false })
+        .limit(50);
+
+    res.json({ logs: logs || [] });
 });
 
 app.get('/api/events/search', authenticateAny, async (req, res) => {
@@ -422,6 +442,9 @@ app.post('/api/keys/setup-2fa', authenticateUser, authorizeOwner, async (req, re
     const encryptedSecret = encryptData(secret, process.env.MASTER_ENCRYPTION_KEY);
     await supabase.from('processors').update({ totp_secret: encryptedSecret }).eq('id', req.processor.id);
     const qrCodeDataUrl = await QRCode.toDataURL(otpAuthUrl);
+    
+    await logSystemEvent(req.processor.id, '2fa_setup_init', req.user.email);
+    
     res.json({ message: '2FA setup initiated', secret, otpAuthUrl: qrCodeDataUrl });
   } catch (err) { res.status(500).json({ error: 'TOTP setup failed' }); }
 });
@@ -436,6 +459,9 @@ app.post('/api/keys/rotate', authenticateUser, authorizeOwner, async (req, res) 
   
   const newApiKey = `av_${uuidv4().replace(/-/g, '')}`;
   await supabase.from('processors').update({ api_key_hash: sha256(newApiKey), last_rotation_date: new Date().toISOString() }).eq('id', req.processor.id);
+  
+  await logSystemEvent(req.processor.id, 'key_rotation', req.user.email, { status: 'success' });
+
   res.json({ message: 'Key rotated successfully', newApiKey });
 });
 
@@ -445,7 +471,7 @@ app.post('/api/keys/request-rotation', authenticateUser, async (req, res) => {
     res.json({ totpConfigured: !!proc?.totp_secret });
 });
 
-// Team management routes (simplified for brevity, fully functional in production context)
+// Team (Simplified for brevity but functional)
 app.get('/api/team', authenticateUser, async (req, res) => {
     if (!req.processor) return res.status(403).json({ error: 'Denied' });
     const { data: members } = await supabase.from('processor_users').select('user_id, role').eq('processor_id', req.processor.id);
