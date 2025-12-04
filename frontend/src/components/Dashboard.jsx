@@ -1,34 +1,45 @@
 // ============================================================
 // AUDITOR VERITAS - DASHBOARD COMPONENT
-// Version: 4.4.0 - PRODUCTION (Strict Types & UI Polish)
+// Version: 4.6.0 - PRODUCTION (Debug & Export Fixed)
 // ============================================================
 
 import React, { useState, useEffect, useMemo, memo } from 'react';
 import {
   Search, CheckCircle2, RefreshCw, Zap, LogOut,
   Trash2, ShieldAlert, AlertTriangle, Network, Shield,
-  Copy, Loader2, QrCode, ShieldCheck, BookOpen
+  Copy, Loader2, QrCode, ShieldCheck, BookOpen, Download
 } from 'lucide-react';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://auditor-veritas-mvp.onrender.com';
 
+// Hjälpfunktion för API-anrop
 export const apiCall = async (endpoint, options = {}, token = null, apiKey = null) => {
   const headers = { 'Content-Type': 'application/json', ...options.headers };
   if (token) headers['Authorization'] = `Bearer ${token}`;
   if (apiKey) headers['x-api-key'] = apiKey;
+  
   const config = { headers, ...options };
   if (options.body && typeof options.body === 'object') config.body = JSON.stringify(options.body);
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
-  if (response.status === 204) return null;
-  const text = await response.text();
+  
   try {
-    const data = JSON.parse(text);
-    if (!response.ok) throw new Error(data.error || `Error ${response.status}`);
-    return data;
-  } catch (e) { throw new Error(text || `Server Error: ${response.status}`); }
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
+    if (response.status === 204) return null;
+    
+    const text = await response.text();
+    try {
+      const data = JSON.parse(text);
+      if (!response.ok) throw new Error(data.error || `Error ${response.status}`);
+      return data;
+    } catch (e) { 
+      throw new Error(text || `Server Error: ${response.status}`); 
+    }
+  } catch (err) {
+    console.error("API Call Failed:", err);
+    throw err;
+  }
 };
 
-// --- HASH DISPLAY COMPONENT ---
+// --- HASH DISPLAY ---
 const HashDisplay = ({ hash }) => {
     const [copied, setCopied] = useState(false);
     if (!hash) return <span className="text-slate-300">-</span>;
@@ -46,6 +57,7 @@ const HashDisplay = ({ hash }) => {
     );
 };
 
+// --- KEY ROTATION ---
 const KeyRotationTimer = ({ lastRotationDate }) => {
   const daysLeft = useMemo(() => {
     const rotation = lastRotationDate ? new Date(lastRotationDate) : new Date();
@@ -147,6 +159,7 @@ const KeyRotationAction = ({ token, onKeyUpdate, userRole }) => {
     );
 };
 
+// --- MERKLE PROOF ---
 const MerkleProofViewer = ({ token }) => {
     const [id, setId] = useState('');
     const [data, setData] = useState(null);
@@ -174,11 +187,16 @@ const MerkleProofViewer = ({ token }) => {
     );
 };
 
+// --- EVENT SEARCH ---
 const EventSearch = ({ token }) => {
     const [logs, setLogs] = useState([]);
     const [term, setTerm] = useState('');
-    useEffect(() => { apiCall('/api/events/search?limit=50', {method:'GET'}, token).then(d => setLogs(d.events || [])).catch(console.error); }, [token]);
+    useEffect(() => { 
+        if(token) apiCall('/api/events/search?limit=50', {method:'GET'}, token).then(d => setLogs(d.events || [])).catch(console.error); 
+    }, [token]);
+    
     const filtered = logs.filter(l => JSON.stringify(l).toLowerCase().includes(term.toLowerCase()));
+    
     return (
         <div className="space-y-4">
              <div className="bg-white p-3 rounded-xl border flex gap-2"><Search className="text-slate-400"/><input value={term} onChange={e=>setTerm(e.target.value)} placeholder="Search..." className="flex-1 outline-none text-sm"/></div>
@@ -196,45 +214,118 @@ const EventSearch = ({ token }) => {
     );
 };
 
+// --- GDPR ERASURE FORM (Debugged) ---
 const ErasureForm = () => {
     const [uid, setUid] = useState('');
     const [msg, setMsg] = useState(null);
     const apiKey = localStorage.getItem('av_active_key') || localStorage.getItem('av_sim_key');
+    
     const handle = async (e) => {
         e.preventDefault();
-        if(!apiKey) return alert("Missing API Key");
+        
+        console.log("[Erasure] Initiating request for:", uid);
+        console.log("[Erasure] Using API Key:", apiKey ? `${apiKey.substring(0,5)}...` : 'MISSING');
+
+        if(!apiKey) return alert("Missing API Key. Please verify you are logged in correctly.");
         if(!confirm(`Destroy keys for ${uid}? This cannot be undone.`)) return;
+        
         try {
-            const res = await apiCall('/api/privacy/forget', {method:'DELETE', body:{user_identifier:uid}}, null, apiKey);
-            setMsg(res.message); setUid('');
-        } catch(e) { alert(e.message); }
+            const payload = { user_identifier: uid.trim().toLowerCase() };
+            const res = await apiCall('/api/privacy/forget', { method: 'DELETE', body: payload }, null, apiKey);
+            
+            console.log("[Erasure] Success response:", res);
+            setMsg(res.message); 
+            setUid('');
+        } catch(e) { 
+            console.error("[Erasure] Error:", e);
+            alert(`Erasure Failed: ${e.message}`); 
+        }
     };
+    
     return (
         <div className="space-y-3">
             <p className="text-xs text-slate-500 bg-slate-50 p-2 rounded">
                 <strong>Instruction:</strong> System auto-converts to lowercase. e.g. "User123" becomes "user123".
             </p>
             <form onSubmit={handle} className="flex gap-2">
-                <input value={uid} onChange={e=>setUid(e.target.value.toLowerCase())} placeholder="e.g. user_123" className="flex-1 p-2 border rounded text-sm"/>
-                <button className="bg-red-600 text-white px-4 rounded text-sm font-bold">Shred Keys</button>
+                <input 
+                    value={uid} 
+                    onChange={e=>setUid(e.target.value)} 
+                    placeholder="e.g. test_user_gdpr" 
+                    className="flex-1 p-2 border rounded text-sm"
+                />
+                <button className="bg-red-600 text-white px-4 rounded text-sm font-bold hover:bg-red-700 transition-colors">Shred Keys</button>
             </form>
-            {msg && <div className="text-xs text-emerald-600 font-bold flex items-center gap-2"><CheckCircle2 size={12}/> {msg}</div>}
+            {msg && <div className="text-xs text-emerald-600 font-bold flex items-center gap-2 animate-fade-in"><CheckCircle2 size={12}/> {msg}</div>}
         </div>
     );
 };
 
-// --- GDPR Art. 15 Helper ---
-const DataAccessSection = () => (
-    <div className="p-5 bg-blue-50 border border-blue-100 rounded-xl space-y-3">
-        <h4 className="font-bold text-sm text-blue-800 flex items-center gap-2"><BookOpen size={16}/> Right to Access (Art. 15)</h4>
-        <p className="text-xs text-blue-700">
-            Export tools require backend admin verification.
-        </p>
-        <button className="bg-blue-600 text-white px-3 py-1 rounded text-[10px] font-bold hover:bg-blue-700 disabled:opacity-50">Data Export Tool</button>
-    </div>
-);
+// --- GDPR EXPORT TOOL (Debugged) ---
+const DataAccessSection = ({ token }) => {
+    const [loading, setLoading] = useState(false);
 
-// --- IMPROVED CHART (Thinner lines) ---
+    const handleExport = async () => {
+        console.log("[Export] Starting export...");
+        if (!token) {
+            console.error("[Export] No token provided to component.");
+            alert("Auth error: No token found. Try reloading.");
+            return;
+        }
+
+        setLoading(true);
+        try {
+            // Hämta data
+            const data = await apiCall('/api/events/search?limit=100', { method: 'GET' }, token);
+            console.log("[Export] Fetched data:", data);
+
+            if (!data || !data.events || data.events.length === 0) {
+                alert("No data found to export. Try creating some events first.");
+                setLoading(false);
+                return;
+            }
+
+            // Skapa fil
+            const jsonString = JSON.stringify(data.events, null, 2);
+            const blob = new Blob([jsonString], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            
+            // Ladda ner
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `gdpr_export_${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            console.log("[Export] Download trigger sent.");
+
+        } catch (e) {
+            console.error("[Export] Failed:", e);
+            alert(`Export failed: ${e.message}`);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div className="p-5 bg-blue-50 border border-blue-100 rounded-xl space-y-3">
+            <h4 className="font-bold text-sm text-blue-800 flex items-center gap-2"><BookOpen size={16}/> Right to Access (Art. 15)</h4>
+            <p className="text-xs text-blue-700">
+                Download a machine-readable copy (JSON) of the latest audit logs.
+            </p>
+            <button 
+                onClick={handleExport}
+                disabled={loading}
+                className="bg-blue-600 text-white px-4 py-2 rounded text-xs font-bold hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2 transition-colors"
+            >
+                {loading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                {loading ? 'Generating Export...' : 'Export Data (JSON)'}
+            </button>
+        </div>
+    );
+};
+
+// --- CHART COMPONENT ---
 const LiveActivityChart = memo(({ dataPoints = [] }) => {
     const points = dataPoints.length === 24 ? dataPoints : new Array(24).fill(0);
     const max = Math.max(...points, 5); 
@@ -251,7 +342,7 @@ const LiveActivityChart = memo(({ dataPoints = [] }) => {
     );
 });
 
-// --- UPDATED LOGS TABLE (Debug Columns) ---
+// --- LOGS TABLE ---
 const RecentLogsTable = ({ logs }) => (
     <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
         <table className="w-full text-left text-xs">
@@ -276,6 +367,7 @@ const RecentLogsTable = ({ logs }) => (
     </div>
 );
 
+// --- MAIN DASHBOARD ---
 const Dashboard = ({ processor, stats, token, eventData, setEventData, onLogEvent, recentLogs, chartData, onLogout, session, onKeyUpdate }) => {
   const [activeTab, setActiveTab] = useState('logs');
   const lastRotation = processor?.last_rotation_date;
@@ -322,7 +414,7 @@ const Dashboard = ({ processor, stats, token, eventData, setEventData, onLogEven
                           <p className="text-sm text-slate-500">Execute Crypto-Shredding by destroying the encryption key. This is irreversible.</p>
                           <ErasureForm />
                       </div>
-                      <DataAccessSection />
+                      <DataAccessSection token={token} />
                   </div>
               )}
           </div>
