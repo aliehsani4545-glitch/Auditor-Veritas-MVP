@@ -1,13 +1,13 @@
 // ============================================================
 // AUDITOR VERITAS - DASHBOARD COMPONENT
-// Version: 4.2.0 - PRODUCTION (Improved UI & GDPR Compliance)
+// Version: 4.4.0 - PRODUCTION (Strict Types & UI Polish)
 // ============================================================
 
 import React, { useState, useEffect, useMemo, memo } from 'react';
 import {
   Search, CheckCircle2, RefreshCw, Zap, LogOut,
   Trash2, ShieldAlert, AlertTriangle, Network, Shield,
-  Copy, Loader2, QrCode, ShieldCheck, Eye
+  Copy, Loader2, QrCode, ShieldCheck, BookOpen
 } from 'lucide-react';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://auditor-veritas-mvp.onrender.com';
@@ -28,17 +28,11 @@ export const apiCall = async (endpoint, options = {}, token = null, apiKey = nul
   } catch (e) { throw new Error(text || `Server Error: ${response.status}`); }
 };
 
-// --- HELPER: HASH DISPLAY COMPONENT (Fixar "Half Hash" problemet) ---
+// --- HASH DISPLAY COMPONENT ---
 const HashDisplay = ({ hash }) => {
     const [copied, setCopied] = useState(false);
     if (!hash) return <span className="text-slate-300">-</span>;
-
-    const copy = () => {
-        navigator.clipboard.writeText(hash);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-    };
-
+    const copy = () => { navigator.clipboard.writeText(hash); setCopied(true); setTimeout(() => setCopied(false), 2000); };
     return (
         <div className="flex items-center gap-2 group relative">
             <code className="bg-slate-50 px-2 py-1 rounded text-[10px] font-mono text-blue-600 border border-slate-100" title={hash}>
@@ -47,10 +41,7 @@ const HashDisplay = ({ hash }) => {
             <button onClick={copy} className="text-slate-300 hover:text-blue-500 transition-colors" title="Copy Full Hash">
                 {copied ? <CheckCircle2 size={12} className="text-green-500"/> : <Copy size={12}/>}
             </button>
-            {/* Tooltip on Hover */}
-            <div className="absolute bottom-full left-0 mb-2 w-64 p-2 bg-slate-800 text-white text-[10px] rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none break-all z-10">
-                {hash}
-            </div>
+            <div className="absolute bottom-full left-0 mb-2 w-64 p-2 bg-slate-800 text-white text-[10px] rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none break-all z-10">{hash}</div>
         </div>
     );
 };
@@ -98,10 +89,8 @@ const KeyRotationAction = ({ token, onKeyUpdate, userRole }) => {
     const startRotation = async () => {
         if (!has2FA) {
             setLoading(true);
-            try {
-                const data = await apiCall('/api/keys/setup-2fa', { method: 'POST' }, token);
-                setQrData(data); setStep('setup');
-            } catch (e) { setError(e.message); } finally { setLoading(false); }
+            try { const data = await apiCall('/api/keys/setup-2fa', { method: 'POST' }, token); setQrData(data); setStep('setup'); } 
+            catch (e) { setError(e.message); } finally { setLoading(false); }
         } else setStep('verify');
     };
 
@@ -234,6 +223,18 @@ const ErasureForm = () => {
     );
 };
 
+// --- GDPR Art. 15 Helper ---
+const DataAccessSection = () => (
+    <div className="p-5 bg-blue-50 border border-blue-100 rounded-xl space-y-3">
+        <h4 className="font-bold text-sm text-blue-800 flex items-center gap-2"><BookOpen size={16}/> Right to Access (Art. 15)</h4>
+        <p className="text-xs text-blue-700">
+            Export tools require backend admin verification.
+        </p>
+        <button className="bg-blue-600 text-white px-3 py-1 rounded text-[10px] font-bold hover:bg-blue-700 disabled:opacity-50">Data Export Tool</button>
+    </div>
+);
+
+// --- IMPROVED CHART (Thinner lines) ---
 const LiveActivityChart = memo(({ dataPoints = [] }) => {
     const points = dataPoints.length === 24 ? dataPoints : new Array(24).fill(0);
     const max = Math.max(...points, 5); 
@@ -250,13 +251,22 @@ const LiveActivityChart = memo(({ dataPoints = [] }) => {
     );
 });
 
+// --- UPDATED LOGS TABLE (Debug Columns) ---
 const RecentLogsTable = ({ logs }) => (
     <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
         <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 border-b text-slate-500"><tr><th className="p-3">Event</th><th className="p-3">Hash</th><th className="p-3 text-right">Time</th></tr></thead>
+            <thead className="bg-slate-50 border-b text-slate-500">
+                <tr>
+                    <th className="p-3">Event</th>
+                    <th className="p-3">User Hash (GDPR Key)</th>
+                    <th className="p-3">Data Hash (Merkle Leaf)</th>
+                    <th className="p-3 text-right">Time</th>
+                </tr>
+            </thead>
             <tbody className="divide-y">{logs.map(l => (
                 <tr key={l.id} className="hover:bg-slate-50 transition-colors">
                     <td className="p-3 font-bold">{l.event_type}</td>
+                    <td className="p-3"><HashDisplay hash={l.user_identifier} /></td>
                     <td className="p-3"><HashDisplay hash={l.data_hash} /></td>
                     <td className="p-3 text-right text-slate-400">{new Date(l.event_timestamp).toLocaleTimeString()}</td>
                 </tr>
@@ -306,10 +316,13 @@ const Dashboard = ({ processor, stats, token, eventData, setEventData, onLogEven
               {activeTab === 'search' && <EventSearch token={token} />}
               {activeTab === 'verify' && <MerkleProofViewer token={token} />}
               {activeTab === 'compliance' && (
-                  <div className="bg-white p-6 rounded-xl border border-slate-200">
-                      <h3 className="font-bold text-lg mb-2 flex items-center gap-2 text-slate-900"><Trash2 size={20} className="text-red-500"/> Right to Erasure</h3>
-                      <p className="text-sm text-slate-500 mb-4">Execute Crypto-Shredding. This is irreversible.</p>
-                      <ErasureForm />
+                  <div className="bg-white p-6 rounded-xl border border-slate-200 space-y-6">
+                      <div className="space-y-4">
+                          <h3 className="font-bold text-lg flex items-center gap-2 text-slate-900"><Trash2 size={20} className="text-red-500"/> Right to Erasure (Art. 17)</h3>
+                          <p className="text-sm text-slate-500">Execute Crypto-Shredding by destroying the encryption key. This is irreversible.</p>
+                          <ErasureForm />
+                      </div>
+                      <DataAccessSection />
                   </div>
               )}
           </div>
