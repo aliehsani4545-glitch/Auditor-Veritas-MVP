@@ -368,7 +368,7 @@ const EuroLedgerDemo = () => {
                                                 <Shield size={20} fill="currentColor" />
                                             </div>
                                             <div>
-                                                <div className="font-bold text-sm tracking-tight text-white">EuroLedger</div>
+                                                <div className="font-bold text-sm tracking-tight text-white">AuditorVeritas</div>
                                                 <div className="text-[10px] text-slate-400 font-medium">Enterprise Console</div>
                                             </div>
                                         </div>
